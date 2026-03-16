@@ -78,9 +78,7 @@ TEMPLATES = [
 WSGI_APPLICATION = "pedagogical.wsgi.application"
 
 # ---------------------------------------------------------------------------
-# Database
-# Locally: SQLite (no env vars needed)
-# Render:  set DB_* env vars on the service
+# Database — SQLite locally, PostgreSQL on Render
 # ---------------------------------------------------------------------------
 DB_ENGINE = os.environ.get("DB_ENGINE", "django.db.backends.sqlite3")
 
@@ -124,16 +122,20 @@ USE_I18N = True
 USE_TZ = True
 
 # ---------------------------------------------------------------------------
-# Static files — served by WhiteNoise
+# Static files — WhiteNoise
 # ---------------------------------------------------------------------------
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
-STATICFILES_DIRS = [BASE_DIR / "static"]
+
+# Only include the project-level static/ dir if it actually exists.
+# This avoids the W004 warning when the folder hasn't been created yet.
+_STATIC_DIR = BASE_DIR / "static"
+STATICFILES_DIRS = [_STATIC_DIR] if _STATIC_DIR.exists() else []
+
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 # ---------------------------------------------------------------------------
-# Media files — stored on Render's persistent disk at /var/data/media
-# Locally stored under BASE_DIR/media
+# Media files
 # ---------------------------------------------------------------------------
 MEDIA_URL = "/media/"
 MEDIA_ROOT = os.environ.get("MEDIA_ROOT", str(BASE_DIR / "media"))
