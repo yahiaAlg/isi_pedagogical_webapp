@@ -1,0 +1,25 @@
+# Core
+Django
+gunicorn
+
+# Database
+psycopg2-binary
+
+# Static files
+whitenoise
+
+# Image handling
+Pillow
+
+# Excel / CSV import
+openpyxl
+python-dateutil
+
+# django-import-export
+django-import-export
+
+# Document generation
+python-docx
+
+# Environment variables
+python-dotenv
