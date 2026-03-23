@@ -4,6 +4,7 @@ from django.contrib import messages
 from django.http import JsonResponse
 from django.core.paginator import Paginator
 from django.views.decorators.http import require_POST
+from django.db.models import Count, Q
 
 from .models import Category, Formation, Session, Participant
 from .forms import (
@@ -20,8 +21,10 @@ from .utils import validate_session_transition, import_participants_from_file
 
 
 # ===========================================================================
-# Category — Admin only (spec §9.2)
+# Category
 # ===========================================================================
+
+CATEGORY_SORT_MAP = {"name": "name", "formation_count": "formations_total"}
 
 
 @login_required
@@ -29,8 +32,22 @@ def category_list(request):
     if not request.user.profile.is_admin():
         messages.error(request, "Accès réservé aux administrateurs.")
         return redirect("formations:formation_list")
-    categories = Category.objects.all().order_by("name")
-    return render(request, "formations/category_list.html", {"categories": categories})
+    sort = request.GET.get("sort", "name")
+    dir_ = request.GET.get("dir", "asc")
+    if sort not in CATEGORY_SORT_MAP:
+        sort = "name"
+    db_field = CATEGORY_SORT_MAP[sort]
+    categories = Category.objects.annotate(formations_total=Count("formation"))
+    categories = categories.order_by(db_field if dir_ == "asc" else "-" + db_field)
+    return render(
+        request,
+        "formations/category_list.html",
+        {
+            "categories": categories,
+            "sort": sort,
+            "dir": dir_,
+        },
+    )
 
 
 @login_required
@@ -49,10 +66,7 @@ def category_create(request):
     return render(
         request,
         "formations/category_form.html",
-        {
-            "form": form,
-            "title": "Nouvelle catégorie",
-        },
+        {"form": form, "title": "Nouvelle catégorie"},
     )
 
 
@@ -73,25 +87,55 @@ def category_edit(request, pk):
     return render(
         request,
         "formations/category_form.html",
-        {
-            "form": form,
-            "category": category,
-            "title": "Modifier catégorie",
-        },
+        {"form": form, "category": category, "title": "Modifier catégorie"},
     )
 
 
+@login_required
+def category_delete(request, pk):
+    if not request.user.profile.is_admin():
+        messages.error(request, "Accès réservé aux administrateurs.")
+        return redirect("formations:category_list")
+    category = get_object_or_404(Category, pk=pk)
+    if request.method == "POST":
+        name = category.name
+        category.delete()
+        messages.success(request, f'Catégorie "{name}" supprimée.')
+    return redirect("formations:category_list")
+
+
 # ===========================================================================
-# Formation — Admin only for create/edit (spec §9.2)
+# Formation
 # ===========================================================================
+
+FORMATION_SORT_MAP = {
+    "code": "code",
+    "title": "title",
+    "category__name": "category__name",
+    "duration_days": "duration_days",
+    "base_price": "base_price",
+    "session_count": "sessions_total",
+    "is_active": "is_active",
+}
 
 
 @login_required
 def formation_list(request):
-    formations = Formation.objects.select_related("category").order_by("title")
-    paginator = Paginator(formations, 20)
-    page_obj = paginator.get_page(request.GET.get("page"))
-    return render(request, "formations/formation_list.html", {"page_obj": page_obj})
+    sort = request.GET.get("sort", "title")
+    dir_ = request.GET.get("dir", "asc")
+    if sort not in FORMATION_SORT_MAP:
+        sort = "title"
+    db_field = FORMATION_SORT_MAP[sort]
+    qs = Formation.objects.select_related("category").annotate(
+        sessions_total=Count("session")
+    )
+    qs = qs.order_by(db_field if dir_ == "asc" else "-" + db_field)
+    page_obj = Paginator(qs, 20).get_page(request.GET.get("page"))
+    return render(
+        request,
+        "formations/formation_list.html",
+        {"page_obj": page_obj, "sort": sort, "dir": dir_},
+    )
 
 
 @login_required
@@ -101,10 +145,7 @@ def formation_detail(request, pk):
     return render(
         request,
         "formations/formation_detail.html",
-        {
-            "formation": formation,
-            "sessions": sessions,
-        },
+        {"formation": formation, "sessions": sessions},
     )
 
 
@@ -124,10 +165,7 @@ def formation_create(request):
     return render(
         request,
         "formations/formation_form.html",
-        {
-            "form": form,
-            "title": "Nouvelle formation",
-        },
+        {"form": form, "title": "Nouvelle formation"},
     )
 
 
@@ -148,27 +186,57 @@ def formation_edit(request, pk):
     return render(
         request,
         "formations/formation_form.html",
-        {
-            "form": form,
-            "formation": formation,
-            "title": "Modifier formation",
-        },
+        {"form": form, "formation": formation, "title": "Modifier formation"},
     )
 
 
+@login_required
+def formation_delete(request, pk):
+    if not request.user.profile.is_admin():
+        messages.error(request, "Accès réservé aux administrateurs.")
+        return redirect("formations:formation_list")
+    formation = get_object_or_404(Formation, pk=pk)
+    if request.method == "POST":
+        if formation.session_set.filter(status__in=["planned", "in_progress"]).exists():
+            messages.error(
+                request,
+                "Impossible de supprimer : des sessions actives ou planifiées existent.",
+            )
+            return redirect("formations:formation_list")
+        title = formation.title
+        formation.delete()
+        messages.success(request, f'Formation "{title}" supprimée.')
+    return redirect("formations:formation_list")
+
+
 # ===========================================================================
-# Session — Staff + Admin (spec §9.2)
+# Session
 # ===========================================================================
+
+SESSION_SORT = {
+    "reference",
+    "formation__title",
+    "date_start",
+    "client__name",
+    "trainer__last_name",
+    "status",
+}
 
 
 @login_required
 def session_list(request):
-    sessions = Session.objects.select_related(
-        "formation", "client", "trainer"
-    ).order_by("-date_start")
-    paginator = Paginator(sessions, 20)
-    page_obj = paginator.get_page(request.GET.get("page"))
-    return render(request, "formations/session_list.html", {"page_obj": page_obj})
+    sort = request.GET.get("sort", "date_start")
+    dir_ = request.GET.get("dir", "desc")
+    if sort not in SESSION_SORT:
+        sort = "date_start"
+    qs = Session.objects.select_related("formation", "client", "trainer")
+    qs = qs.order_by(sort if dir_ == "asc" else "-" + sort)
+    page_obj = Paginator(qs, 20).get_page(request.GET.get("page"))
+    return render(
+        request,
+        "formations/session_list.html",
+        {"page_obj": page_obj, "sort": sort, "dir": dir_},
+    )
 
 
 @login_required
@@ -178,10 +246,7 @@ def session_detail(request, pk):
     return render(
         request,
         "formations/session_detail.html",
-        {
-            "session": session,
-            "participants": participants,
-        },
+        {"session": session, "participants": participants},
     )
 
 
@@ -201,10 +266,7 @@ def session_create(request):
     return render(
         request,
         "formations/session_form.html",
-        {
-            "form": form,
-            "title": "Nouvelle session",
-        },
+        {"form": form, "title": "Nouvelle session"},
     )
 
 
@@ -231,11 +293,7 @@ def session_edit(request, pk):
     return render(
         request,
         "formations/session_form.html",
-        {
-            "form": form,
-            "session": session,
-            "title": "Modifier session",
-        },
+        {"form": form, "session": session, "title": "Modifier session"},
     )
 
 
@@ -246,25 +304,18 @@ def session_status(request, pk):
     if not request.user.profile.can_manage_sessions():
         messages.error(request, "Vous n'avez pas les permissions nécessaires.")
         return redirect("formations:session_detail", pk=pk)
-
-    # Archive requires admin only
     if request.method == "POST":
         form = SessionStatusForm(request.POST, session=session)
         if form.is_valid():
             new_status = form.cleaned_data["new_status"]
-
-            # Spec §12.2 — archived: Admin only
             if new_status == "archived" and not request.user.profile.is_admin():
                 messages.error(request, "L'archivage est réservé aux administrateurs.")
                 return redirect("formations:session_detail", pk=pk)
-
-            # Business rule validation
             errors = validate_session_transition(session, new_status)
             if errors:
                 for error in errors:
                     messages.error(request, error)
                 return redirect("formations:session_detail", pk=pk)
-
             session.status = new_status
             if new_status == "cancelled":
                 session.cancellation_reason = form.cleaned_data["cancellation_reason"]
@@ -275,14 +326,10 @@ def session_status(request, pk):
             return redirect("formations:session_detail", pk=pk)
     else:
         form = SessionStatusForm(session=session)
-
     return render(
         request,
         "formations/session_status_form.html",
-        {
-            "form": form,
-            "session": session,
-        },
+        {"form": form, "session": session},
     )
 
 
@@ -293,7 +340,6 @@ def session_attendance(request, pk):
     if not request.user.profile.can_edit_scores():
         messages.error(request, "Vous n'avez pas les permissions nécessaires.")
         return redirect("formations:session_detail", pk=pk)
-
     if request.method == "POST":
         form = AttendanceForm(request.POST, session=session)
         if form.is_valid():
@@ -310,14 +356,10 @@ def session_attendance(request, pk):
             return redirect("formations:session_detail", pk=pk)
     else:
         form = AttendanceForm(session=session)
-
     return render(
         request,
         "formations/session_attendance.html",
-        {
-            "form": form,
-            "session": session,
-        },
+        {"form": form, "session": session},
     )
 
 
@@ -325,12 +367,9 @@ def session_attendance(request, pk):
 def session_scores(request, pk):
     """Score entry (spec §9.2 — staff + trainers for own sessions)."""
     session = get_object_or_404(Session, pk=pk)
-    profile = request.user.profile
-
-    if not profile.can_edit_scores():
+    if not request.user.profile.can_edit_scores():
         messages.error(request, "Vous n'avez pas les permissions nécessaires.")
         return redirect("formations:session_detail", pk=pk)
-
     if request.method == "POST":
         form = ScoreForm(request.POST, session=session)
         if form.is_valid():
@@ -338,12 +377,14 @@ def session_scores(request, pk):
             for participant in session.participant_set.all():
                 changed = []
                 if eval_type in ["theory_only", "both"]:
-                    score = form.cleaned_data.get(f"theory_{participant.id}")
-                    participant.score_theory = score
+                    participant.score_theory = form.cleaned_data.get(
+                        f"theory_{participant.id}"
+                    )
                     changed.append("score_theory")
                 if eval_type in ["practice_only", "both"]:
-                    score = form.cleaned_data.get(f"practice_{participant.id}")
-                    participant.score_practice = score
+                    participant.score_practice = form.cleaned_data.get(
+                        f"practice_{participant.id}"
+                    )
                     changed.append("score_practice")
                 if changed:
                     participant.save(update_fields=changed)
@@ -351,19 +392,26 @@ def session_scores(request, pk):
             return redirect("formations:session_detail", pk=pk)
     else:
         form = ScoreForm(session=session)
-
     return render(
-        request,
-        "formations/session_scores.html",
-        {
-            "form": form,
-            "session": session,
-        },
+        request, "formations/session_scores.html", {"form": form, "session": session}
     )
 
 
+@login_required
+def session_delete(request, pk):
+    if not request.user.profile.is_admin():
+        messages.error(request, "Accès réservé aux administrateurs.")
+        return redirect("formations:session_list")
+    session = get_object_or_404(Session, pk=pk)
+    if request.method == "POST":
+        ref = session.reference
+        session.delete()
+        messages.success(request, f'Session "{ref}" supprimée.')
+    return redirect("formations:session_list")
+
+
 # ===========================================================================
-# Participant — Staff + Admin (spec §9.2)
+# Participant
 # ===========================================================================
 
 
@@ -373,14 +421,12 @@ def participant_create(request, session_pk):
     if not request.user.profile.can_manage_sessions():
         messages.error(request, "Vous n'avez pas les permissions nécessaires.")
         return redirect("formations:session_detail", pk=session_pk)
-
     if not session.can_add_participants():
         messages.error(
             request,
             "Impossible d'ajouter des participants : session terminée ou capacité atteinte.",
         )
         return redirect("formations:session_detail", pk=session_pk)
-
     if request.method == "POST":
         form = ParticipantForm(request.POST, session=session)
         if form.is_valid():
@@ -391,15 +437,10 @@ def participant_create(request, session_pk):
             return redirect("formations:session_detail", pk=session_pk)
     else:
         form = ParticipantForm(session=session)
-
     return render(
         request,
         "formations/participant_form.html",
-        {
-            "form": form,
-            "session": session,
-            "title": "Nouveau participant",
-        },
+        {"form": form, "session": session, "title": "Nouveau participant"},
     )
 
 
@@ -407,17 +448,14 @@ def participant_create(request, session_pk):
 def participant_edit(request, pk):
     participant = get_object_or_404(Participant, pk=pk)
     session = participant.session
-
     if not request.user.profile.can_manage_sessions():
         messages.error(request, "Vous n'avez pas les permissions nécessaires.")
         return redirect("formations:session_detail", pk=session.pk)
-
     if not session.can_edit():
         messages.error(
             request, "Cette session est archivée et ne peut pas être modifiée."
         )
         return redirect("formations:session_detail", pk=session.pk)
-
     if request.method == "POST":
         form = ParticipantForm(request.POST, instance=participant, session=session)
         if form.is_valid():
@@ -426,7 +464,6 @@ def participant_edit(request, pk):
             return redirect("formations:session_detail", pk=session.pk)
     else:
         form = ParticipantForm(instance=participant, session=session)
-
     return render(
         request,
         "formations/participant_form.html",
@@ -443,49 +480,36 @@ def participant_edit(request, pk):
 def participant_delete(request, pk):
     participant = get_object_or_404(Participant, pk=pk)
     session = participant.session
-
     if not request.user.profile.can_manage_sessions():
         messages.error(request, "Vous n'avez pas les permissions nécessaires.")
         return redirect("formations:session_detail", pk=session.pk)
-
     if not session.can_edit():
         messages.error(
             request, "Cette session est archivée et ne peut pas être modifiée."
         )
         return redirect("formations:session_detail", pk=session.pk)
-
     if request.method == "POST":
         name = participant.full_name
         participant.delete()
         messages.success(request, f'Participant "{name}" supprimé.')
-        return redirect("formations:session_detail", pk=session.pk)
-
+        return redirect("formations:participant_list")
     return render(
         request,
         "formations/participant_confirm_delete.html",
-        {
-            "participant": participant,
-            "session": session,
-        },
+        {"participant": participant, "session": session},
     )
 
 
 @login_required
 def participant_import(request, session_pk):
-    """
-    CSV/Excel import with spec §13.3 rules:
-    stop at capacity, skip duplicates, report 3 counts.
-    """
+    """CSV/Excel import with spec §13.3 rules: stop at capacity, skip duplicates, report 3 counts."""
     session = get_object_or_404(Session, pk=session_pk)
-
     if not request.user.profile.can_manage_sessions():
         messages.error(request, "Vous n'avez pas les permissions nécessaires.")
         return redirect("formations:session_detail", pk=session_pk)
-
     if not session.can_add_participants():
         messages.error(request, "Capacité atteinte ou session non modifiable.")
         return redirect("formations:session_detail", pk=session_pk)
-
     if request.method == "POST":
         form = ParticipantImportForm(request.POST, request.FILES)
         if form.is_valid():
@@ -504,19 +528,15 @@ def participant_import(request, session_pk):
             return redirect("formations:session_detail", pk=session_pk)
     else:
         form = ParticipantImportForm()
-
     return render(
         request,
         "formations/participant_import.html",
-        {
-            "form": form,
-            "session": session,
-        },
+        {"form": form, "session": session},
     )
 
 
 # ===========================================================================
-# AJAX endpoints (spec §18 — minimal AJAX for attendance + scores)
+# AJAX
 # ===========================================================================
 
 
@@ -526,16 +546,13 @@ def toggle_attendance(request, pk):
     participant = get_object_or_404(Participant, pk=pk)
     if not request.user.profile.can_edit_scores():
         return JsonResponse({"error": "Permission refusée"}, status=403)
-
     day_key = request.POST.get("day_key")
     present = request.POST.get("present", "true").lower() == "true"
-
     if day_key:
         participant.set_attendance_for_day(day_key, present)
     else:
         participant.attended = present
         participant.save(update_fields=["attended"])
-
     return JsonResponse(
         {
             "participant_id": participant.pk,
@@ -551,10 +568,8 @@ def update_score(request, pk):
     participant = get_object_or_404(Participant, pk=pk)
     if not request.user.profile.can_edit_scores():
         return JsonResponse({"error": "Permission refusée"}, status=403)
-
     eval_type = participant.session.formation.evaluation_type
     changed = []
-
     if eval_type in ["theory_only", "both"] and "score_theory" in request.POST:
         try:
             val = request.POST["score_theory"]
@@ -562,7 +577,6 @@ def update_score(request, pk):
             changed.append("score_theory")
         except ValueError:
             return JsonResponse({"error": "Note théorique invalide"}, status=400)
-
     if eval_type in ["practice_only", "both"] and "score_practice" in request.POST:
         try:
             val = request.POST["score_practice"]
@@ -570,10 +584,8 @@ def update_score(request, pk):
             changed.append("score_practice")
         except ValueError:
             return JsonResponse({"error": "Note pratique invalide"}, status=400)
-
     if changed:
         participant.save(update_fields=changed)
-
     return JsonResponse(
         {
             "participant_id": participant.pk,
@@ -585,25 +597,20 @@ def update_score(request, pk):
 
 
 # ===========================================================================
-# Fill rate + Participant list — sidebar views (added to match urls.py)
+# Fill rate + cross-session participant list
 # ===========================================================================
 
 
 @login_required
 def fill_rate(request):
-    """Fill-rate analytics table for all non-cancelled sessions."""
     sessions_qs = (
         Session.objects.select_related("formation", "client", "trainer")
         .exclude(status="cancelled")
         .order_by("-date_start")
     )
-
     session_list = list(sessions_qs)
     fill_rates = [s.fill_rate for s in session_list if s.capacity > 0]
     avg_fill_rate = round(sum(fill_rates) / len(fill_rates), 1) if fill_rates else 0
-    full_sessions = sum(1 for s in session_list if s.available_spots == 0)
-    total_participants = sum(s.participant_count for s in session_list)
-
     return render(
         request,
         "formations/fill_rate.html",
@@ -611,20 +618,34 @@ def fill_rate(request):
             "sessions": session_list,
             "total_sessions": len(session_list),
             "avg_fill_rate": avg_fill_rate,
-            "full_sessions": full_sessions,
-            "total_participants": total_participants,
+            "full_sessions": sum(1 for s in session_list if s.available_spots == 0),
+            "total_participants": sum(s.participant_count for s in session_list),
         },
     )
 
 
+PARTICIPANT_SORT = {
+    "last_name": "last_name",
+    "session__reference": "session__reference",
+    "session__formation__title": "session__formation__title",
+    "job_title": "job_title",
+    "employer": "employer",
+    "attended": "attended",
+    "certificate_issued": "certificate_issued",
+}
+
+
 @login_required
 def participant_list(request):
-    """Cross-session participant list with search + result/cert filters."""
-    from django.db.models import Q
+    sort = request.GET.get("sort", "last_name")
+    dir_ = request.GET.get("dir", "asc")
+    if sort not in PARTICIPANT_SORT:
+        sort = "last_name"
+    db_field = PARTICIPANT_SORT[sort]
 
     qs = Participant.objects.select_related(
         "session", "session__formation", "employer_client"
-    ).order_by("-session__date_start", "last_name")
+    ).order_by(db_field if dir_ == "asc" else "-" + db_field)
 
     q = request.GET.get("q", "").strip()
     if q:
@@ -636,75 +657,21 @@ def participant_list(request):
             | Q(employer__icontains=q)
             | Q(session__reference__icontains=q)
         )
-
     cert = request.GET.get("cert", "")
     if cert == "yes":
         qs = qs.filter(certificate_issued=True)
     elif cert == "no":
         qs = qs.filter(certificate_issued=False)
-
-    # result is a @property — filter in Python after evaluating queryset
     result_filter = request.GET.get("result", "")
     if result_filter:
         qs = [p for p in qs if p.result == result_filter]
-
-    paginator = Paginator(qs, 25)
-    page_obj = paginator.get_page(request.GET.get("page"))
-
+    page_obj = Paginator(qs, 25).get_page(request.GET.get("page"))
     return render(
         request,
         "formations/participant_list.html",
         {
             "page_obj": page_obj,
+            "sort": sort,
+            "dir": dir_,
         },
     )
-
-
-# ===========================================================================
-# Delete views — Admin only
-# ===========================================================================
-
-
-@login_required
-def category_delete(request, pk):
-    if not request.user.profile.is_admin():
-        messages.error(request, "Accès réservé aux administrateurs.")
-        return redirect("formations:category_list")
-    category = get_object_or_404(Category, pk=pk)
-    if request.method == "POST":
-        name = category.name
-        category.delete()
-        messages.success(request, f'Catégorie "{name}" supprimée.')
-    return redirect("formations:category_list")
-
-
-@login_required
-def formation_delete(request, pk):
-    if not request.user.profile.is_admin():
-        messages.error(request, "Accès réservé aux administrateurs.")
-        return redirect("formations:formation_list")
-    formation = get_object_or_404(Formation, pk=pk)
-    if request.method == "POST":
-        if formation.session_set.filter(status__in=["planned", "in_progress"]).exists():
-            messages.error(
-                request,
-                "Impossible de supprimer : des sessions actives ou planifiées existent.",
-            )
-            return redirect("formations:formation_list")
-        title = formation.title
-        formation.delete()
-        messages.success(request, f'Formation "{title}" supprimée.')
-    return redirect("formations:formation_list")
-
-
-@login_required
-def session_delete(request, pk):
-    if not request.user.profile.is_admin():
-        messages.error(request, "Accès réservé aux administrateurs.")
-        return redirect("formations:session_list")
-    session = get_object_or_404(Session, pk=pk)
-    if request.method == "POST":
-        ref = session.reference
-        session.delete()
-        messages.success(request, f'Session "{ref}" supprimée.')
-    return redirect("formations:session_list")

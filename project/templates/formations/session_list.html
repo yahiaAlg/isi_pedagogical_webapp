@@ -2,7 +2,14 @@
 {% load static %}
 
 {% block title %}Sessions — ISI Gestion Pédagogique{% endblock %}
-{% block extra_head %}<link rel="stylesheet" href="{% static 'formations/css/formations.css' %}" />{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'formations/css/formations.css' %}" /><style>
+.sort-th { color: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.sort-th:hover { color: var(--accent); }
+.sort-th.active { color: var(--accent); font-weight: 700; }
+.sort-th .si { font-size: 11px; opacity: .4; }
+.sort-th.active .si { opacity: 1; }
+</style>
+{% endblock %}
 
 {% block breadcrumb %}
 <i class="bi bi-chevron-right bc-sep"></i>
@@ -60,13 +67,13 @@
       <table class="isi-table">
         <thead>
           <tr>
-            <th>Référence</th>
-            <th>Formation</th>
-            <th>Dates</th>
-            <th>Client</th>
-            <th>Formateur</th>
+            <th><a href="?sort=reference&amp;dir={% if sort == 'reference' and dir == 'asc' %}desc{% else %}asc{% endif %}" class="sort-th {% if sort == 'reference' %}active{% endif %}">Référence <i class="bi bi-arrow-{% if sort == 'reference' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
+            <th><a href="?sort=formation__title&amp;dir={% if sort == 'formation__title' and dir == 'asc' %}desc{% else %}asc{% endif %}" class="sort-th {% if sort == 'formation__title' %}active{% endif %}">Formation <i class="bi bi-arrow-{% if sort == 'formation__title' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
+            <th><a href="?sort=date_start&amp;dir={% if sort == 'date_start' and dir == 'asc' %}desc{% else %}asc{% endif %}" class="sort-th {% if sort == 'date_start' %}active{% endif %}">Dates <i class="bi bi-arrow-{% if sort == 'date_start' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
+            <th><a href="?sort=client__name&amp;dir={% if sort == 'client__name' and dir == 'asc' %}desc{% else %}asc{% endif %}" class="sort-th {% if sort == 'client__name' %}active{% endif %}">Client <i class="bi bi-arrow-{% if sort == 'client__name' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
+            <th><a href="?sort=trainer__last_name&amp;dir={% if sort == 'trainer__last_name' and dir == 'asc' %}desc{% else %}asc{% endif %}" class="sort-th {% if sort == 'trainer__last_name' %}active{% endif %}">Formateur <i class="bi bi-arrow-{% if sort == 'trainer__last_name' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
             <th>Remplissage</th>
-            <th>Statut</th>
+            <th><a href="?sort=status&amp;dir={% if sort == 'status' and dir == 'asc' %}desc{% else %}asc{% endif %}" class="sort-th {% if sort == 'status' %}active{% endif %}">Statut <i class="bi bi-arrow-{% if sort == 'status' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
             <th style="text-align:right;">Actions</th>
           </tr>
         </thead>

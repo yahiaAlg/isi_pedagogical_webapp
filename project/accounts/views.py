@@ -4,6 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.contrib import messages
 from django.core.paginator import Paginator
+from django.db.models import Count
 from .models import UserProfile
 
 
@@ -120,16 +121,30 @@ def password_change_view(request, pk=None):
 # ---------------------------------------------------------------------------
 
 
+USER_SORT = {"last_name", "profile__role", "last_login", "is_active"}
+
+
 @login_required
 def user_list(request):
     if not request.user.profile.is_admin():
         messages.error(request, "Accès réservé aux administrateurs.")
         return redirect("core:dashboard")
-    users = User.objects.select_related("profile").order_by(
-        "last_name", "first_name", "username"
+    sort = request.GET.get("sort", "last_name")
+    dir = request.GET.get("dir", "asc")
+    if sort not in USER_SORT:
+        sort = "last_name"
+    qs = User.objects.select_related("profile")
+    qs = qs.order_by(sort if dir == "asc" else "-" + sort)
+    page_obj = Paginator(qs, 20).get_page(request.GET.get("page"))
+    return render(
+        request,
+        "accounts/user_list.html",
+        {
+            "page_obj": page_obj,
+            "sort": sort,
+            "dir": dir,
+        },
     )
-    page_obj = Paginator(users, 20).get_page(request.GET.get("page"))
-    return render(request, "accounts/user_list.html", {"page_obj": page_obj})
 
 
 @login_required

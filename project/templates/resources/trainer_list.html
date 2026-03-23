@@ -5,6 +5,13 @@
 
 {% block extra_head %}
 <link rel="stylesheet" href="{% static 'resources/css/resources.css' %}" />
+<style>
+.sort-th { color: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.sort-th:hover { color: var(--accent); }
+.sort-th.active { color: var(--accent); font-weight: 700; }
+.sort-th .si { font-size: 11px; opacity: .4; }
+.sort-th.active .si { opacity: 1; }
+</style>
 {% endblock %}
 
 {% block breadcrumb %}
@@ -78,12 +85,12 @@
       <table class="isi-table">
         <thead>
           <tr>
-            <th>Nom et prénom</th>
-            <th>Spécialité</th>
-            <th>Type</th>
+            <th><a href="?sort=last_name&amp;dir={% if sort == 'last_name' and dir == 'asc' %}desc{% else %}asc{% endif %}" class="sort-th {% if sort == 'last_name' %}active{% endif %}">Nom et prénom <i class="bi bi-arrow-{% if sort == 'last_name' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
+            <th><a href="?sort=specialty&amp;dir={% if sort == 'specialty' and dir == 'asc' %}desc{% else %}asc{% endif %}" class="sort-th {% if sort == 'specialty' %}active{% endif %}">Spécialité <i class="bi bi-arrow-{% if sort == 'specialty' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
+            <th><a href="?sort=employment_type&amp;dir={% if sort == 'employment_type' and dir == 'asc' %}desc{% else %}asc{% endif %}" class="sort-th {% if sort == 'employment_type' %}active{% endif %}">Type <i class="bi bi-arrow-{% if sort == 'employment_type' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
             <th>Téléphone</th>
-            <th>Sessions</th>
-            <th>Statut</th>
+            <th style="text-align:center;"><a href="?sort=session_count&amp;dir={% if sort == 'session_count' and dir == 'asc' %}desc{% else %}asc{% endif %}" class="sort-th {% if sort == 'session_count' %}active{% endif %}">Sessions <i class="bi bi-arrow-{% if sort == 'session_count' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
+            <th><a href="?sort=is_active&amp;dir={% if sort == 'is_active' and dir == 'asc' %}desc{% else %}asc{% endif %}" class="sort-th {% if sort == 'is_active' %}active{% endif %}">Statut <i class="bi bi-arrow-{% if sort == 'is_active' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
             <th style="text-align:right;">Actions</th>
           </tr>
         </thead>

@@ -2,15 +2,38 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.paginator import Paginator
+from django.db.models import Count
 from .models import Client
 from .forms import ClientForm
+
+# 'sessions_total' avoids clash with @property session_count on Client model
+VALID_SORT_MAP = {
+    "name": "name",
+    "city": "city",
+    "contact_person": "contact_person",
+    "session_count": "sessions_total",
+}
 
 
 @login_required
 def client_list(request):
-    clients = Client.objects.filter(is_active=True).order_by("name")
-    page_obj = Paginator(clients, 20).get_page(request.GET.get("page"))
-    return render(request, "clients/client_list.html", {"page_obj": page_obj})
+    sort = request.GET.get("sort", "name")
+    dir_ = request.GET.get("dir", "asc")
+    if sort not in VALID_SORT_MAP:
+        sort = "name"
+    db_field = VALID_SORT_MAP[sort]
+    qs = Client.objects.filter(is_active=True).annotate(sessions_total=Count("session"))
+    qs = qs.order_by(db_field if dir_ == "asc" else "-" + db_field)
+    page_obj = Paginator(qs, 20).get_page(request.GET.get("page"))
+    return render(
+        request,
+        "clients/client_list.html",
+        {
+            "page_obj": page_obj,
+            "sort": sort,
+            "dir": dir_,
+        },
+    )
 
 
 @login_required

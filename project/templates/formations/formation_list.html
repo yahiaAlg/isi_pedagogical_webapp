@@ -2,7 +2,14 @@
 {% load static %}
 
 {% block title %}Catalogue des formations — ISI Gestion Pédagogique{% endblock %}
-{% block extra_head %}<link rel="stylesheet" href="{% static 'formations/css/formations.css' %}" />{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'formations/css/formations.css' %}" /><style>
+.sort-th { color: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.sort-th:hover { color: var(--accent); }
+.sort-th.active { color: var(--accent); font-weight: 700; }
+.sort-th .si { font-size: 11px; opacity: .4; }
+.sort-th.active .si { opacity: 1; }
+</style>
+{% endblock %}
 
 {% block breadcrumb %}
 <i class="bi bi-chevron-right bc-sep"></i>
@@ -61,14 +68,14 @@
       <table class="isi-table">
         <thead>
           <tr>
-            <th>Code</th>
-            <th>Formation</th>
-            <th>Catégorie</th>
-            <th>Durée</th>
-            <th>Prix de base</th>
+            <th><a href="?sort=code&amp;dir={% if sort == 'code' and dir == 'asc' %}desc{% else %}asc{% endif %}" class="sort-th {% if sort == 'code' %}active{% endif %}">Code <i class="bi bi-arrow-{% if sort == 'code' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
+            <th><a href="?sort=title&amp;dir={% if sort == 'title' and dir == 'asc' %}desc{% else %}asc{% endif %}" class="sort-th {% if sort == 'title' %}active{% endif %}">Formation <i class="bi bi-arrow-{% if sort == 'title' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
+            <th><a href="?sort=category__name&amp;dir={% if sort == 'category__name' and dir == 'asc' %}desc{% else %}asc{% endif %}" class="sort-th {% if sort == 'category__name' %}active{% endif %}">Catégorie <i class="bi bi-arrow-{% if sort == 'category__name' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
+            <th><a href="?sort=duration_days&amp;dir={% if sort == 'duration_days' and dir == 'asc' %}desc{% else %}asc{% endif %}" class="sort-th {% if sort == 'duration_days' %}active{% endif %}">Durée <i class="bi bi-arrow-{% if sort == 'duration_days' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
+            <th><a href="?sort=base_price&amp;dir={% if sort == 'base_price' and dir == 'asc' %}desc{% else %}asc{% endif %}" class="sort-th {% if sort == 'base_price' %}active{% endif %}">Prix de base <i class="bi bi-arrow-{% if sort == 'base_price' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
             <th>Participants</th>
-            <th>Sessions</th>
-            <th>Statut</th>
+            <th style="text-align:center;"><a href="?sort=session_count&amp;dir={% if sort == 'session_count' and dir == 'asc' %}desc{% else %}asc{% endif %}" class="sort-th {% if sort == 'session_count' %}active{% endif %}">Sessions <i class="bi bi-arrow-{% if sort == 'session_count' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
+            <th><a href="?sort=is_active&amp;dir={% if sort == 'is_active' and dir == 'asc' %}desc{% else %}asc{% endif %}" class="sort-th {% if sort == 'is_active' %}active{% endif %}">Statut <i class="bi bi-arrow-{% if sort == 'is_active' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
             <th style="text-align:right;">Actions</th>
           </tr>
         </thead>

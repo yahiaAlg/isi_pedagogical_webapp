@@ -1,5 +1,12 @@
 {% extends "base.html" %}
 {% load static %}
+<style>
+.sort-th { color: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.sort-th:hover { color: var(--accent); }
+.sort-th.active { color: var(--accent); font-weight: 700; }
+.sort-th .si { font-size: 11px; opacity: .4; }
+.sort-th.active .si { opacity: 1; }
+</style>
 
 {% block title %}Utilisateurs — ISI Gestion Pédagogique{% endblock %}
 
@@ -40,12 +47,12 @@
       <table class="isi-table">
         <thead>
           <tr>
-            <th>Utilisateur</th>
-            <th>Rôle</th>
+            <th><a href="?sort=last_name&amp;dir={% if sort == 'last_name' and dir == 'asc' %}desc{% else %}asc{% endif %}" class="sort-th {% if sort == 'last_name' %}active{% endif %}">Utilisateur <i class="bi bi-arrow-{% if sort == 'last_name' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
+            <th><a href="?sort=profile__role&amp;dir={% if sort == 'profile__role' and dir == 'asc' %}desc{% else %}asc{% endif %}" class="sort-th {% if sort == 'profile__role' %}active{% endif %}">Rôle <i class="bi bi-arrow-{% if sort == 'profile__role' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
             <th>Email</th>
             <th>Téléphone</th>
-            <th>Dernière connexion</th>
-            <th>Statut</th>
+            <th><a href="?sort=last_login&amp;dir={% if sort == 'last_login' and dir == 'asc' %}desc{% else %}asc{% endif %}" class="sort-th {% if sort == 'last_login' %}active{% endif %}">Dernière connexion <i class="bi bi-arrow-{% if sort == 'last_login' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
+            <th><a href="?sort=is_active&amp;dir={% if sort == 'is_active' and dir == 'asc' %}desc{% else %}asc{% endif %}" class="sort-th {% if sort == 'is_active' %}active{% endif %}">Statut <i class="bi bi-arrow-{% if sort == 'is_active' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
             <th style="text-align:right;">Actions</th>
           </tr>
         </thead>

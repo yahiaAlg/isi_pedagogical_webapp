@@ -1,28 +1,30 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Salles — ISI Gestion Pédagogique{% endblock %}
+{% block title %}Formateurs — ISI Gestion Pédagogique{% endblock %}
 
 {% block extra_head %}
 <link rel="stylesheet" href="{% static 'resources/css/resources.css' %}" />
+<style>
+.sort-th { color: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.sort-th:hover { color: var(--accent); }
+.sort-th.active { color: var(--accent); font-weight: 700; }
+.sort-th .si { font-size: 11px; opacity: .4; }
+.sort-th.active .si { opacity: 1; }
+</style>
 {% endblock %}
 
 {% block breadcrumb %}
 <i class="bi bi-chevron-right bc-sep"></i>
 <a href="#">Ressources</a>
 <i class="bi bi-chevron-right bc-sep"></i>
-<a href="{% url 'resources:trainer_list' %}">Formateurs</a>
-<i class="bi bi-chevron-right bc-sep"></i>
 {% endblock %}
-{% block breadcrumb_active %}<span class="bc-active">Salles de formation</span>{% endblock %}
+{% block breadcrumb_active %}<span class="bc-active">Formateurs</span>{% endblock %}
 
 {% block topbar_actions %}
-<a href="{% url 'resources:trainer_list' %}" class="topbar-btn">
-  <i class="bi bi-arrow-left"></i> Formateurs
-</a>
 {% if request.user.profile.is_admin %}
-<a href="{% url 'resources:room_create' %}" class="topbar-btn primary">
-  <i class="bi bi-plus-lg"></i> Nouvelle salle
+<a href="{% url 'resources:trainer_create' %}" class="topbar-btn primary">
+  <i class="bi bi-plus-lg"></i> Nouveau formateur
 </a>
 {% endif %}
 {% endblock %}
@@ -32,123 +34,162 @@
 
   <div class="page-header">
     <div class="page-header-left">
-      <h1>Salles de formation</h1>
-      <p class="page-subtitle">Gestion des espaces de formation disponibles</p>
+      <h1>Formateurs</h1>
+      <p class="page-subtitle">Répertoire des formateurs actifs</p>
     </div>
   </div>
 
-  {% if rooms %}
-
-  <!-- Summary strip -->
-  <div class="row g-3 mb-4">
-    <div class="col-sm-6 col-lg-3">
-      <div class="isi-card">
-        <div class="isi-card-body" style="display:flex;align-items:center;gap:14px;padding:14px 18px;">
-          <div class="card-icon amber" style="width:44px;height:44px;font-size:20px;border-radius:12px;flex-shrink:0;">
-            <i class="bi bi-door-open-fill"></i>
-          </div>
-          <div>
-            <div class="stat-value" style="font-size:22px;">{{ rooms|length }}</div>
-            <div class="stat-label">Salle{{ rooms|length|pluralize }} active{{ rooms|length|pluralize }}</div>
+  <!-- Filter bar -->
+  <div class="isi-card mb-4">
+    <div class="isi-card-body" style="padding:16px 24px;">
+      <div class="row g-3 align-items-end">
+        <div class="col-sm-8 col-md-5">
+          <label class="form-label">Rechercher</label>
+          <div class="input-icon-wrap">
+            <i class="bi bi-search"></i>
+            <input type="text" id="trainerSearch" class="form-control"
+              placeholder="Nom, spécialité, téléphone…" />
           </div>
         </div>
-      </div>
-    </div>
-    <div class="col-sm-6 col-lg-3">
-      <div class="isi-card">
-        <div class="isi-card-body" style="display:flex;align-items:center;gap:14px;padding:14px 18px;">
-          <div class="card-icon blue" style="width:44px;height:44px;font-size:20px;border-radius:12px;flex-shrink:0;">
-            <i class="bi bi-people-fill"></i>
-          </div>
-          <div>
-            {% with total=rooms|length %}
-            <div class="stat-value" style="font-size:22px;">
-              {% for room in rooms %}{{ room.capacity }}{% if not forloop.last %}+{% endif %}{% endfor %}
-            </div>
-            {% endwith %}
-            <div class="stat-label">Capacité totale</div>
-          </div>
+        <div class="col-sm-4 col-md-3">
+          <button type="button" id="clearSearch" class="btn btn-ghost w-100">
+            <i class="bi bi-x-lg"></i> Réinitialiser
+          </button>
         </div>
+        {% if request.user.profile.is_admin %}
+        <div class="col-md-4 text-md-end">
+          <a href="{% url 'resources:room_list' %}" class="btn btn-ghost">
+            <i class="bi bi-door-open-fill"></i> Gérer les salles
+          </a>
+        </div>
+        {% endif %}
       </div>
     </div>
   </div>
 
-  <!-- Room cards grid -->
+  <!-- Results -->
   <div class="isi-card">
     <div class="isi-card-header">
-      <div class="card-icon amber"><i class="bi bi-door-open-fill"></i></div>
-      <h3>Salles disponibles</h3>
-      <span class="header-count ms-1">({{ rooms|length }})</span>
+      <div class="card-icon blue"><i class="bi bi-person-fill-check"></i></div>
+      <h3>Liste des formateurs</h3>
+      <span class="header-count ms-1">({{ page_obj.paginator.count }} formateur{{ page_obj.paginator.count|pluralize }})</span>
       {% if request.user.profile.is_admin %}
-      <a href="{% url 'resources:room_create' %}" class="btn btn-amber btn-sm ms-auto">
-        <i class="bi bi-plus-lg"></i> Nouvelle salle
+      <a href="{% url 'resources:trainer_create' %}" class="btn btn-amber btn-sm ms-auto">
+        <i class="bi bi-plus-lg"></i> Nouveau
       </a>
       {% endif %}
     </div>
-    <div class="isi-card-body">
-      <div class="room-grid">
-        {% for room in rooms %}
-        <div class="room-card">
-          <div class="room-card-header">
-            <div class="card-icon amber" style="flex-shrink:0;">
-              <i class="bi bi-door-open-fill"></i>
-            </div>
-            <div style="flex:1;min-width:0;">
-              <div class="room-card-name">{{ room.name }}</div>
-              <span class="room-capacity-pill">
-                <i class="bi bi-people-fill"></i> {{ room.capacity }} place{{ room.capacity|pluralize }}
-              </span>
-            </div>
-          </div>
 
-          {% if room.equipment %}
-          <div class="room-equipment">
-            <span style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);display:block;margin-bottom:4px;">Équipements</span>
-            {{ room.equipment }}
-          </div>
-          {% else %}
-          <div class="room-equipment" style="color:var(--text-muted);">
-            <i>Aucun équipement renseigné</i>
-          </div>
+    {% if page_obj.object_list %}
+    <div style="overflow-x:auto;">
+      <table class="isi-table">
+        <thead>
+          <tr>
+            <th><a href="?sort=last_name&amp;dir={% if sort == 'last_name' and dir == 'asc' %}desc{% else %}asc{% endif %}" class="sort-th {% if sort == 'last_name' %}active{% endif %}">Nom et prénom <i class="bi bi-arrow-{% if sort == 'last_name' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
+            <th><a href="?sort=specialty&amp;dir={% if sort == 'specialty' and dir == 'asc' %}desc{% else %}asc{% endif %}" class="sort-th {% if sort == 'specialty' %}active{% endif %}">Spécialité <i class="bi bi-arrow-{% if sort == 'specialty' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
+            <th><a href="?sort=employment_type&amp;dir={% if sort == 'employment_type' and dir == 'asc' %}desc{% else %}asc{% endif %}" class="sort-th {% if sort == 'employment_type' %}active{% endif %}">Type <i class="bi bi-arrow-{% if sort == 'employment_type' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
+            <th>Téléphone</th>
+            <th style="text-align:center;"><a href="?sort=session_count&amp;dir={% if sort == 'session_count' and dir == 'asc' %}desc{% else %}asc{% endif %}" class="sort-th {% if sort == 'session_count' %}active{% endif %}">Sessions <i class="bi bi-arrow-{% if sort == 'session_count' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
+            <th><a href="?sort=is_active&amp;dir={% if sort == 'is_active' and dir == 'asc' %}desc{% else %}asc{% endif %}" class="sort-th {% if sort == 'is_active' %}active{% endif %}">Statut <i class="bi bi-arrow-{% if sort == 'is_active' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
+            <th style="text-align:right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for trainer in page_obj %}
+          <tr class="trainer-row">
+            <td>
+              <a href="{% url 'resources:trainer_detail' trainer.pk %}" class="table-primary-link">
+                {{ trainer.full_name }}
+              </a>
+              {% if trainer.full_name_ar %}
+              <span class="table-secondary-text" dir="rtl" style="text-align:right;">{{ trainer.full_name_ar }}</span>
+              {% endif %}
+            </td>
+            <td>{{ trainer.specialty }}</td>
+            <td>
+              {% if trainer.employment_type == 'internal' %}
+                <span class="isi-badge blue"><i class="bi bi-circle-fill" style="font-size:7px;"></i> Interne</span>
+              {% else %}
+                <span class="isi-badge gray"><i class="bi bi-circle-fill" style="font-size:7px;"></i> Externe</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if trainer.phone %}
+              <a href="tel:{{ trainer.phone }}" style="color:var(--text-primary);text-decoration:none;">{{ trainer.phone }}</a>
+              {% else %}<span style="color:var(--text-muted);">—</span>{% endif %}
+            </td>
+            <td>
+              <span style="font-weight:600;">{{ trainer.session_count }}</span>
+              <span class="table-secondary-text">session{{ trainer.session_count|pluralize }}</span>
+            </td>
+            <td>
+              {% if trainer.is_active %}
+                <span class="isi-badge green"><i class="bi bi-circle-fill" style="font-size:7px;"></i> Actif</span>
+              {% else %}
+                <span class="isi-badge gray"><i class="bi bi-circle-fill" style="font-size:7px;"></i> Inactif</span>
+              {% endif %}
+            </td>
+            <td>
+              <div style="display:flex;justify-content:flex-end;gap:6px;">
+                <a href="{% url 'resources:trainer_detail' trainer.pk %}" class="btn btn-ghost btn-sm" title="Voir">
+                  <i class="bi bi-eye-fill"></i>
+                </a>
+                {% if request.user.profile.is_admin %}
+                <a href="{% url 'resources:trainer_edit' trainer.pk %}" class="btn btn-ghost btn-sm" title="Modifier">
+                  <i class="bi bi-pencil-fill"></i>
+                </a>
+                <button type="button" class="btn btn-ghost btn-sm" style="color:var(--danger);"
+                  data-delete-url="{% url 'resources:trainer_delete' trainer.pk %}"
+                  data-delete-msg="Supprimer le formateur {{ trainer.full_name }} ?"
+                  title="Supprimer">
+                  <i class="bi bi-trash-fill"></i>
+                </button>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if page_obj.paginator.num_pages > 1 %}
+    <div class="isi-pagination">
+      <div class="isi-pagination-info">
+        Page {{ page_obj.number }} sur {{ page_obj.paginator.num_pages }} —
+        {{ page_obj.paginator.count }} formateur{{ page_obj.paginator.count|pluralize }}
+      </div>
+      <div class="isi-pagination-controls">
+        {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}" class="btn btn-ghost btn-sm"><i class="bi bi-chevron-left"></i></a>
+        {% endif %}
+        {% for num in page_obj.paginator.page_range %}
+          {% if num == page_obj.number %}
+            <button class="btn btn-amber btn-sm" disabled>{{ num }}</button>
+          {% elif num >= page_obj.number|add:"-2" and num <= page_obj.number|add:"2" %}
+            <a href="?page={{ num }}" class="btn btn-ghost btn-sm">{{ num }}</a>
           {% endif %}
-
-          <div class="room-card-footer">
-            <span class="isi-badge {% if room.is_active %}green{% else %}gray{% endif %}">
-              <i class="bi bi-circle-fill" style="font-size:7px;"></i>
-              {% if room.is_active %}Active{% else %}Inactive{% endif %}
-            </span>
-            {% if request.user.profile.is_admin %}
-            <a href="{% url 'resources:room_edit' room.pk %}" class="btn btn-ghost btn-sm">
-              <i class="bi bi-pencil-fill"></i> Modifier
-            </a>
-            <button type="button" class="btn btn-ghost btn-sm" style="color:var(--danger);"
-              data-delete-url="{% url 'resources:room_delete' room.pk %}"
-              data-delete-msg="Supprimer la salle {{ room.name }} ?"
-              title="Supprimer">
-              <i class="bi bi-trash-fill"></i>
-            </button>
-            {% endif %}
-          </div>
-        </div>
         {% endfor %}
+        {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}" class="btn btn-ghost btn-sm"><i class="bi bi-chevron-right"></i></a>
+        {% endif %}
       </div>
     </div>
-  </div>
+    {% endif %}
 
-  {% else %}
-  <div class="isi-card">
+    {% else %}
     <div class="empty-state">
-      <div class="empty-state-icon"><i class="bi bi-door-open-fill"></i></div>
-      <p class="empty-state-text">Aucune salle de formation pour le moment.</p>
+      <div class="empty-state-icon"><i class="bi bi-person-fill-check"></i></div>
+      <p class="empty-state-text">Aucun formateur pour le moment.</p>
       {% if request.user.profile.is_admin %}
-      <a href="{% url 'resources:room_create' %}" class="btn btn-amber">
-        <i class="bi bi-plus-lg"></i> Créer la première salle
+      <a href="{% url 'resources:trainer_create' %}" class="btn btn-amber">
+        <i class="bi bi-plus-lg"></i> Créer le premier formateur
       </a>
       {% endif %}
     </div>
-  </div>
-  {% endif %}
+    {% endif %}
 
+  </div>
 </div>
 
   <!-- Delete confirmation modal -->
@@ -181,8 +222,10 @@
 {% endblock %}
 
 
+
 {% block extra_scripts %}
 {{ block.super }}
+<script src="{% static 'resources/js/trainer_list.js' %}"></script>
 <script>
 document.querySelectorAll('[data-delete-url]').forEach(function(btn){
   btn.addEventListener('click', function(){

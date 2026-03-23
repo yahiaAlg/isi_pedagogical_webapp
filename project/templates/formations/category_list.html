@@ -3,7 +3,14 @@
 
 {% block title %}Catégories — ISI Gestion Pédagogique{% endblock %}
 
-{% block extra_head %}<link rel="stylesheet" href="{% static 'formations/css/formations.css' %}" />{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'formations/css/formations.css' %}" /><style>
+.sort-th { color: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.sort-th:hover { color: var(--accent); }
+.sort-th.active { color: var(--accent); font-weight: 700; }
+.sort-th .si { font-size: 11px; opacity: .4; }
+.sort-th.active .si { opacity: 1; }
+</style>
+{% endblock %}
 
 {% block breadcrumb %}
 <i class="bi bi-chevron-right bc-sep"></i>
@@ -45,9 +52,9 @@
       <table class="isi-table">
         <thead>
           <tr>
-            <th>Catégorie</th>
+            <th><a href="?sort=name&amp;dir={% if sort == 'name' and dir == 'asc' %}desc{% else %}asc{% endif %}" class="sort-th {% if sort == 'name' %}active{% endif %}">Catégorie <i class="bi bi-arrow-{% if sort == 'name' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
             <th>Description</th>
-            <th>Formations</th>
+            <th style="text-align:center;"><a href="?sort=formation_count&amp;dir={% if sort == 'formation_count' and dir == 'asc' %}desc{% else %}asc{% endif %}" class="sort-th {% if sort == 'formation_count' %}active{% endif %}">Formations <i class="bi bi-arrow-{% if sort == 'formation_count' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
             <th style="text-align:right;">Actions</th>
           </tr>
         </thead>
