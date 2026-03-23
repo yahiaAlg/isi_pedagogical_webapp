@@ -210,3 +210,19 @@ def user_edit(request, pk):
             "role_choices": UserProfile.ROLE_CHOICES,
         },
     )
+
+
+@login_required
+def user_delete(request, pk):
+    if not request.user.profile.is_admin():
+        messages.error(request, "Accès réservé aux administrateurs.")
+        return redirect("accounts:user_list")
+    if pk == request.user.pk:
+        messages.error(request, "Impossible de supprimer votre propre compte.")
+        return redirect("accounts:user_list")
+    target_user = get_object_or_404(User, pk=pk)
+    if request.method == "POST":
+        username = target_user.username
+        target_user.delete()
+        messages.success(request, f"Utilisateur « {username} » supprimé.")
+    return redirect("accounts:user_list")

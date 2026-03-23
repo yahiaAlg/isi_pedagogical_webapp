@@ -156,3 +156,29 @@ def room_edit(request, pk):
             "title": "Modifier salle",
         },
     )
+
+
+@login_required
+def trainer_delete(request, pk):
+    if not request.user.profile.is_admin():
+        messages.error(request, "Accès réservé aux administrateurs.")
+        return redirect("resources:trainer_list")
+    trainer = get_object_or_404(Trainer, pk=pk)
+    if request.method == "POST":
+        name = trainer.full_name
+        trainer.delete()
+        messages.success(request, f'Formateur "{name}" supprimé.')
+    return redirect("resources:trainer_list")
+
+
+@login_required
+def room_delete(request, pk):
+    if not request.user.profile.is_admin():
+        messages.error(request, "Accès réservé aux administrateurs.")
+        return redirect("resources:room_list")
+    room = get_object_or_404(Room, pk=pk)
+    if request.method == "POST":
+        name = room.name
+        room.delete()
+        messages.success(request, f'Salle "{name}" supprimée.')
+    return redirect("resources:room_list")

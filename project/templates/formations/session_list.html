@@ -110,6 +110,14 @@
                 {% if request.user.profile.can_manage_sessions and s.can_edit %}
                 <a href="{% url 'formations:session_edit' s.pk %}" class="btn btn-ghost btn-sm" title="Modifier"><i class="bi bi-pencil-fill"></i></a>
                 {% endif %}
+                {% if request.user.profile.is_admin %}
+                <button type="button" class="btn btn-ghost btn-sm" style="color:var(--danger);"
+                  data-delete-url="{% url 'formations:session_delete' s.pk %}"
+                  data-delete-msg="Supprimer la session {{ s.reference }} ?"
+                  title="Supprimer">
+                  <i class="bi bi-trash-fill"></i>
+                </button>
+                {% endif %}
               </div>
             </td>
           </tr>
@@ -143,6 +151,46 @@
     {% endif %}
   </div>
 </div>
+
+  <!-- Delete confirmation modal -->
+  <div class="modal fade" id="deleteModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:420px;">
+      <div class="modal-content" style="border-radius:14px;border:none;box-shadow:var(--shadow-md);">
+        <div class="modal-header" style="border-bottom:1px solid var(--card-border);padding:18px 24px 14px;">
+          <h5 class="modal-title" style="font-family:var(--font-head);font-weight:700;font-size:16px;">
+            <i class="bi bi-exclamation-triangle-fill" style="color:var(--danger);margin-right:8px;"></i>
+            Confirmer la suppression
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body" style="padding:18px 24px;">
+          <p style="margin:0;font-size:14px;color:var(--text-primary);" id="deleteModalMsg">Êtes-vous sûr ?</p>
+          <p style="margin:8px 0 0;font-size:12px;color:var(--text-muted);">Cette action est irréversible.</p>
+        </div>
+        <div class="modal-footer" style="border-top:1px solid var(--card-border);padding:14px 24px;gap:10px;">
+          <button type="button" class="btn btn-ghost" data-bs-dismiss="modal">Annuler</button>
+          <form id="deleteForm" method="post" style="display:inline;">
+            {% csrf_token %}
+            <button type="submit" class="btn" style="background:var(--danger);color:#fff;border:none;">
+              <i class="bi bi-trash-fill"></i> Supprimer
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
 {% endblock %}
 
-{% block extra_scripts %}<script src="{% static 'formations/js/formations.js' %}"></script>{% endblock %}
+{% block extra_scripts %}
+{{ block.super }}
+<script src="{% static 'formations/js/formations.js' %}"></script>
+<script>
+document.querySelectorAll('[data-delete-url]').forEach(function(btn){
+  btn.addEventListener('click', function(){
+    document.getElementById('deleteForm').action = this.dataset.deleteUrl;
+    document.getElementById('deleteModalMsg').textContent = this.dataset.deleteMsg;
+    new bootstrap.Modal(document.getElementById('deleteModal')).show();
+  });
+});
+</script>
+{% endblock %}

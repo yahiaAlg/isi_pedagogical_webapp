@@ -17,4 +17,5 @@ urlpatterns = [
         views.password_change_view,
         name="user_password_change",
     ),
+    path("users/<int:pk>/delete/", views.user_delete, name="user_delete"),
 ]

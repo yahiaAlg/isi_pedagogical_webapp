@@ -4,16 +4,20 @@ from . import views
 app_name = "formations"
 
 urlpatterns = [
-    # ---------------------------------------------------------------- Category
+    # Category
     path("categories/", views.category_list, name="category_list"),
     path("categories/create/", views.category_create, name="category_create"),
     path("categories/<int:pk>/edit/", views.category_edit, name="category_edit"),
-    # --------------------------------------------------------------- Formation
+    path("categories/<int:pk>/delete/", views.category_delete, name="category_delete"),
+    # Formation
     path("formations/", views.formation_list, name="formation_list"),
     path("formations/create/", views.formation_create, name="formation_create"),
     path("formations/<int:pk>/", views.formation_detail, name="formation_detail"),
     path("formations/<int:pk>/edit/", views.formation_edit, name="formation_edit"),
-    # ----------------------------------------------------------------- Session
+    path(
+        "formations/<int:pk>/delete/", views.formation_delete, name="formation_delete"
+    ),
+    # Session
     path("sessions/", views.session_list, name="session_list"),
     path("sessions/create/", views.session_create, name="session_create"),
     path("sessions/<int:pk>/", views.session_detail, name="session_detail"),
@@ -25,10 +29,11 @@ urlpatterns = [
         name="session_attendance",
     ),
     path("sessions/<int:pk>/scores/", views.session_scores, name="session_scores"),
-    # ---------------------------------------------------------------- Fill rate + Participants (sidebar links)
+    path("sessions/<int:pk>/delete/", views.session_delete, name="session_delete"),
+    # Fill rate + cross-session participants
     path("fill-rate/", views.fill_rate, name="fill_rate"),
     path("participants/", views.participant_list, name="participant_list"),
-    # -------------------------------------------------------------- Participant
+    # Participant CRUD
     path(
         "sessions/<int:session_pk>/participants/create/",
         views.participant_create,
@@ -47,7 +52,7 @@ urlpatterns = [
         views.participant_delete,
         name="participant_delete",
     ),
-    # ------------------------------------------------------------------- AJAX
+    # AJAX
     path(
         "participants/<int:pk>/toggle-attendance/",
         views.toggle_attendance,

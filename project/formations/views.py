@@ -658,3 +658,53 @@ def participant_list(request):
             "page_obj": page_obj,
         },
     )
+
+
+# ===========================================================================
+# Delete views — Admin only
+# ===========================================================================
+
+
+@login_required
+def category_delete(request, pk):
+    if not request.user.profile.is_admin():
+        messages.error(request, "Accès réservé aux administrateurs.")
+        return redirect("formations:category_list")
+    category = get_object_or_404(Category, pk=pk)
+    if request.method == "POST":
+        name = category.name
+        category.delete()
+        messages.success(request, f'Catégorie "{name}" supprimée.')
+    return redirect("formations:category_list")
+
+
+@login_required
+def formation_delete(request, pk):
+    if not request.user.profile.is_admin():
+        messages.error(request, "Accès réservé aux administrateurs.")
+        return redirect("formations:formation_list")
+    formation = get_object_or_404(Formation, pk=pk)
+    if request.method == "POST":
+        if formation.session_set.filter(status__in=["planned", "in_progress"]).exists():
+            messages.error(
+                request,
+                "Impossible de supprimer : des sessions actives ou planifiées existent.",
+            )
+            return redirect("formations:formation_list")
+        title = formation.title
+        formation.delete()
+        messages.success(request, f'Formation "{title}" supprimée.')
+    return redirect("formations:formation_list")
+
+
+@login_required
+def session_delete(request, pk):
+    if not request.user.profile.is_admin():
+        messages.error(request, "Accès réservé aux administrateurs.")
+        return redirect("formations:session_list")
+    session = get_object_or_404(Session, pk=pk)
+    if request.method == "POST":
+        ref = session.reference
+        session.delete()
+        messages.success(request, f'Session "{ref}" supprimée.')
+    return redirect("formations:session_list")
