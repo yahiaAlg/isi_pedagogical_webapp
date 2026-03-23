@@ -5,6 +5,7 @@ from django.http import JsonResponse
 from django.core.paginator import Paginator
 from django.views.decorators.http import require_POST
 from django.db.models import Count, Q
+from django.utils import timezone
 
 from .models import Category, Formation, Session, Participant
 from .forms import (
@@ -15,6 +16,7 @@ from .forms import (
     SessionStatusForm,
     AttendanceForm,
     ScoreForm,
+    ExamScoreForm,
     ParticipantImportForm,
 )
 from .utils import validate_session_transition, import_participants_from_file
@@ -42,11 +44,7 @@ def category_list(request):
     return render(
         request,
         "formations/category_list.html",
-        {
-            "categories": categories,
-            "sort": sort,
-            "dir": dir_,
-        },
+        {"categories": categories, "sort": sort, "dir": dir_},
     )
 
 
@@ -141,7 +139,12 @@ def formation_list(request):
 @login_required
 def formation_detail(request, pk):
     formation = get_object_or_404(Formation, pk=pk)
-    sessions = formation.session_set.order_by("-date_start")[:10]
+    # Only primary sessions in the list (children are shown inside each primary)
+    sessions = (
+        formation.session_set.filter(is_primary=True)
+        .select_related("client", "trainer")
+        .order_by("-date_start")[:10]
+    )
     return render(
         request,
         "formations/formation_detail.html",
@@ -159,6 +162,7 @@ def formation_create(request):
         if form.is_valid():
             formation = form.save()
             messages.success(request, f'Formation "{formation.title}" créée.')
+            # Spec §new — redirect to detail page after creation
             return redirect("formations:formation_detail", pk=formation.pk)
     else:
         form = FormationForm()
@@ -210,6 +214,37 @@ def formation_delete(request, pk):
 
 
 # ===========================================================================
+# Formation AJAX API (for session form pre-population)
+# ===========================================================================
+
+
+@login_required
+def formation_api_detail(request, pk):
+    """
+    Return formation data + last-session hints for session form auto-fill.
+    Called via JS whenever the formation dropdown changes.
+    """
+    formation = get_object_or_404(Formation, pk=pk, is_active=True)
+    last = (
+        formation.session_set.filter(is_primary=True)
+        .select_related("client", "trainer")
+        .order_by("-date_start")
+        .first()
+    )
+    today = timezone.localdate().isoformat()
+    data = {
+        "max_participants": formation.max_participants,
+        "duration_days": formation.duration_days,
+        "today": today,
+        "last_client_id": last.client_id if last else None,
+        "last_client_name": last.client.name if last else None,
+        "last_trainer_id": last.trainer_id if last else None,
+        "last_trainer_name": last.trainer.full_name if last else None,
+    }
+    return JsonResponse(data)
+
+
+# ===========================================================================
 # Session
 # ===========================================================================
 
@@ -229,7 +264,10 @@ def session_list(request):
     dir_ = request.GET.get("dir", "desc")
     if sort not in SESSION_SORT:
         sort = "date_start"
-    qs = Session.objects.select_related("formation", "client", "trainer")
+    # Show only primary sessions in the main list (children are nested inside)
+    qs = Session.objects.filter(is_primary=True).select_related(
+        "formation", "client", "trainer"
+    )
     qs = qs.order_by(sort if dir_ == "asc" else "-" + sort)
     page_obj = Paginator(qs, 20).get_page(request.GET.get("page"))
     return render(
@@ -243,10 +281,21 @@ def session_list(request):
 def session_detail(request, pk):
     session = get_object_or_404(Session, pk=pk)
     participants = session.participant_set.order_by("last_name", "first_name")
+    child_sessions = []
+    if session.is_primary:
+        child_sessions = list(
+            session.child_sessions.prefetch_related("participant_set").order_by(
+                "date_start"
+            )
+        )
     return render(
         request,
         "formations/session_detail.html",
-        {"session": session, "participants": participants},
+        {
+            "session": session,
+            "participants": participants,
+            "child_sessions": child_sessions,
+        },
     )
 
 
@@ -259,10 +308,38 @@ def session_create(request):
         form = SessionForm(request.POST)
         if form.is_valid():
             session = form.save()
-            messages.success(request, f'Session "{session.reference}" créée.')
+            messages.success(
+                request,
+                f'Session "{session.reference}" créée. Ajoutez maintenant les participants.',
+            )
             return redirect("formations:session_detail", pk=session.pk)
     else:
-        form = SessionForm()
+        initial = {}
+        # Spec §new — pre-populate when coming from formation detail
+        formation_pk = request.GET.get("formation")
+        if formation_pk:
+            try:
+                formation = Formation.objects.get(pk=formation_pk, is_active=True)
+                initial["formation"] = formation
+                initial["capacity"] = formation.max_participants
+                today = timezone.localdate()
+                initial["date_start"] = today
+                initial["date_end"] = today
+                # Pre-select last used client/trainer for this formation
+                last = (
+                    formation.session_set.filter(is_primary=True)
+                    .order_by("-date_start")
+                    .first()
+                )
+                if last:
+                    initial["client"] = last.client
+                    initial["trainer"] = last.trainer
+                    initial["location_type"] = last.location_type
+                    initial["room"] = last.room
+                    initial["external_location"] = last.external_location
+            except Formation.DoesNotExist:
+                pass
+        form = SessionForm(initial=initial)
     return render(
         request,
         "formations/session_form.html",
@@ -320,6 +397,12 @@ def session_status(request, pk):
             if new_status == "cancelled":
                 session.cancellation_reason = form.cleaned_data["cancellation_reason"]
             session.save()
+            # Propagate status to child sessions when completing/cancelling
+            if (
+                new_status in ["completed", "cancelled", "archived"]
+                and session.is_primary
+            ):
+                session.child_sessions.update(status=new_status)
             messages.success(
                 request, f"Statut mis à jour : {session.get_status_display()}."
             )
@@ -335,7 +418,6 @@ def session_status(request, pk):
 
 @login_required
 def session_attendance(request, pk):
-    """Per-day attendance recording (spec §13.2)."""
     session = get_object_or_404(Session, pk=pk)
     if not request.user.profile.can_edit_scores():
         messages.error(request, "Vous n'avez pas les permissions nécessaires.")
@@ -365,7 +447,6 @@ def session_attendance(request, pk):
 
 @login_required
 def session_scores(request, pk):
-    """Score entry (spec §9.2 — staff + trainers for own sessions)."""
     session = get_object_or_404(Session, pk=pk)
     if not request.user.profile.can_edit_scores():
         messages.error(request, "Vous n'avez pas les permissions nécessaires.")
@@ -395,6 +476,85 @@ def session_scores(request, pk):
     return render(
         request, "formations/session_scores.html", {"form": form, "session": session}
     )
+
+
+@login_required
+def session_exam_scores(request, pk):
+    """
+    Spec §new — Enter/edit final exam scores for primary-session participants.
+    Accessible only on primary sessions.
+    """
+    session = get_object_or_404(Session, pk=pk)
+    if not session.is_primary:
+        messages.error(
+            request,
+            "Les notes d'examen se saisissent uniquement sur la session principale.",
+        )
+        return redirect("formations:session_detail", pk=pk)
+    if not request.user.profile.can_edit_scores():
+        messages.error(request, "Vous n'avez pas les permissions nécessaires.")
+        return redirect("formations:session_detail", pk=pk)
+
+    if request.method == "POST":
+        form = ExamScoreForm(request.POST, session=session)
+        if form.is_valid():
+            for participant in session.participant_set.filter(attended=True):
+                val = form.cleaned_data.get(f"exam_{participant.id}")
+                participant.exam_score = val
+                participant.save(update_fields=["exam_score"])
+            # Also clear exam score for absent participants
+            session.participant_set.filter(attended=False).update(exam_score=None)
+            messages.success(request, "Notes d'examen enregistrées.")
+            return redirect("formations:session_detail", pk=pk)
+    else:
+        form = ExamScoreForm(session=session)
+
+    return render(
+        request,
+        "formations/session_exam_scores.html",
+        {"form": form, "session": session},
+    )
+
+
+@login_required
+def generate_session_group(request, pk):
+    """
+    Spec §new — Auto-generate child sessions (day 2 … N) from a primary session.
+    Idempotent: regenerates if children already exist.
+    """
+    session = get_object_or_404(Session, pk=pk)
+    if not request.user.profile.can_manage_sessions():
+        messages.error(request, "Vous n'avez pas les permissions nécessaires.")
+        return redirect("formations:session_detail", pk=pk)
+    if not session.is_primary:
+        messages.error(
+            request, "Seule la session principale peut générer les sessions suivantes."
+        )
+        return redirect("formations:session_detail", pk=pk)
+    if session.participant_count == 0:
+        messages.error(
+            request,
+            "Ajoutez au moins un participant avant de générer les sessions suivantes.",
+        )
+        return redirect("formations:session_detail", pk=pk)
+
+    from .utils import generate_child_sessions
+
+    created = generate_child_sessions(session)
+    n = session.formation.duration_days
+    if created:
+        messages.success(
+            request,
+            f"{len(created)} session(s) générée(s) (jours 2–{n}) avec "
+            f"{session.participant_count} participant(s) chacune. "
+            f"Notes d'examen pré-remplies à {session.formation.max_score / 2:g} / {session.formation.max_score:g}.",
+        )
+    else:
+        messages.info(
+            request,
+            "Cette formation ne comporte qu'une seule journée — aucune session supplémentaire à générer.",
+        )
+    return redirect("formations:session_detail", pk=pk)
 
 
 @login_required
@@ -432,8 +592,12 @@ def participant_create(request, session_pk):
         if form.is_valid():
             participant = form.save(commit=False)
             participant.session = session
+            participant.attended = True  # default present
             participant.save()
             messages.success(request, f'Participant "{participant.full_name}" ajouté.')
+            # Stay on participant create to allow bulk adding
+            if request.POST.get("add_another"):
+                return redirect("formations:participant_create", session_pk=session_pk)
             return redirect("formations:session_detail", pk=session_pk)
     else:
         form = ParticipantForm(session=session)
@@ -490,9 +654,12 @@ def participant_delete(request, pk):
         return redirect("formations:session_detail", pk=session.pk)
     if request.method == "POST":
         name = participant.full_name
+        # Also delete corresponding copies in child sessions
+        if session.is_primary and participant.source_participant is None:
+            participant.copies.all().delete()
         participant.delete()
         messages.success(request, f'Participant "{name}" supprimé.')
-        return redirect("formations:participant_list")
+        return redirect("formations:session_detail", pk=session.pk)
     return render(
         request,
         "formations/participant_confirm_delete.html",
@@ -502,7 +669,6 @@ def participant_delete(request, pk):
 
 @login_required
 def participant_import(request, session_pk):
-    """CSV/Excel import with spec §13.3 rules: stop at capacity, skip duplicates, report 3 counts."""
     session = get_object_or_404(Session, pk=session_pk)
     if not request.user.profile.can_manage_sessions():
         messages.error(request, "Vous n'avez pas les permissions nécessaires.")
@@ -604,7 +770,8 @@ def update_score(request, pk):
 @login_required
 def fill_rate(request):
     sessions_qs = (
-        Session.objects.select_related("formation", "client", "trainer")
+        Session.objects.filter(is_primary=True)
+        .select_related("formation", "client", "trainer")
         .exclude(status="cancelled")
         .order_by("-date_start")
     )
@@ -643,9 +810,12 @@ def participant_list(request):
         sort = "last_name"
     db_field = PARTICIPANT_SORT[sort]
 
-    qs = Participant.objects.select_related(
-        "session", "session__formation", "employer_client"
-    ).order_by(db_field if dir_ == "asc" else "-" + db_field)
+    # Only primary session participants in the global list
+    qs = (
+        Participant.objects.filter(session__is_primary=True)
+        .select_related("session", "session__formation", "employer_client")
+        .order_by(db_field if dir_ == "asc" else "-" + db_field)
+    )
 
     q = request.GET.get("q", "").strip()
     if q:
@@ -669,9 +839,5 @@ def participant_list(request):
     return render(
         request,
         "formations/participant_list.html",
-        {
-            "page_obj": page_obj,
-            "sort": sort,
-            "dir": dir_,
-        },
+        {"page_obj": page_obj, "sort": sort, "dir": dir_},
     )

@@ -26,6 +26,18 @@
     </div>
   </div>
 
+  <!-- Info banner about auto-generation -->
+  {% if not session %}
+  <div class="alert alert-info mb-4" style="font-size:13.5px;">
+    <i class="bi bi-magic"></i>
+    <div>
+      Après avoir créé la session et ajouté les participants, cliquez sur
+      <strong>« Générer les sessions suivantes »</strong> pour auto-créer les jours 2–N
+      avec les mêmes participants et les notes pré-remplies à la moitié de la note maximale.
+    </div>
+  </div>
+  {% endif %}
+
   <div class="row justify-content-center">
     <div class="col-lg-8 col-md-10">
       <div class="isi-card">
@@ -45,8 +57,8 @@
             </div>
             {% endif %}
 
-            <!-- ── Formation + Client ─────────────────────── -->
-            <div class="form-section-title">Formation & Client</div>
+            <!-- ── Formation + Capacité ──────────────────── -->
+            <div class="form-section-title">Formation &amp; Client</div>
             <div class="row g-3 mb-3">
               <div class="col-sm-8">
                 <label class="form-label" for="{{ form.formation.id_for_label }}">Formation <span style="color:var(--danger);">*</span></label>
@@ -54,7 +66,9 @@
                   class="form-select {% if form.formation.errors %}is-invalid{% endif %}" required>
                   <option value="">— Sélectionner une formation —</option>
                   {% for f in form.fields.formation.queryset %}
-                  <option value="{{ f.pk }}" data-max="{{ f.max_participants }}"
+                  <option value="{{ f.pk }}"
+                    data-max="{{ f.max_participants }}"
+                    data-days="{{ f.duration_days }}"
                     {% if form.formation.value|stringformat:"s" == f.pk|stringformat:"s" %}selected{% endif %}>
                     {{ f.code }} — {{ f.title }}
                   </option>
@@ -67,9 +81,22 @@
                 <input type="number" id="{{ form.capacity.id_for_label }}" name="{{ form.capacity.html_name }}"
                   value="{{ form.capacity.value|default_if_none:'' }}"
                   class="form-control {% if form.capacity.errors %}is-invalid{% endif %}" min="1" required />
+                <div id="capacity-hint" style="font-size:11.5px;color:var(--text-muted);margin-top:4px;display:none;">
+                  Max formation : <span id="capacity-max">—</span>
+                </div>
                 {% if form.capacity.errors %}<div class="invalid-feedback d-block">{{ form.capacity.errors|join:", " }}</div>{% endif %}
               </div>
             </div>
+
+            <!-- Duration hint -->
+            <div id="duration-hint" style="display:none;margin-bottom:12px;">
+              <div class="alert alert-info" style="font-size:13px;padding:10px 14px;">
+                <i class="bi bi-calendar3-fill"></i>
+                Cette formation dure <strong id="duration-days-val">—</strong> jour(s).
+                Les sessions suivantes (jours 2–N) seront générées automatiquement.
+              </div>
+            </div>
+
             <div class="row g-3 mb-3">
               <div class="col-sm-6">
                 <label class="form-label" for="{{ form.client.id_for_label }}">Client <span style="color:var(--danger);">*</span></label>
@@ -95,7 +122,7 @@
               </div>
             </div>
 
-            <!-- ── Planification ──────────────────────────── -->
+            <!-- ── Dates ──────────────────────────────────── -->
             <div class="section-divider"></div>
             <div class="form-section-title">Planification</div>
             <div class="row g-3 mb-3">
@@ -148,21 +175,19 @@
 
             <!-- ── Références internes ─────────────────────── -->
             <div class="section-divider"></div>
-            <div class="form-section-title">Références internes</div>
+            <div class="form-section-title">Références internes <span style="font-size:12px;font-weight:400;color:var(--text-muted);">(optionnel)</span></div>
             <div class="row g-3">
               <div class="col-sm-6">
                 <label class="form-label" for="{{ form.specialty_code.id_for_label }}">Code spécialité</label>
                 <input type="text" id="{{ form.specialty_code.id_for_label }}" name="{{ form.specialty_code.html_name }}"
                   value="{{ form.specialty_code.value|default_if_none:'' }}"
-                  class="form-control {% if form.specialty_code.errors %}is-invalid{% endif %}"
-                  placeholder="Ex : HSE-01" style="font-family:monospace;" />
+                  class="form-control" placeholder="Ex : HSE-01" style="font-family:monospace;" />
               </div>
               <div class="col-sm-6">
                 <label class="form-label" for="{{ form.session_number.id_for_label }}">Numéro de session</label>
                 <input type="text" id="{{ form.session_number.id_for_label }}" name="{{ form.session_number.html_name }}"
                   value="{{ form.session_number.value|default_if_none:'' }}"
-                  class="form-control {% if form.session_number.errors %}is-invalid{% endif %}"
-                  placeholder="Ex : S-2025-001" style="font-family:monospace;" />
+                  class="form-control" placeholder="Ex : S-2025-001" style="font-family:monospace;" />
               </div>
             </div>
 
@@ -181,6 +206,83 @@
 {% endblock %}
 
 {% block extra_scripts %}
+<script>
+// ── Formation AJAX pre-population ────────────────────────────────────────
+(function () {
+  const API_BASE = "{% url 'formations:formation_api' pk=0 %}".replace('/0/', '/');
+  const formationSel = document.getElementById("{{ form.formation.id_for_label }}");
+  const capacityInput = document.getElementById("{{ form.capacity.id_for_label }}");
+  const clientSel    = document.getElementById("{{ form.client.id_for_label }}");
+  const trainerSel   = document.getElementById("{{ form.trainer.id_for_label }}");
+  const dateStart    = document.getElementById("{{ form.date_start.id_for_label }}");
+  const dateEnd      = document.getElementById("{{ form.date_end.id_for_label }}");
+  const capHint      = document.getElementById("capacity-hint");
+  const capMax       = document.getElementById("capacity-max");
+  const durHint      = document.getElementById("duration-hint");
+  const durVal       = document.getElementById("duration-days-val");
+
+  // Utility: select an <option> by value
+  function selectOption(sel, val) {
+    if (!sel || val == null) return;
+    for (let i = 0; i < sel.options.length; i++) {
+      if (sel.options[i].value == String(val)) {
+        sel.selectedIndex = i;
+        return;
+      }
+    }
+  }
+
+  function fetchAndFill(pk) {
+    if (!pk) { capHint.style.display = "none"; durHint.style.display = "none"; return; }
+    fetch(API_BASE + pk + "/")
+      .then(r => r.json())
+      .then(data => {
+        // Capacity
+        if (capacityInput && !capacityInput.value) {
+          capacityInput.value = data.max_participants;
+        }
+        if (capMax) capMax.textContent = data.max_participants;
+        if (capHint) capHint.style.display = "";
+
+        // Duration hint
+        if (durVal) durVal.textContent = data.duration_days;
+        if (durHint) durHint.style.display = data.duration_days > 1 ? "" : "none";
+
+        // Dates — fill only if empty
+        const today = data.today;
+        if (dateStart && !dateStart.value) dateStart.value = today;
+        if (dateEnd && !dateEnd.value)   dateEnd.value = today;
+
+        // Client / trainer — pre-fill from last session of this formation
+        if (clientSel && clientSel.value === "") selectOption(clientSel, data.last_client_id);
+        if (trainerSel && trainerSel.value === "") selectOption(trainerSel, data.last_trainer_id);
+      })
+      .catch(() => {});
+  }
+
+  if (formationSel) {
+    formationSel.addEventListener("change", function () {
+      fetchAndFill(this.value);
+    });
+
+    // On page load — if a formation is already selected (from ?formation= or edit mode)
+    if (formationSel.value) {
+      // Show capacity hint from data-* attrs without API call
+      const opt = formationSel.options[formationSel.selectedIndex];
+      const maxPart = opt ? opt.dataset.max : null;
+      const days = opt ? opt.dataset.days : null;
+      if (maxPart && capMax) { capMax.textContent = maxPart; capHint.style.display = ""; }
+      if (days && parseInt(days) > 1 && durVal) {
+        durVal.textContent = days; durHint.style.display = "";
+      }
+      // Fetch for client/trainer hints only if fields are empty
+      if ((clientSel && clientSel.value === "") || (trainerSel && trainerSel.value === "")) {
+        fetchAndFill(formationSel.value);
+      }
+    }
+  }
+})();
+</script>
 <script>
 window.FORMATION_MAX_PARTICIPANTS = {
   {% for f in form.fields.formation.queryset %}"{{ f.pk }}": {{ f.max_participants }}{% if not forloop.last %},{% endif %}{% endfor %}

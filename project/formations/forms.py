@@ -32,6 +32,8 @@ class FormationForm(forms.ModelForm):
             "base_price",
             "evaluation_type",
             "passing_score",
+            "max_score",
+            "min_attendance_days",
             "produces_certificate",
             "accreditation_body",
             "legal_references",
@@ -43,16 +45,30 @@ class FormationForm(forms.ModelForm):
             "code": forms.TextInput(attrs={"class": "form-control"}),
             "category": forms.Select(attrs={"class": "form-select"}),
             "description": forms.Textarea(attrs={"class": "form-control", "rows": 4}),
-            "duration_days": forms.NumberInput(attrs={"class": "form-control"}),
-            "duration_hours": forms.NumberInput(attrs={"class": "form-control"}),
-            "min_participants": forms.NumberInput(attrs={"class": "form-control"}),
-            "max_participants": forms.NumberInput(attrs={"class": "form-control"}),
+            "duration_days": forms.NumberInput(
+                attrs={"class": "form-control", "min": "1"}
+            ),
+            "duration_hours": forms.NumberInput(
+                attrs={"class": "form-control", "min": "1"}
+            ),
+            "min_participants": forms.NumberInput(
+                attrs={"class": "form-control", "min": "1"}
+            ),
+            "max_participants": forms.NumberInput(
+                attrs={"class": "form-control", "min": "1"}
+            ),
             "base_price": forms.NumberInput(
                 attrs={"class": "form-control", "step": "0.01"}
             ),
             "evaluation_type": forms.Select(attrs={"class": "form-select"}),
             "passing_score": forms.NumberInput(
-                attrs={"class": "form-control", "step": "0.01"}
+                attrs={"class": "form-control", "step": "0.01", "min": "0"}
+            ),
+            "max_score": forms.NumberInput(
+                attrs={"class": "form-control", "step": "0.01", "min": "0.01"}
+            ),
+            "min_attendance_days": forms.NumberInput(
+                attrs={"class": "form-control", "min": "1"}
             ),
             "produces_certificate": forms.CheckboxInput(
                 attrs={"class": "form-check-input"}
@@ -76,6 +92,18 @@ class FormationForm(forms.ModelForm):
         max_p = cleaned_data.get("max_participants")
         if min_p and max_p and min_p > max_p:
             raise ValidationError("Le minimum ne peut pas être supérieur au maximum.")
+        passing = cleaned_data.get("passing_score")
+        max_s = cleaned_data.get("max_score")
+        if passing is not None and max_s is not None and passing > max_s:
+            raise ValidationError(
+                "La note de passage ne peut pas dépasser la note maximale."
+            )
+        duration = cleaned_data.get("duration_days")
+        min_att = cleaned_data.get("min_attendance_days")
+        if duration and min_att and min_att > duration:
+            raise ValidationError(
+                "La présence minimale ne peut pas dépasser la durée de la formation."
+            )
         return cleaned_data
 
 
@@ -109,7 +137,7 @@ class SessionForm(forms.ModelForm):
             "location_type": forms.Select(attrs={"class": "form-select"}),
             "room": forms.Select(attrs={"class": "form-select"}),
             "external_location": forms.TextInput(attrs={"class": "form-control"}),
-            "capacity": forms.NumberInput(attrs={"class": "form-control"}),
+            "capacity": forms.NumberInput(attrs={"class": "form-control", "min": "1"}),
             "specialty_code": forms.TextInput(attrs={"class": "form-control"}),
             "session_number": forms.TextInput(attrs={"class": "form-control"}),
         }
@@ -122,6 +150,8 @@ class SessionForm(forms.ModelForm):
         self.fields["room"].queryset = Room.objects.filter(is_active=True)
         self.fields["room"].required = False
         self.fields["external_location"].required = False
+        # committee_members not shown in form; managed separately
+        self.fields.pop("committee_members", None)
 
         if self.instance.pk and self.instance.formation_id:
             self.fields["capacity"].initial = self.instance.formation.max_participants
@@ -159,7 +189,7 @@ class ParticipantForm(forms.ModelForm):
             "place_of_birth_ar",
             "job_title",
             "employer",
-            "employer_client",  # spec §10.4
+            "employer_client",
             "phone",
             "email",
             "notes",
@@ -198,7 +228,6 @@ class ParticipantForm(forms.ModelForm):
         cleaned_data = super().clean()
         first_name = cleaned_data.get("first_name")
         last_name = cleaned_data.get("last_name")
-
         if self.session and first_name and last_name:
             existing = Participant.objects.filter(
                 session=self.session,
@@ -210,6 +239,35 @@ class ParticipantForm(forms.ModelForm):
                     "Un participant avec ce nom existe déjà dans cette session."
                 )
         return cleaned_data
+
+
+class ExamScoreForm(forms.Form):
+    """Bulk exam score entry form for all primary-session participants."""
+
+    def __init__(self, *args, **kwargs):
+        self.session = kwargs.pop("session", None)
+        super().__init__(*args, **kwargs)
+        if self.session:
+            max_score = float(self.session.formation.max_score)
+            for participant in self.session.participant_set.filter(
+                attended=True
+            ).order_by("last_name", "first_name"):
+                self.fields[f"exam_{participant.id}"] = forms.DecimalField(
+                    label=participant.full_name,
+                    max_digits=5,
+                    decimal_places=2,
+                    min_value=0,
+                    max_value=max_score,
+                    required=False,
+                    initial=participant.exam_score,
+                    widget=forms.NumberInput(
+                        attrs={
+                            "class": "form-control score-input",
+                            "step": "0.25",
+                            "placeholder": f"/ {max_score:g}",
+                        }
+                    ),
+                )
 
 
 class SessionStatusForm(forms.Form):
@@ -225,7 +283,6 @@ class SessionStatusForm(forms.Form):
     def __init__(self, *args, **kwargs):
         self.session = kwargs.pop("session", None)
         super().__init__(*args, **kwargs)
-
         if self.session:
             valid = [
                 (s, l)
@@ -238,13 +295,10 @@ class SessionStatusForm(forms.Form):
         cleaned_data = super().clean()
         new_status = cleaned_data.get("new_status")
         cancellation_reason = cleaned_data.get("cancellation_reason")
-
         if new_status == "cancelled" and not cancellation_reason:
             raise ValidationError("Une raison d'annulation est requise.")
-
         if self.session and not self.session.can_transition_to(new_status):
             raise ValidationError(f"Transition vers '{new_status}' non autorisée.")
-
         return cleaned_data
 
 
@@ -252,7 +306,6 @@ class AttendanceForm(forms.Form):
     def __init__(self, *args, **kwargs):
         self.session = kwargs.pop("session", None)
         super().__init__(*args, **kwargs)
-
         if self.session:
             for participant in self.session.participant_set.all():
                 self.fields[f"participant_{participant.id}"] = forms.BooleanField(
@@ -267,34 +320,34 @@ class ScoreForm(forms.Form):
     def __init__(self, *args, **kwargs):
         self.session = kwargs.pop("session", None)
         super().__init__(*args, **kwargs)
-
         if self.session:
             eval_type = self.session.formation.evaluation_type
+            max_score = float(self.session.formation.max_score)
             for participant in self.session.participant_set.all():
                 if eval_type in ["theory_only", "both"]:
                     self.fields[f"theory_{participant.id}"] = forms.DecimalField(
                         label=f"{participant.full_name} - Théorique",
-                        max_digits=4,
+                        max_digits=5,
                         decimal_places=2,
                         min_value=0,
-                        max_value=20,
+                        max_value=max_score,
                         required=False,
                         initial=participant.score_theory,
                         widget=forms.NumberInput(
-                            attrs={"class": "form-control", "step": "0.01"}
+                            attrs={"class": "form-control", "step": "0.25"}
                         ),
                     )
                 if eval_type in ["practice_only", "both"]:
                     self.fields[f"practice_{participant.id}"] = forms.DecimalField(
                         label=f"{participant.full_name} - Pratique",
-                        max_digits=4,
+                        max_digits=5,
                         decimal_places=2,
                         min_value=0,
-                        max_value=20,
+                        max_value=max_score,
                         required=False,
                         initial=participant.score_practice,
                         widget=forms.NumberInput(
-                            attrs={"class": "form-control", "step": "0.01"}
+                            attrs={"class": "form-control", "step": "0.25"}
                         ),
                     )
 

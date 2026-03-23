@@ -22,37 +22,38 @@
   <div class="page-header">
     <div class="page-header-left">
       <h1>{{ title }}</h1>
-      <p class="page-subtitle">{% if formation %}Modification{% else %}Création{% endif %} d'une formation dans le catalogue</p>
+      <p class="page-subtitle">{% if formation %}Modification{% else %}Création{% endif %} d'une formation au catalogue</p>
     </div>
   </div>
 
-  <div class="row justify-content-center">
-    <div class="col-lg-9 col-md-11">
-      <div class="isi-card">
-        <div class="isi-card-header">
-          <div class="card-icon amber"><i class="bi bi-mortarboard-fill"></i></div>
-          <h3>{{ title }}</h3>
-        </div>
-        <div class="isi-card-body">
-          <form method="post" novalidate class="isi-dirty-guard">
-            {% csrf_token %}
+  <form method="post" novalidate class="isi-dirty-guard">
+    {% csrf_token %}
 
-            {% if form.non_field_errors %}
-            <div class="alert alert-danger mb-4">
-              <i class="bi bi-exclamation-circle-fill"></i>
-              <div>{% for e in form.non_field_errors %}<div>{{ e }}</div>{% endfor %}</div>
-            </div>
-            {% endif %}
+    {% if form.non_field_errors %}
+    <div class="alert alert-danger mb-4">
+      <i class="bi bi-exclamation-circle-fill"></i>
+      <div>{% for e in form.non_field_errors %}<div>{{ e }}</div>{% endfor %}</div>
+    </div>
+    {% endif %}
 
-            <!-- ── Identification ──────────────────────────── -->
-            <div class="form-section-title">Identification</div>
+    <div class="row g-4">
+
+      <!-- Left column -->
+      <div class="col-lg-8">
+
+        <!-- Identification -->
+        <div class="isi-card mb-4">
+          <div class="isi-card-header">
+            <div class="card-icon amber"><i class="bi bi-mortarboard-fill"></i></div>
+            <h3>Identification</h3>
+          </div>
+          <div class="isi-card-body">
             <div class="row g-3 mb-3">
               <div class="col-sm-8">
                 <label class="form-label" for="{{ form.title.id_for_label }}">Titre (FR) <span style="color:var(--danger);">*</span></label>
                 <input type="text" id="{{ form.title.id_for_label }}" name="{{ form.title.html_name }}"
                   value="{{ form.title.value|default_if_none:'' }}"
-                  class="form-control {% if form.title.errors %}is-invalid{% endif %}"
-                  placeholder="Intitulé complet de la formation" required />
+                  class="form-control {% if form.title.errors %}is-invalid{% endif %}" required />
                 {% if form.title.errors %}<div class="invalid-feedback d-block">{{ form.title.errors|join:", " }}</div>{% endif %}
               </div>
               <div class="col-sm-4">
@@ -60,42 +61,54 @@
                 <input type="text" id="{{ form.code.id_for_label }}" name="{{ form.code.html_name }}"
                   value="{{ form.code.value|default_if_none:'' }}"
                   class="form-control {% if form.code.errors %}is-invalid{% endif %}"
-                  placeholder="Ex : ATEX-01" required
-                  style="text-transform:uppercase;font-family:monospace;"
-                  {% if formation and formation.session_set.exists %}readonly title="Code non modifiable (sessions existantes)"{% endif %} />
+                  style="font-family:monospace;text-transform:uppercase;" required />
                 {% if form.code.errors %}<div class="invalid-feedback d-block">{{ form.code.errors|join:", " }}</div>{% endif %}
               </div>
             </div>
-            <div class="row g-3 mb-3">
-              <div class="col-sm-8">
-                <label class="form-label" for="{{ form.title_ar.id_for_label }}">Titre (AR) <span style="color:var(--danger);">*</span></label>
-                <input type="text" id="{{ form.title_ar.id_for_label }}" name="{{ form.title_ar.html_name }}"
-                  value="{{ form.title_ar.value|default_if_none:'' }}"
-                  class="form-control {% if form.title_ar.errors %}is-invalid{% endif %}"
-                  placeholder="العنوان بالعربية" dir="rtl" required />
-                {% if form.title_ar.errors %}<div class="invalid-feedback d-block">{{ form.title_ar.errors|join:", " }}</div>{% endif %}
-              </div>
-              <div class="col-sm-4">
+            <div class="mb-3">
+              <label class="form-label" for="{{ form.title_ar.id_for_label }}">Titre (AR) <span style="color:var(--danger);">*</span></label>
+              <input type="text" id="{{ form.title_ar.id_for_label }}" name="{{ form.title_ar.html_name }}"
+                value="{{ form.title_ar.value|default_if_none:'' }}"
+                class="form-control {% if form.title_ar.errors %}is-invalid{% endif %}"
+                dir="rtl" placeholder="العنوان بالعربية" required />
+              {% if form.title_ar.errors %}<div class="invalid-feedback d-block">{{ form.title_ar.errors|join:", " }}</div>{% endif %}
+            </div>
+            <div class="row g-3">
+              <div class="col-sm-6">
                 <label class="form-label" for="{{ form.category.id_for_label }}">Catégorie</label>
-                <select id="{{ form.category.id_for_label }}" name="{{ form.category.html_name }}"
-                  class="form-select {% if form.category.errors %}is-invalid{% endif %}">
-                  <option value="">— Sélectionner —</option>
-                  {% for val, label in form.fields.category.choices %}{% if val %}<option value="{{ val }}" {% if form.category.value|stringformat:"s" == val|stringformat:"s" %}selected{% endif %}>{{ label }}</option>{% endif %}{% endfor %}
+                <select id="{{ form.category.id_for_label }}" name="{{ form.category.html_name }}" class="form-select">
+                  <option value="">— Aucune catégorie —</option>
+                  {% for c in form.fields.category.queryset %}
+                  <option value="{{ c.pk }}" {% if form.category.value|stringformat:"s" == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>
+                  {% endfor %}
                 </select>
-                {% if form.category.errors %}<div class="invalid-feedback d-block">{{ form.category.errors|join:", " }}</div>{% endif %}
+              </div>
+              <div class="col-sm-6">
+                <label class="form-label" for="{{ form.evaluation_type.id_for_label }}">Type d'évaluation <span style="color:var(--danger);">*</span></label>
+                <select id="{{ form.evaluation_type.id_for_label }}" name="{{ form.evaluation_type.html_name }}"
+                  class="form-select {% if form.evaluation_type.errors %}is-invalid{% endif %}" required>
+                  {% for val, label in form.fields.evaluation_type.choices %}
+                  <option value="{{ val }}" {% if form.evaluation_type.value == val %}selected{% endif %}>{{ label }}</option>
+                  {% endfor %}
+                </select>
+                {% if form.evaluation_type.errors %}<div class="invalid-feedback d-block">{{ form.evaluation_type.errors|join:", " }}</div>{% endif %}
               </div>
             </div>
-            <div class="mb-3">
+            <div class="mb-0 mt-3">
               <label class="form-label" for="{{ form.description.id_for_label }}">Description</label>
               <textarea id="{{ form.description.id_for_label }}" name="{{ form.description.html_name }}"
-                class="form-control {% if form.description.errors %}is-invalid{% endif %}"
-                rows="4" placeholder="Programme, objectifs pédagogiques…">{{ form.description.value|default_if_none:'' }}</textarea>
-              {% if form.description.errors %}<div class="invalid-feedback d-block">{{ form.description.errors|join:", " }}</div>{% endif %}
+                class="form-control" rows="4" placeholder="Objectifs, contenu, public cible…">{{ form.description.value|default_if_none:'' }}</textarea>
             </div>
+          </div>
+        </div>
 
-            <!-- ── Configuration ──────────────────────────── -->
-            <div class="section-divider"></div>
-            <div class="form-section-title">Configuration</div>
+        <!-- Duration + Capacity -->
+        <div class="isi-card mb-4">
+          <div class="isi-card-header">
+            <div class="card-icon blue"><i class="bi bi-clock-history"></i></div>
+            <h3>Durée &amp; Capacité</h3>
+          </div>
+          <div class="isi-card-body">
             <div class="row g-3 mb-3">
               <div class="col-sm-3">
                 <label class="form-label" for="{{ form.duration_days.id_for_label }}">Durée (jours) <span style="color:var(--danger);">*</span></label>
@@ -126,91 +139,133 @@
                 {% if form.max_participants.errors %}<div class="invalid-feedback d-block">{{ form.max_participants.errors|join:", " }}</div>{% endif %}
               </div>
             </div>
-            <div class="row g-3 mb-3">
+            <div class="row g-3">
               <div class="col-sm-4">
                 <label class="form-label" for="{{ form.base_price.id_for_label }}">Prix de base (DA)</label>
                 <input type="number" id="{{ form.base_price.id_for_label }}" name="{{ form.base_price.html_name }}"
                   value="{{ form.base_price.value|default_if_none:'' }}"
-                  class="form-control {% if form.base_price.errors %}is-invalid{% endif %}" step="0.01" min="0" />
-                {% if form.base_price.errors %}<div class="invalid-feedback d-block">{{ form.base_price.errors|join:", " }}</div>{% endif %}
+                  class="form-control" step="0.01" min="0" placeholder="0.00" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Evaluation + Scoring -->
+        <div class="isi-card mb-4">
+          <div class="isi-card-header">
+            <div class="card-icon green"><i class="bi bi-clipboard2-check-fill"></i></div>
+            <h3>Évaluation &amp; Certification</h3>
+          </div>
+          <div class="isi-card-body">
+            <div class="row g-3 mb-3">
+              <div class="col-sm-4">
+                <label class="form-label" for="{{ form.max_score.id_for_label }}">
+                  Note maximale <span style="color:var(--danger);">*</span>
+                  <span style="font-size:11px;color:var(--text-muted);font-weight:400;">(référence de l'examen)</span>
+                </label>
+                <input type="number" id="{{ form.max_score.id_for_label }}" name="{{ form.max_score.html_name }}"
+                  value="{{ form.max_score.value|default:'20' }}"
+                  class="form-control {% if form.max_score.errors %}is-invalid{% endif %}"
+                  step="0.01" min="0.01" required />
+                {% if form.max_score.errors %}<div class="invalid-feedback d-block">{{ form.max_score.errors|join:", " }}</div>{% endif %}
               </div>
               <div class="col-sm-4">
-                <label class="form-label" for="{{ form.evaluation_type.id_for_label }}">Type d'évaluation <span style="color:var(--danger);">*</span></label>
-                <select id="{{ form.evaluation_type.id_for_label }}" name="{{ form.evaluation_type.html_name }}"
-                  class="form-select {% if form.evaluation_type.errors %}is-invalid{% endif %}"
-                  {% if formation and formation.session_set.exists %}disabled title="Non modifiable (sessions existantes)"{% endif %}>
-                  {% for val, label in form.fields.evaluation_type.choices %}<option value="{{ val }}" {% if form.evaluation_type.value == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
-                </select>
-                {% if formation and formation.session_set.exists %}
-                <input type="hidden" name="{{ form.evaluation_type.html_name }}" value="{{ form.evaluation_type.value }}" />
-                {% endif %}
-                {% if form.evaluation_type.errors %}<div class="invalid-feedback d-block">{{ form.evaluation_type.errors|join:", " }}</div>{% endif %}
-              </div>
-              <div class="col-sm-4">
-                <label class="form-label" for="{{ form.passing_score.id_for_label }}">Note de passage (/ 20) <span style="color:var(--danger);">*</span></label>
+                <label class="form-label" for="{{ form.passing_score.id_for_label }}">
+                  Note de passage <span style="color:var(--danger);">*</span>
+                </label>
                 <input type="number" id="{{ form.passing_score.id_for_label }}" name="{{ form.passing_score.html_name }}"
-                  value="{{ form.passing_score.value|default_if_none:'10' }}"
-                  class="form-control {% if form.passing_score.errors %}is-invalid{% endif %}" step="0.01" min="0" max="20" required />
+                  value="{{ form.passing_score.value|default:'10' }}"
+                  class="form-control {% if form.passing_score.errors %}is-invalid{% endif %}"
+                  step="0.01" min="0" required />
                 {% if form.passing_score.errors %}<div class="invalid-feedback d-block">{{ form.passing_score.errors|join:", " }}</div>{% endif %}
               </div>
-            </div>
-            <div class="form-check form-switch mb-3">
-              <input class="form-check-input" type="checkbox" id="{{ form.produces_certificate.id_for_label }}"
-                name="{{ form.produces_certificate.html_name }}" style="width:40px;height:22px;"
-                {% if form.produces_certificate.value %}checked{% endif %} />
-              <label class="form-check-label" for="{{ form.produces_certificate.id_for_label }}"
-                style="font-size:14px;font-weight:500;color:var(--text-primary);margin-left:8px;margin-top:2px;">
-                Produit une attestation de formation
-              </label>
-            </div>
-
-            <!-- ── Références légales ──────────────────────── -->
-            <div class="section-divider"></div>
-            <div class="form-section-title">Références légales</div>
-            <div class="row g-3 mb-3">
-              <div class="col-sm-5">
-                <label class="form-label" for="{{ form.accreditation_body.id_for_label }}">Organisme d'agrément</label>
-                <input type="text" id="{{ form.accreditation_body.id_for_label }}" name="{{ form.accreditation_body.html_name }}"
-                  value="{{ form.accreditation_body.value|default_if_none:'' }}"
-                  class="form-control {% if form.accreditation_body.errors %}is-invalid{% endif %}"
-                  placeholder="Ex : Ministère du travail…" />
-                {% if form.accreditation_body.errors %}<div class="invalid-feedback d-block">{{ form.accreditation_body.errors|join:", " }}</div>{% endif %}
-              </div>
-              <div class="col-sm-7">
-                <label class="form-label" for="{{ form.legal_references.id_for_label }}">Textes de référence</label>
-                <textarea id="{{ form.legal_references.id_for_label }}" name="{{ form.legal_references.html_name }}"
-                  class="form-control {% if form.legal_references.errors %}is-invalid{% endif %}"
-                  rows="3" placeholder="Décrets, arrêtés, circulaires…">{{ form.legal_references.value|default_if_none:'' }}</textarea>
-                {% if form.legal_references.errors %}<div class="invalid-feedback d-block">{{ form.legal_references.errors|join:", " }}</div>{% endif %}
+              <div class="col-sm-4">
+                <label class="form-label" for="{{ form.min_attendance_days.id_for_label }}">
+                  Présence minimale (jours) <span style="color:var(--danger);">*</span>
+                  <span style="font-size:11px;color:var(--text-muted);font-weight:400;">(pour attestation)</span>
+                </label>
+                <input type="number" id="{{ form.min_attendance_days.id_for_label }}" name="{{ form.min_attendance_days.html_name }}"
+                  value="{{ form.min_attendance_days.value|default:'1' }}"
+                  class="form-control {% if form.min_attendance_days.errors %}is-invalid{% endif %}"
+                  min="1" required />
+                {% if form.min_attendance_days.errors %}<div class="invalid-feedback d-block">{{ form.min_attendance_days.errors|join:", " }}</div>{% endif %}
               </div>
             </div>
+            <div class="alert alert-info" style="font-size:13px;">
+              <i class="bi bi-info-circle-fill"></i>
+              L'attestation est délivrée si la note d'examen final ≥ note de passage <strong>ET</strong> jours de présence ≥ présence minimale.
+              La note de journée est pré-remplie à <code>note maximale ÷ 2</code>.
+            </div>
+            <div class="form-check form-switch mt-2">
+              <input type="checkbox" id="{{ form.produces_certificate.id_for_label }}" name="{{ form.produces_certificate.html_name }}"
+                class="form-check-input" role="switch" {% if form.produces_certificate.value %}checked{% endif %} />
+              <label class="form-check-label" for="{{ form.produces_certificate.id_for_label }}">Produit une attestation</label>
+            </div>
+          </div>
+        </div>
 
-            <!-- ── Statut ──────────────────────────────────── -->
-            <div class="section-divider"></div>
-            <div class="form-section-title">Statut</div>
+        <!-- Legal references -->
+        <div class="isi-card mb-4">
+          <div class="isi-card-header">
+            <div class="card-icon purple"><i class="bi bi-file-text-fill"></i></div>
+            <h3>Références légales</h3>
+          </div>
+          <div class="isi-card-body">
+            <div class="mb-3">
+              <label class="form-label" for="{{ form.accreditation_body.id_for_label }}">Organisme d'agrément</label>
+              <input type="text" id="{{ form.accreditation_body.id_for_label }}" name="{{ form.accreditation_body.html_name }}"
+                value="{{ form.accreditation_body.value|default_if_none:'' }}"
+                class="form-control" placeholder="Ex : DEFP, ONSS…" />
+            </div>
+            <div>
+              <label class="form-label" for="{{ form.legal_references.id_for_label }}">Références légales</label>
+              <textarea id="{{ form.legal_references.id_for_label }}" name="{{ form.legal_references.html_name }}"
+                class="form-control" rows="3"
+                placeholder="Décrets, arrêtés, textes réglementaires…">{{ form.legal_references.value|default_if_none:'' }}</textarea>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Right column: status + actions -->
+      <div class="col-lg-4">
+        <div class="isi-card mb-4" style="position:sticky;top:80px;">
+          <div class="isi-card-header">
+            <div class="card-icon amber"><i class="bi bi-gear-fill"></i></div>
+            <h3>Statut &amp; Publication</h3>
+          </div>
+          <div class="isi-card-body">
             <div class="form-check form-switch mb-4">
-              <input class="form-check-input" type="checkbox" id="{{ form.is_active.id_for_label }}"
-                name="{{ form.is_active.html_name }}" style="width:40px;height:22px;"
-                {% if form.is_active.value %}checked{% endif %} />
-              <label class="form-check-label" for="{{ form.is_active.id_for_label }}"
-                style="font-size:14px;font-weight:500;color:var(--text-primary);margin-left:8px;margin-top:2px;">
-                Formation active
-              </label>
+              <input type="checkbox" id="{{ form.is_active.id_for_label }}" name="{{ form.is_active.html_name }}"
+                class="form-check-input" role="switch" {% if form.is_active.value %}checked{% endif %} />
+              <label class="form-check-label" for="{{ form.is_active.id_for_label }}">Formation active</label>
             </div>
-
+            {% if formation %}
             <div class="section-divider"></div>
-            <div style="display:flex;gap:12px;">
-              <button type="submit" class="btn btn-amber">
-                <i class="bi bi-check-lg"></i> {% if formation %}Enregistrer les modifications{% else %}Créer la formation{% endif %}
-              </button>
-              {% if formation %}<a href="{% url 'formations:formation_detail' formation.pk %}" class="btn btn-ghost"><i class="bi bi-arrow-left"></i> Annuler</a>
-              {% else %}<a href="{% url 'formations:formation_list' %}" class="btn btn-ghost"><i class="bi bi-arrow-left"></i> Annuler</a>{% endif %}
-            </div>
-          </form>
+            <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">Sessions associées</div>
+            <div style="font-size:24px;font-weight:700;color:var(--accent);">{{ formation.session_set.count }}</div>
+            {% endif %}
+            <div class="section-divider"></div>
+            <button type="submit" class="btn btn-amber w-100" style="justify-content:center;">
+              <i class="bi bi-check-lg"></i>
+              {% if formation %}Enregistrer les modifications{% else %}Créer la formation{% endif %}
+            </button>
+            {% if formation %}
+            <a href="{% url 'formations:formation_detail' formation.pk %}" class="btn btn-ghost w-100 mt-2" style="justify-content:center;">
+              <i class="bi bi-arrow-left"></i> Annuler
+            </a>
+            {% else %}
+            <a href="{% url 'formations:formation_list' %}" class="btn btn-ghost w-100 mt-2" style="justify-content:center;">
+              <i class="bi bi-arrow-left"></i> Annuler
+            </a>
+            {% endif %}
+          </div>
         </div>
       </div>
+
     </div>
-  </div>
+  </form>
 </div>
 {% endblock %}
 

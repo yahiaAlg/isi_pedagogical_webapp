@@ -50,11 +50,25 @@ class Formation(models.Model):
         max_length=20, choices=EVALUATION_CHOICES, verbose_name="Type d'évaluation"
     )
     passing_score = models.DecimalField(
-        max_digits=4,
+        max_digits=5,
         decimal_places=2,
         default=Decimal("10.00"),
         verbose_name="Note de passage",
     )
+    # Spec §new — maximum score for exam (default 20, modifiable)
+    max_score = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal("20.00"),
+        verbose_name="Note maximale de l'examen",
+    )
+    # Spec §new — minimum attendance days required for certification
+    min_attendance_days = models.IntegerField(
+        default=1,
+        verbose_name="Présence minimale (jours)",
+        help_text="Nombre minimum de jours de présence requis pour obtenir l'attestation",
+    )
+
     produces_certificate = models.BooleanField(
         default=True, verbose_name="Produit une attestation"
     )
@@ -86,10 +100,20 @@ class Formation(models.Model):
             raise ValidationError("La durée en jours doit être positive")
         if self.duration_hours is not None and self.duration_hours <= 0:
             raise ValidationError("La durée en heures doit être positive")
-        if self.passing_score is not None and (
-            self.passing_score < 0 or self.passing_score > 20
-        ):
-            raise ValidationError("La note de passage doit être entre 0 et 20")
+        if self.passing_score is not None and self.max_score is not None:
+            if self.passing_score < 0 or self.passing_score > self.max_score:
+                raise ValidationError(
+                    f"La note de passage doit être entre 0 et {self.max_score}"
+                )
+        if self.max_score is not None and self.max_score <= 0:
+            raise ValidationError("La note maximale doit être positive")
+        if self.min_attendance_days is not None:
+            if self.min_attendance_days < 1:
+                raise ValidationError("La présence minimale doit être au moins 1 jour")
+            if self.duration_days and self.min_attendance_days > self.duration_days:
+                raise ValidationError(
+                    "La présence minimale ne peut pas dépasser la durée de la formation"
+                )
 
         # Spec §15.1 — block deactivation when active/planned sessions exist
         if self.pk and not self.is_active:
@@ -158,6 +182,21 @@ class Session(models.Model):
         max_length=20, blank=True, verbose_name="Numéro de session"
     )
 
+    # Spec §new — session group support
+    is_primary = models.BooleanField(
+        default=True,
+        verbose_name="Session principale",
+        help_text="Session principale (jour 1). Les sessions suivantes sont auto-générées.",
+    )
+    parent_session = models.ForeignKey(
+        "self",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="child_sessions",
+        verbose_name="Session parente",
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -189,10 +228,8 @@ class Session(models.Model):
             raise ValidationError(
                 "Une salle doit être sélectionnée pour une formation à l'institut"
             )
-
         if self.location_type == "on_site" and not self.external_location:
             raise ValidationError("Le lieu externe doit être spécifié")
-
         if self.status == "cancelled" and not self.cancellation_reason:
             raise ValidationError("Une raison d'annulation est requise")
 
@@ -233,6 +270,37 @@ class Session(models.Model):
     @property
     def duration_days(self):
         return (self.date_end - self.date_start).days + 1
+
+    @property
+    def group_sessions_count(self):
+        """Total sessions in this group (primary + children)."""
+        if self.is_primary:
+            return 1 + self.child_sessions.count()
+        if self.parent_session:
+            return 1 + self.parent_session.child_sessions.count()
+        return 1
+
+    @property
+    def day_number(self):
+        """1-based day number within the session group."""
+        if self.is_primary:
+            return 1
+        if self.parent_session:
+            siblings = list(
+                self.parent_session.child_sessions.order_by("date_start").values_list(
+                    "pk", flat=True
+                )
+            )
+            try:
+                return siblings.index(self.pk) + 2
+            except ValueError:
+                return None
+        return 1
+
+    @property
+    def child_sessions_generated(self):
+        """True if child sessions have already been generated."""
+        return self.child_sessions.exists()
 
     # ---------------------------------------------------------------- helpers
     def can_add_participants(self):
@@ -287,18 +355,38 @@ class Participant(models.Model):
     )
 
     score_theory = models.DecimalField(
-        max_digits=4,
+        max_digits=5,
         decimal_places=2,
         null=True,
         blank=True,
-        verbose_name="Note théorique",
+        verbose_name="Note théorique (journée)",
     )
     score_practice = models.DecimalField(
-        max_digits=4,
+        max_digits=5,
         decimal_places=2,
         null=True,
         blank=True,
-        verbose_name="Note pratique",
+        verbose_name="Note pratique (journée)",
+    )
+
+    # Spec §new — final exam score; only meaningful for primary-session participants
+    exam_score = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Note d'examen final",
+        help_text="Note de l'examen final — détermine la réussite et l'attribution de l'attestation",
+    )
+
+    # Spec §new — link back to primary-session participant (null for primary participants)
+    source_participant = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="copies",
+        verbose_name="Participant source",
     )
 
     # certificate_number: auto-assigned at generation time only — never user-editable
@@ -332,20 +420,29 @@ class Participant(models.Model):
             ):
                 self.certificate_number = old.certificate_number
         else:
-            # Spec §15.2 — certificate number never assignable through a form;
-            # strip any externally supplied value at creation time
+            # Spec §15.2 — certificate number never assignable through a form
             self.certificate_number = ""
         super().save(*args, **kwargs)
 
     def clean(self):
+        max_s = self.session.formation.max_score if self.pk else Decimal("20.00")
+        try:
+            max_s = self.session.formation.max_score
+        except Exception:
+            max_s = Decimal("20.00")
+
         if self.score_theory is not None and (
-            self.score_theory < 0 or self.score_theory > 20
+            self.score_theory < 0 or self.score_theory > max_s
         ):
-            raise ValidationError("La note théorique doit être entre 0 et 20")
+            raise ValidationError(f"La note théorique doit être entre 0 et {max_s}")
         if self.score_practice is not None and (
-            self.score_practice < 0 or self.score_practice > 20
+            self.score_practice < 0 or self.score_practice > max_s
         ):
-            raise ValidationError("La note pratique doit être entre 0 et 20")
+            raise ValidationError(f"La note pratique doit être entre 0 et {max_s}")
+        if self.exam_score is not None and (
+            self.exam_score < 0 or self.exam_score > max_s
+        ):
+            raise ValidationError(f"La note d'examen doit être entre 0 et {max_s}")
 
     # ---------------------------------------------------------------- computed
     @property
@@ -359,38 +456,55 @@ class Participant(models.Model):
         return ""
 
     @property
+    def days_attended(self):
+        """
+        For primary participants: total days attended across the whole session group.
+        For child participants: 1 if attended, 0 otherwise.
+        """
+        if not self.session.is_primary:
+            return 1 if self.attended else 0
+        # Own attendance + copies in child sessions
+        own = 1 if self.attended else 0
+        copies_present = self.copies.filter(attended=True).count()
+        return own + copies_present
+
+    @property
+    def total_group_sessions(self):
+        """Total session days in this group."""
+        return self.session.group_sessions_count
+
+    @property
     def result(self):
         """
-        Spec §10.4 — computed, never stored.
-        absent → if not attended
-        pending → scores not yet entered
-        passed / failed → based on score vs passing_score
+        Spec §new — result logic updated:
+        - Non-primary participants: simple attendance indicator only.
+        - Primary participants: based on exam_score + days_attended.
         """
-        if not self.attended:
-            return "absent"
+        if not self.session.is_primary:
+            # Child session: attendance only
+            return "present" if self.attended else "absent"
 
         formation = self.session.formation
-        eval_type = formation.evaluation_type
-        passing_score = formation.passing_score
+        min_days = formation.min_attendance_days
 
-        need_theory = eval_type in ["theory_only", "both"]
-        need_practice = eval_type in ["practice_only", "both"]
+        # Check attendance threshold
+        if self.days_attended < min_days:
+            return "absent"
 
-        if need_theory and self.score_theory is None:
+        # Check exam score
+        if self.exam_score is None:
             return "pending"
-        if need_practice and self.score_practice is None:
-            return "pending"
 
-        passed = True
-        if need_theory and self.score_theory < passing_score:
-            passed = False
-        if need_practice and self.score_practice < passing_score:
-            passed = False
-
-        return "passed" if passed else "failed"
+        if self.exam_score >= formation.passing_score:
+            return "passed"
+        return "failed"
 
     def can_receive_certificate(self):
-        return self.result == "passed" and self.session.formation.produces_certificate
+        return (
+            self.result == "passed"
+            and self.session.formation.produces_certificate
+            and self.session.is_primary
+        )
 
     def assign_certificate_number(self):
         if self.certificate_number or not self.can_receive_certificate():
