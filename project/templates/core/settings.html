@@ -1,0 +1,225 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Paramètres — ISI Gestion Pédagogique{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'core/css/base.css' %}" />{% endblock %}
+
+{% block breadcrumb %}
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="#">Configuration</a>
+<i class="bi bi-chevron-right bc-sep"></i>
+{% endblock %}
+{% block breadcrumb_active %}<span class="bc-active">Paramètres</span>{% endblock %}
+
+{% block content %}
+<div class="fade-up">
+  <div class="page-header">
+    <div class="page-header-left">
+      <h1>Paramètres de l'institut</h1>
+      <p class="page-subtitle">Informations générales, légales et d'agrément</p>
+    </div>
+  </div>
+
+  {% if not instance %}
+  <div class="alert alert-warning mb-4">
+    <i class="bi bi-exclamation-triangle-fill"></i>
+    <span>Aucune configuration n'existe encore. Renseignez les informations ci-dessous pour initialiser l'institut.</span>
+  </div>
+  {% endif %}
+
+  <div class="row justify-content-center">
+    <div class="col-lg-9">
+      <form method="post" enctype="multipart/form-data" novalidate>
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+        <div class="alert alert-danger mb-4">
+          <i class="bi bi-exclamation-circle-fill"></i>
+          <div>{% for e in form.non_field_errors %}<div>{{ e }}</div>{% endfor %}</div>
+        </div>
+        {% endif %}
+
+        <!-- ── Informations générales ─────────────────────── -->
+        <div class="isi-card mb-4">
+          <div class="isi-card-header">
+            <div class="card-icon amber"><i class="bi bi-building-fill"></i></div>
+            <h3>Informations générales</h3>
+          </div>
+          <div class="isi-card-body">
+            <div class="form-section-title">Identité</div>
+
+            <div class="row g-3 mb-3">
+              <div class="col-sm-6">
+                <label class="form-label">Nom de l'institut (FR) <span style="color:var(--danger);">*</span></label>
+                <input type="text" name="name_fr" value="{{ form.name_fr.value|default_if_none:'' }}"
+                  class="form-control {% if form.name_fr.errors %}is-invalid{% endif %}"
+                  placeholder="Institut de Sécurité Industrielle" required />
+                {% if form.name_fr.errors %}<div class="invalid-feedback d-block">{{ form.name_fr.errors|join:", " }}</div>{% endif %}
+              </div>
+              <div class="col-sm-6">
+                <label class="form-label">Nom de l'institut (AR) <span style="color:var(--danger);">*</span></label>
+                <input type="text" name="name_ar" value="{{ form.name_ar.value|default_if_none:'' }}"
+                  class="form-control {% if form.name_ar.errors %}is-invalid{% endif %}"
+                  placeholder="معهد السلامة الصناعية" dir="rtl" required />
+                {% if form.name_ar.errors %}<div class="invalid-feedback d-block">{{ form.name_ar.errors|join:", " }}</div>{% endif %}
+              </div>
+            </div>
+
+            <div class="row g-3 mb-3">
+              <div class="col-12">
+                <label class="form-label">Adresse <span style="color:var(--danger);">*</span></label>
+                <textarea name="address" class="form-control {% if form.address.errors %}is-invalid{% endif %}"
+                  rows="2" placeholder="Adresse complète de l'institut">{{ form.address.value|default_if_none:'' }}</textarea>
+                {% if form.address.errors %}<div class="invalid-feedback d-block">{{ form.address.errors|join:", " }}</div>{% endif %}
+              </div>
+            </div>
+
+            <div class="row g-3 mb-3">
+              <div class="col-sm-4">
+                <label class="form-label">Téléphone</label>
+                <div class="input-icon-wrap">
+                  <i class="bi bi-telephone-fill"></i>
+                  <input type="text" name="phone" value="{{ form.phone.value|default_if_none:'' }}"
+                    class="form-control" placeholder="+213 XX XX XX XX" />
+                </div>
+              </div>
+              <div class="col-sm-4">
+                <label class="form-label">Email</label>
+                <div class="input-icon-wrap">
+                  <i class="bi bi-envelope-fill"></i>
+                  <input type="email" name="email" value="{{ form.email.value|default_if_none:'' }}"
+                    class="form-control" placeholder="contact@isi.dz" />
+                </div>
+              </div>
+              <div class="col-sm-4">
+                <label class="form-label">Logo</label>
+                <input type="file" name="logo" class="form-control" accept="image/*" />
+                {% if instance and instance.logo %}
+                <div style="font-size:11.5px;color:var(--text-muted);margin-top:5px;">
+                  <i class="bi bi-check-circle-fill" style="color:var(--success);"></i> Logo actuel : {{ instance.logo.name|slice:"10:" }}
+                </div>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Informations légales ───────────────────────── -->
+        <div class="isi-card mb-4">
+          <div class="isi-card-header">
+            <div class="card-icon blue"><i class="bi bi-file-earmark-text-fill"></i></div>
+            <h3>Informations légales</h3>
+          </div>
+          <div class="isi-card-body">
+            <div class="row g-3 mb-3">
+              <div class="col-sm-3">
+                <label class="form-label">NIF <span style="color:var(--danger);">*</span></label>
+                <input type="text" name="nif" value="{{ form.nif.value|default_if_none:'' }}"
+                  class="form-control {% if form.nif.errors %}is-invalid{% endif %}"
+                  style="font-family:monospace;" />
+                {% if form.nif.errors %}<div class="invalid-feedback d-block">{{ form.nif.errors|join:", " }}</div>{% endif %}
+              </div>
+              <div class="col-sm-3">
+                <label class="form-label">NIS <span style="color:var(--danger);">*</span></label>
+                <input type="text" name="nis" value="{{ form.nis.value|default_if_none:'' }}"
+                  class="form-control {% if form.nis.errors %}is-invalid{% endif %}"
+                  style="font-family:monospace;" />
+                {% if form.nis.errors %}<div class="invalid-feedback d-block">{{ form.nis.errors|join:", " }}</div>{% endif %}
+              </div>
+              <div class="col-sm-3">
+                <label class="form-label">RC <span style="color:var(--danger);">*</span></label>
+                <input type="text" name="rc" value="{{ form.rc.value|default_if_none:'' }}"
+                  class="form-control {% if form.rc.errors %}is-invalid{% endif %}"
+                  style="font-family:monospace;" />
+                {% if form.rc.errors %}<div class="invalid-feedback d-block">{{ form.rc.errors|join:", " }}</div>{% endif %}
+              </div>
+              <div class="col-sm-3">
+                <label class="form-label">Article d'imposition <span style="color:var(--danger);">*</span></label>
+                <input type="text" name="article_imposition" value="{{ form.article_imposition.value|default_if_none:'' }}"
+                  class="form-control {% if form.article_imposition.errors %}is-invalid{% endif %}"
+                  style="font-family:monospace;" />
+                {% if form.article_imposition.errors %}<div class="invalid-feedback d-block">{{ form.article_imposition.errors|join:", " }}</div>{% endif %}
+              </div>
+            </div>
+            <div class="row g-3">
+              <div class="col-sm-6">
+                <label class="form-label">RIB <span style="color:var(--danger);">*</span></label>
+                <input type="text" name="rib" value="{{ form.rib.value|default_if_none:'' }}"
+                  class="form-control {% if form.rib.errors %}is-invalid{% endif %}"
+                  style="font-family:monospace;" placeholder="Relevé d'identité bancaire" />
+                {% if form.rib.errors %}<div class="invalid-feedback d-block">{{ form.rib.errors|join:", " }}</div>{% endif %}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Agrément ───────────────────────────────────── -->
+        <div class="isi-card mb-4">
+          <div class="isi-card-header">
+            <div class="card-icon green"><i class="bi bi-patch-check-fill"></i></div>
+            <h3>Agrément</h3>
+          </div>
+          <div class="isi-card-body">
+            <div class="row g-3">
+              <div class="col-sm-5">
+                <label class="form-label">Numéro d'agrément <span style="color:var(--danger);">*</span></label>
+                <input type="text" name="accreditation_number" value="{{ form.accreditation_number.value|default_if_none:'' }}"
+                  class="form-control {% if form.accreditation_number.errors %}is-invalid{% endif %}"
+                  style="font-family:monospace;" />
+                {% if form.accreditation_number.errors %}<div class="invalid-feedback d-block">{{ form.accreditation_number.errors|join:", " }}</div>{% endif %}
+              </div>
+              <div class="col-sm-4">
+                <label class="form-label">Date d'agrément <span style="color:var(--danger);">*</span></label>
+                <input type="date" name="accreditation_date"
+                  value="{{ form.accreditation_date.value|date:'Y-m-d'|default_if_none:'' }}"
+                  class="form-control {% if form.accreditation_date.errors %}is-invalid{% endif %}" />
+                {% if form.accreditation_date.errors %}<div class="invalid-feedback d-block">{{ form.accreditation_date.errors|join:", " }}</div>{% endif %}
+              </div>
+              <div class="col-sm-3">
+                <label class="form-label">Numéro IF <span style="color:var(--danger);">*</span></label>
+                <input type="text" name="if_number" value="{{ form.if_number.value|default_if_none:'' }}"
+                  class="form-control {% if form.if_number.errors %}is-invalid{% endif %}"
+                  style="font-family:monospace;" />
+                {% if form.if_number.errors %}<div class="invalid-feedback d-block">{{ form.if_number.errors|join:", " }}</div>{% endif %}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Pied de page ───────────────────────────────── -->
+        <div class="isi-card mb-4">
+          <div class="isi-card-header">
+            <div class="card-icon amber"><i class="bi bi-text-paragraph"></i></div>
+            <h3>Pied de page documents</h3>
+          </div>
+          <div class="isi-card-body">
+            <div class="row g-3">
+              <div class="col-sm-6">
+                <label class="form-label">Pied de page (FR)</label>
+                <textarea name="footer_fr" class="form-control" rows="3"
+                  placeholder="Texte affiché en bas des documents officiels…">{{ form.footer_fr.value|default_if_none:'' }}</textarea>
+              </div>
+              <div class="col-sm-6">
+                <label class="form-label">Pied de page (AR)</label>
+                <textarea name="footer_ar" class="form-control" rows="3" dir="rtl"
+                  placeholder="النص الذي يظهر أسفل الوثائق الرسمية…">{{ form.footer_ar.value|default_if_none:'' }}</textarea>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div style="display:flex;gap:12px;">
+          <button type="submit" class="btn btn-amber">
+            <i class="bi bi-check-lg"></i> Enregistrer les paramètres
+          </button>
+          <a href="{% url 'core:dashboard' %}" class="btn btn-ghost">
+            <i class="bi bi-arrow-left"></i> Retour
+          </a>
+        </div>
+
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

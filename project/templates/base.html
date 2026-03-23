@@ -1,0 +1,284 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}ISI Gestion Pédagogique{% endblock %}</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet" />
+
+  <!-- Bootstrap 5.3.3 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+
+  <!-- Bootstrap Icons 1.11.3 -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
+
+  <!-- ISI Base Design System -->
+  <link rel="stylesheet" href="{% static 'core/css/base.css' %}" />
+
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SIDEBAR
+═══════════════════════════════════════════════════════════ -->
+<aside id="sidebar">
+
+  <!-- Brand -->
+  <a class="sidebar-brand" href="{% url 'core:dashboard' %}">
+    <div class="sidebar-brand-icon">
+      <i class="bi bi-mortarboard-fill"></i>
+    </div>
+    <div class="sidebar-brand-text">
+      <span class="sidebar-brand-name">ISI</span>
+      <span class="sidebar-brand-sub">Gestion Pédagogique</span>
+    </div>
+  </a>
+
+  <!-- Navigation -->
+  <nav class="sidebar-nav">
+
+    <!-- Vue d'ensemble -->
+    <span class="nav-label">Vue d'ensemble</span>
+
+    <a class="nav-item-link" href="{% url 'core:dashboard' %}" data-path="/"
+       {% if request.resolver_match.url_name == 'dashboard' and request.resolver_match.app_name == 'core' %}aria-current="page"{% endif %}>
+      <i class="bi bi-grid-1x2-fill"></i>
+      Tableau de bord
+    </a>
+
+    <!-- Pédagogie -->
+    <span class="nav-label">Pédagogie</span>
+
+    <!-- Formations -->
+    <a class="nav-item-link" href="#nav-formations" data-bs-toggle="collapse"
+       aria-expanded="{% if request.resolver_match.app_name == 'formations' %}true{% else %}false{% endif %}"
+       role="button">
+      <i class="bi bi-mortarboard-fill"></i>
+      Formations
+    </a>
+    <div class="nav-sub collapse {% if request.resolver_match.app_name == 'formations' %}show{% endif %}" id="nav-formations">
+      <a class="nav-item-link {% if request.resolver_match.url_name in 'formation_list,formation_detail,formation_create,formation_edit' %}active{% endif %}"
+         href="{% url 'formations:formation_list' %}" data-path="/formations/catalogue/">
+        <i class="bi bi-collection-fill"></i> Catalogue
+      </a>
+      <a class="nav-item-link {% if request.resolver_match.url_name in 'category_list,category_create,category_edit' %}active{% endif %}"
+         href="{% url 'formations:category_list' %}" data-path="/formations/categories/">
+        <i class="bi bi-tags-fill"></i> Catégories
+      </a>
+    </div>
+
+    <!-- Sessions -->
+    <a class="nav-item-link" href="#nav-sessions" data-bs-toggle="collapse"
+       aria-expanded="{% if request.resolver_match.app_name == 'formations' and request.resolver_match.url_name in 'session_list,session_detail,fill_rate' %}true{% else %}false{% endif %}"
+       role="button">
+      <i class="bi bi-calendar3-fill"></i>
+      Sessions
+    </a>
+    <div class="nav-sub collapse {% if request.resolver_match.app_name == 'formations' and request.resolver_match.url_name in 'session_list,session_detail,fill_rate' %}show{% endif %}" id="nav-sessions">
+      <a class="nav-item-link {% if request.resolver_match.url_name == 'session_list' %}active{% endif %}"
+         href="{% url 'formations:session_list' %}" data-path="/formations/sessions/">
+        <i class="bi bi-calendar3-fill"></i> Toutes les sessions
+      </a>
+      <a class="nav-item-link {% if request.resolver_match.url_name == 'fill_rate' and request.resolver_match.app_name == 'formations' %}active{% endif %}"
+         href="{% url 'formations:fill_rate' %}" data-path="/formations/fill-rate/">
+        <i class="bi bi-bar-chart-fill"></i> Taux de remplissage
+      </a>
+    </div>
+
+    <!-- Participants -->
+    <a class="nav-item-link {% if request.resolver_match.url_name == 'participant_list' %}active{% endif %}"
+       href="{% url 'formations:participant_list' %}" data-path="/formations/participants/">
+      <i class="bi bi-people-fill"></i>
+      Participants
+    </a>
+
+    <!-- Documents -->
+    <a class="nav-item-link" href="#nav-documents" data-bs-toggle="collapse"
+       aria-expanded="{% if request.resolver_match.app_name == 'documents' %}true{% else %}false{% endif %}"
+       role="button">
+      <i class="bi bi-file-earmark-richtext-fill"></i>
+      Documents
+    </a>
+    <div class="nav-sub collapse {% if request.resolver_match.app_name == 'documents' %}show{% endif %}" id="nav-documents">
+      <a class="nav-item-link {% if request.resolver_match.url_name == 'generate_batch_attestations' %}active{% endif %}"
+         href="{% url 'formations:session_list' %}" data-path="/documents/attestations/">
+        <i class="bi bi-patch-check-fill"></i> Attestations
+      </a>
+      <a class="nav-item-link {% if request.resolver_match.url_name == 'history' %}active{% endif %}"
+         href="{% url 'formations:session_list' %}" data-path="/documents/">
+        <i class="bi bi-file-earmark-text-fill"></i> Autres documents
+      </a>
+    </div>
+
+    <!-- Ressources -->
+    <span class="nav-label">Ressources</span>
+
+    <a class="nav-item-link {% if request.resolver_match.app_name == 'resources' and request.resolver_match.url_name == 'trainer_list' %}active{% endif %}"
+       href="{% url 'resources:trainer_list' %}" data-path="/resources/trainers/">
+      <i class="bi bi-person-fill-check"></i>
+      Formateurs
+    </a>
+
+    <a class="nav-item-link {% if request.resolver_match.app_name == 'clients' %}active{% endif %}"
+       href="{% url 'clients:client_list' %}" data-path="/clients/">
+      <i class="bi bi-building-fill"></i>
+      Clients
+    </a>
+
+    <!-- Analytique -->
+    {% if request.user.profile.is_staff_or_admin %}
+    <span class="nav-label">Analytique</span>
+    <a class="nav-item-link" href="#nav-reporting" data-bs-toggle="collapse"
+       aria-expanded="{% if request.resolver_match.app_name == 'reporting' %}true{% else %}false{% endif %}"
+       role="button">
+      <i class="bi bi-bar-chart-fill"></i>
+      Rapports
+    </a>
+    <div class="nav-sub collapse {% if request.resolver_match.app_name == 'reporting' %}show{% endif %}" id="nav-reporting">
+      <a class="nav-item-link {% if request.resolver_match.url_name == 'dashboard' and request.resolver_match.app_name == 'reporting' %}active{% endif %}"
+         href="{% url 'reporting:dashboard' %}" data-path="/reporting/">
+        <i class="bi bi-grid-1x2-fill"></i> Vue d'ensemble
+      </a>
+      <a class="nav-item-link {% if request.resolver_match.url_name == 'fill_rate' and request.resolver_match.app_name == 'reporting' %}active{% endif %}"
+         href="{% url 'reporting:fill_rate' %}" data-path="/reporting/fill-rate/">
+        <i class="bi bi-bar-chart-fill"></i> Taux de remplissage
+      </a>
+      <a class="nav-item-link {% if request.resolver_match.url_name == 'pass_rate' %}active{% endif %}"
+         href="{% url 'reporting:pass_rate' %}" data-path="/reporting/pass-rate/">
+        <i class="bi bi-clipboard2-check-fill"></i> Taux de réussite
+      </a>
+      <a class="nav-item-link {% if request.resolver_match.url_name == 'certificate_volume' %}active{% endif %}"
+         href="{% url 'reporting:certificate_volume' %}" data-path="/reporting/certificates/">
+        <i class="bi bi-patch-check-fill"></i> Attestations
+      </a>
+      <a class="nav-item-link {% if request.resolver_match.url_name == 'trainer_activity' %}active{% endif %}"
+         href="{% url 'reporting:trainer_activity' %}" data-path="/reporting/trainer-activity/">
+        <i class="bi bi-person-lines-fill"></i> Activité formateurs
+      </a>
+    </div>
+    {% endif %}
+
+    <!-- Configuration (admin only) -->
+    {% if request.user.profile.is_admin %}
+    <span class="nav-label">Configuration</span>
+
+    <a class="nav-item-link {% if request.resolver_match.app_name == 'accounts' and request.resolver_match.url_name == 'user_list' %}active{% endif %}"
+       href="{% url 'accounts:user_list' %}" data-path="/accounts/users/">
+      <i class="bi bi-people-fill"></i>
+      Utilisateurs
+    </a>
+
+    <a class="nav-item-link" href="{% url 'core:settings' %}" data-path="/core/settings/">
+      <i class="bi bi-gear-fill"></i>
+      Paramètres
+    </a>
+    {% endif %}
+
+  </nav>
+
+  <!-- Footer: current user -->
+  <div class="sidebar-footer">
+    <div class="sidebar-footer-inner">
+      <div class="sidebar-avatar">
+        {% if request.user.first_name and request.user.last_name %}
+          {{ request.user.first_name|slice:":1"|upper }}{{ request.user.last_name|slice:":1"|upper }}
+        {% else %}
+          {{ request.user.username|slice:":2"|upper }}
+        {% endif %}
+      </div>
+      <div class="sidebar-user-info">
+        <span class="sidebar-user-name">
+          {% if request.user.get_full_name %}{{ request.user.get_full_name }}{% else %}{{ request.user.username }}{% endif %}
+        </span>
+        <span class="sidebar-user-role">
+          {% if request.user.profile %}{{ request.user.profile.get_role_display }}{% endif %}
+        </span>
+      </div>
+      <div class="sidebar-footer-actions">
+        <a href="{% url 'accounts:profile' %}" class="sidebar-icon-btn" title="Mon profil">
+          <i class="bi bi-person-circle"></i>
+        </a>
+        <a href="{% url 'accounts:logout' %}" class="sidebar-icon-btn" title="Déconnexion">
+          <i class="bi bi-box-arrow-right"></i>
+        </a>
+      </div>
+    </div>
+  </div>
+
+</aside>
+
+<!-- Mobile overlay -->
+<div id="sidebar-overlay"></div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     MAIN WRAP
+═══════════════════════════════════════════════════════════ -->
+<div id="main-wrap">
+
+  <!-- ── Topbar ────────────────────────────────────────────── -->
+  <header id="topbar">
+    <div class="topbar-left">
+      <!-- Mobile sidebar toggle -->
+      <button class="topbar-toggle" id="sidebarToggle" aria-label="Menu">
+        <i class="bi bi-list"></i>
+      </button>
+
+      <!-- Breadcrumb -->
+      <nav class="topbar-breadcrumb" aria-label="Fil d'Ariane">
+        <a href="{% url 'core:dashboard' %}"><i class="bi bi-house-fill" style="font-size:12px;"></i></a>
+        {% block breadcrumb %}{% endblock %}
+        {% if block.super or True %}
+          {% block breadcrumb_active %}<span class="bc-active">Tableau de bord</span>{% endblock %}
+        {% endif %}
+      </nav>
+    </div>
+
+    <!-- Topbar actions (right) -->
+    <div class="topbar-actions">
+      {% block topbar_actions %}{% endblock %}
+    </div>
+  </header>
+
+  <!-- ── Flash messages ────────────────────────────────────── -->
+  {% if messages %}
+  <div id="flash-container">
+    {% for message in messages %}
+    <div class="alert flash-msg
+      {% if message.tags == 'success' %}alert-success
+      {% elif message.tags == 'error' %}alert-danger
+      {% elif message.tags == 'warning' %}alert-warning
+      {% else %}alert-info{% endif %}" role="alert">
+      <i class="bi
+        {% if message.tags == 'success' %}bi-check-circle-fill
+        {% elif message.tags == 'error' %}bi-exclamation-circle-fill
+        {% elif message.tags == 'warning' %}bi-exclamation-triangle-fill
+        {% else %}bi-info-circle-fill{% endif %}"></i>
+      <span>{{ message }}</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- ── Page content ──────────────────────────────────────── -->
+  <main id="page-content">
+    {% block content %}{% endblock %}
+  </main>
+
+</div><!-- /#main-wrap -->
+
+<!-- Bootstrap 5.3.3 JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<!-- ISI Base JS -->
+<script src="{% static 'core/js/base.js' %}"></script>
+
+{% block extra_scripts %}{% endblock %}
+
+</body>
+</html>

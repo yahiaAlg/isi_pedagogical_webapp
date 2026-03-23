@@ -5,7 +5,6 @@ app_name = "formations"
 
 urlpatterns = [
     # ---------------------------------------------------------------- Category
-    # Spec §9.2 — "Manage categories: Admin only"
     path("categories/", views.category_list, name="category_list"),
     path("categories/create/", views.category_create, name="category_create"),
     path("categories/<int:pk>/edit/", views.category_edit, name="category_edit"),
@@ -26,6 +25,9 @@ urlpatterns = [
         name="session_attendance",
     ),
     path("sessions/<int:pk>/scores/", views.session_scores, name="session_scores"),
+    # ---------------------------------------------------------------- Fill rate + Participants (sidebar links)
+    path("fill-rate/", views.fill_rate, name="fill_rate"),
+    path("participants/", views.participant_list, name="participant_list"),
     # -------------------------------------------------------------- Participant
     path(
         "sessions/<int:session_pk>/participants/create/",
@@ -52,8 +54,6 @@ urlpatterns = [
         name="toggle_attendance",
     ),
     path(
-        "participants/<int:pk>/update-score/",
-        views.update_score,
-        name="update_score",
+        "participants/<int:pk>/update-score/", views.update_score, name="update_score"
     ),
 ]

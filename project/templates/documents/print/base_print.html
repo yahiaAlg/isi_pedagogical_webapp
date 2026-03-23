@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>{% block doc_title %}Document{% endblock %}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, sans-serif; font-size: 12px; color: #000; background: #fff; }
+
+  /* ── Screen wrapper ── */
+  .page-wrapper {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+  }
+  .print-btn-bar {
+    text-align: center;
+    padding: 16px;
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+    margin-bottom: 24px;
+  }
+  .print-btn {
+    background: #f59e0b; color: #0f172a; border: none;
+    padding: 10px 28px; border-radius: 8px; font-size: 14px;
+    font-weight: 700; cursor: pointer; margin-right: 10px;
+  }
+  .back-btn {
+    background: none; border: 1px solid #e2e8f0;
+    padding: 10px 20px; border-radius: 8px; font-size: 14px;
+    cursor: pointer; color: #64748b; text-decoration: none;
+  }
+
+  /* ── Document page ── */
+  .doc-page {
+    background: #fff;
+    padding: 30px 35px;
+    border: 1px solid #e2e8f0;
+    min-height: 1050px;
+    position: relative;
+  }
+
+  /* ── Letterhead ── */
+  .letterhead {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #1e3a5f;
+  }
+  .letterhead-logo {
+    width: 90px;
+    flex-shrink: 0;
+  }
+  .letterhead-logo img { width: 100%; }
+  .letterhead-logo-placeholder {
+    width: 90px; height: 90px;
+    border: 1px solid #ccc;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px; color: #999; text-align: center;
+  }
+  .letterhead-center {
+    flex: 1;
+    text-align: center;
+    padding: 0 20px;
+    line-height: 1.5;
+  }
+  .letterhead-center .state-line { font-size: 11px; }
+  .letterhead-center .inst-name { font-size: 13px; font-weight: bold; }
+  .letterhead-center .inst-sub  { font-size: 11px; }
+  .letterhead-center .accred    { font-size: 11px; font-weight: bold; }
+  .letterhead-center .dept      { font-size: 11px; }
+  .letterhead-ref {
+    text-align: right;
+    font-size: 10px;
+    min-width: 110px;
+    flex-shrink: 0;
+  }
+
+  /* ── Document title block ── */
+  .doc-title {
+    text-align: center;
+    margin: 18px 0 14px;
+    font-size: 15px;
+    font-weight: bold;
+  }
+  .doc-subtitle {
+    text-align: center;
+    font-size: 12px;
+    margin-bottom: 6px;
+  }
+  .doc-meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    margin-bottom: 14px;
+  }
+  .doc-meta-left { text-align: left; }
+  .doc-date { margin-bottom: 12px; font-size: 12px; }
+
+  /* ── Table ── */
+  table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+  th {
+    background: #1e3a5f; color: #fff;
+    padding: 6px 8px; font-size: 11px;
+    text-align: center; border: 1px solid #1e3a5f;
+  }
+  td {
+    padding: 6px 8px; font-size: 11px;
+    border: 1px solid #555; text-align: center;
+    min-height: 24px;
+  }
+  td.left { text-align: left; }
+  tr:nth-child(even) td { background: #f9f9f9; }
+
+  /* ── Footer signatures ── */
+  .sig-row {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 20px;
+    font-size: 12px;
+    font-weight: bold;
+  }
+
+  /* ── Page footer ── */
+  .doc-footer {
+    text-align: center;
+    font-size: 10px;
+    color: #555;
+    border-top: 1px solid #ccc;
+    padding-top: 8px;
+    margin-top: 30px;
+  }
+
+  /* ── Note box ── */
+  .note-box {
+    font-size: 11px;
+    margin-bottom: 12px;
+    line-height: 1.5;
+  }
+
+  /* ── @media print ── */
+  @media print {
+    .print-btn-bar { display: none !important; }
+    body { margin: 0; }
+    .page-wrapper { max-width: 100%; margin: 0; padding: 0; }
+    .doc-page {
+      border: none;
+      padding: 15mm 18mm;
+      min-height: auto;
+    }
+    @page {
+      size: A4;
+      margin: 0;
+    }
+  }
+</style>
+</head>
+<body>
+
+<div class="print-btn-bar no-print">
+  <button class="print-btn" onclick="window.print()">🖨 Imprimer</button>
+  <a class="back-btn" href="javascript:history.back()">← Retour</a>
+</div>
+
+<div class="page-wrapper">
+  <div class="doc-page">
+
+    <!-- Letterhead -->
+    <div class="letterhead">
+      <div class="letterhead-logo">
+        {% if institute and institute.logo %}
+        <img src="{{ institute.logo.url }}" alt="Logo" />
+        {% else %}
+        <div class="letterhead-logo-placeholder">LOGO</div>
+        {% endif %}
+      </div>
+      <div class="letterhead-center">
+        <div class="state-line">République Algérienne Démocratique et Populaire</div>
+        <div class="inst-sub">Établissement Privée pour l'enseignement professionnel</div>
+        {% if institute %}
+        <div class="inst-name">{{ institute.name_fr }}</div>
+        <div class="accred">
+          Agrément {{ institute.accreditation_number }} Date {{ institute.accreditation_date|date:"d/m/Y" }}
+        </div>
+        {% endif %}
+        <div class="dept">Département de la Gestion Pédagogique</div>
+      </div>
+      <div class="letterhead-ref">
+        {% if institute %}{{ institute.if_number }}{% endif %}
+      </div>
+    </div>
+
+    {% block doc_body %}{% endblock %}
+
+    <!-- Footer -->
+    <div class="doc-footer">
+      {% if institute %}
+        {{ institute.address }} |
+        Mobile : {{ institute.phone }} |
+        {{ institute.email }}
+      {% endif %}
+    </div>
+
+  </div>
+</div>
+
+<script>
+  // Auto-print after a short delay to allow rendering
+  // Remove or comment out if you prefer manual print only
+  // setTimeout(function(){ window.print(); }, 800);
+</script>
+</body>
+</html>

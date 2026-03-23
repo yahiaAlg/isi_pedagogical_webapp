@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Utilisateurs — ISI Gestion Pédagogique{% endblock %}
+
+{% block breadcrumb %}
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="{% url 'core:settings' %}">Configuration</a>
+<i class="bi bi-chevron-right bc-sep"></i>
+{% endblock %}
+{% block breadcrumb_active %}<span class="bc-active">Utilisateurs</span>{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% url 'accounts:user_create' %}" class="topbar-btn primary">
+  <i class="bi bi-plus-lg"></i> Nouvel utilisateur
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="fade-up">
+  <div class="page-header">
+    <div class="page-header-left">
+      <h1>Utilisateurs</h1>
+      <p class="page-subtitle">Gestion des comptes et des rôles d'accès</p>
+    </div>
+  </div>
+
+  <div class="isi-card">
+    <div class="isi-card-header">
+      <div class="card-icon amber"><i class="bi bi-people-fill"></i></div>
+      <h3>Comptes utilisateurs</h3>
+      <span class="header-count ms-1">({{ page_obj.paginator.count }})</span>
+      <a href="{% url 'accounts:user_create' %}" class="btn btn-amber btn-sm ms-auto">
+        <i class="bi bi-plus-lg"></i> Nouveau
+      </a>
+    </div>
+
+    {% if page_obj.object_list %}
+    <div style="overflow-x:auto;">
+      <table class="isi-table">
+        <thead>
+          <tr>
+            <th>Utilisateur</th>
+            <th>Rôle</th>
+            <th>Email</th>
+            <th>Téléphone</th>
+            <th>Dernière connexion</th>
+            <th>Statut</th>
+            <th style="text-align:right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for u in page_obj %}
+          <tr>
+            <td>
+              <div style="display:flex;align-items:center;gap:10px;">
+                <div style="
+                  width:34px;height:34px;border-radius:50%;flex-shrink:0;
+                  background:var(--accent-soft);border:1.5px solid var(--accent);
+                  font-family:var(--font-head);font-size:13px;font-weight:700;
+                  color:var(--accent);display:flex;align-items:center;justify-content:center;">
+                  {% if u.first_name and u.last_name %}{{ u.first_name|slice:":1"|upper }}{{ u.last_name|slice:":1"|upper }}
+                  {% else %}{{ u.username|slice:":2"|upper }}{% endif %}
+                </div>
+                <div>
+                  <div style="font-weight:600;">
+                    {% if u.get_full_name %}{{ u.get_full_name }}{% else %}{{ u.username }}{% endif %}
+                  </div>
+                  <span class="table-secondary-text">@{{ u.username }}</span>
+                </div>
+              </div>
+            </td>
+            <td>
+              {% if u.profile %}
+              <span class="isi-badge
+                {% if u.profile.role == 'admin' %}amber
+                {% elif u.profile.role == 'staff' %}blue
+                {% elif u.profile.role == 'trainer' %}green
+                {% else %}gray{% endif %}">
+                <i class="bi bi-circle-fill" style="font-size:7px;"></i>
+                {{ u.profile.get_role_display }}
+              </span>
+              {% else %}
+              <span class="isi-badge gray">—</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if u.email %}
+              <a href="mailto:{{ u.email }}" style="color:var(--text-muted);font-size:13px;text-decoration:none;">{{ u.email }}</a>
+              {% else %}<span style="color:var(--text-muted);">—</span>{% endif %}
+            </td>
+            <td>
+              {% if u.profile and u.profile.phone %}
+              <span style="font-size:13.5px;">{{ u.profile.phone }}</span>
+              {% else %}<span style="color:var(--text-muted);">—</span>{% endif %}
+            </td>
+            <td>
+              {% if u.last_login %}
+              <span style="font-size:13px;">{{ u.last_login|date:"d/m/Y" }}</span>
+              <span class="table-secondary-text">{{ u.last_login|date:"H:i" }}</span>
+              {% else %}<span style="color:var(--text-muted);font-size:13px;">Jamais</span>{% endif %}
+            </td>
+            <td>
+              {% if u.is_active %}
+              <span class="isi-badge green"><i class="bi bi-circle-fill" style="font-size:7px;"></i> Actif</span>
+              {% else %}
+              <span class="isi-badge red"><i class="bi bi-circle-fill" style="font-size:7px;"></i> Désactivé</span>
+              {% endif %}
+            </td>
+            <td>
+              <div style="display:flex;justify-content:flex-end;">
+                <a href="{% url 'accounts:user_profile' u.pk %}" class="btn btn-ghost btn-sm" title="Voir profil">
+                  <i class="bi bi-eye-fill"></i>
+                </a>
+                {% if u.pk != request.user.pk %}
+                <a href="{% url 'accounts:user_edit' u.pk %}" class="btn btn-ghost btn-sm" title="Modifier">
+                  <i class="bi bi-pencil-fill"></i>
+                </a>
+                <a href="{% url 'accounts:user_password_change' u.pk %}" class="btn btn-ghost btn-sm" title="Mot de passe">
+                  <i class="bi bi-key-fill"></i>
+                </a>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if page_obj.paginator.num_pages > 1 %}
+    <div class="isi-pagination">
+      <div class="isi-pagination-info">
+        Page {{ page_obj.number }} sur {{ page_obj.paginator.num_pages }} — {{ page_obj.paginator.count }} utilisateur{{ page_obj.paginator.count|pluralize }}
+      </div>
+      <div class="isi-pagination-controls">
+        {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}" class="btn btn-ghost btn-sm"><i class="bi bi-chevron-left"></i></a>{% endif %}
+        {% for num in page_obj.paginator.page_range %}
+          {% if num == page_obj.number %}<button class="btn btn-amber btn-sm" disabled>{{ num }}</button>
+          {% elif num >= page_obj.number|add:"-2" and num <= page_obj.number|add:"2" %}<a href="?page={{ num }}" class="btn btn-ghost btn-sm">{{ num }}</a>{% endif %}
+        {% endfor %}
+        {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}" class="btn btn-ghost btn-sm"><i class="bi bi-chevron-right"></i></a>{% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="empty-state">
+      <div class="empty-state-icon"><i class="bi bi-people-fill"></i></div>
+      <p class="empty-state-text">Aucun utilisateur trouvé.</p>
+      <a href="{% url 'accounts:user_create' %}" class="btn btn-amber">
+        <i class="bi bi-plus-lg"></i> Créer le premier utilisateur
+      </a>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ title }} — Utilisateurs — ISI Gestion Pédagogique{% endblock %}
+
+{% block breadcrumb %}
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="{% url 'core:settings' %}">Configuration</a>
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="{% url 'accounts:user_list' %}">Utilisateurs</a>
+<i class="bi bi-chevron-right bc-sep"></i>
+{% endblock %}
+{% block breadcrumb_active %}<span class="bc-active">{{ title }}</span>{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% url 'accounts:user_list' %}" class="topbar-btn"><i class="bi bi-arrow-left"></i> Retour</a>
+{% endblock %}
+
+{% block content %}
+<div class="fade-up">
+  <div class="page-header">
+    <div class="page-header-left">
+      <h1>{{ title }}</h1>
+      <p class="page-subtitle">{% if target_user %}Modification du compte{% else %}Création d'un nouveau compte{% endif %}</p>
+    </div>
+  </div>
+
+  <div class="row justify-content-center">
+    <div class="col-lg-6 col-md-8">
+      <div class="isi-card">
+        <div class="isi-card-header">
+          <div class="card-icon amber"><i class="bi bi-person-fill"></i></div>
+          <h3>{{ title }}</h3>
+        </div>
+        <div class="isi-card-body">
+          <form method="post" novalidate>
+            {% csrf_token %}
+
+            <!-- Section: Identité -->
+            <div class="form-section-title">Identité</div>
+
+            {% if not target_user %}
+            <div class="mb-3">
+              <label class="form-label">Nom d'utilisateur <span style="color:var(--danger);">*</span></label>
+              <div class="input-icon-wrap">
+                <i class="bi bi-at"></i>
+                <input type="text" name="username" class="form-control"
+                  value="{{ request.POST.username|default:'' }}"
+                  placeholder="identifiant_unique" autocomplete="off" required />
+              </div>
+            </div>
+            {% else %}
+            <div class="mb-3">
+              <label class="form-label">Nom d'utilisateur</label>
+              <input type="text" class="form-control" value="{{ target_user.username }}" disabled />
+            </div>
+            {% endif %}
+
+            <div class="row g-3 mb-3">
+              <div class="col-sm-6">
+                <label class="form-label">Prénom</label>
+                <input type="text" name="first_name" class="form-control"
+                  value="{% if target_user %}{{ target_user.first_name }}{% else %}{{ request.POST.first_name }}{% endif %}" />
+              </div>
+              <div class="col-sm-6">
+                <label class="form-label">Nom</label>
+                <input type="text" name="last_name" class="form-control"
+                  value="{% if target_user %}{{ target_user.last_name }}{% else %}{{ request.POST.last_name }}{% endif %}" />
+              </div>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label">Email</label>
+              <div class="input-icon-wrap">
+                <i class="bi bi-envelope-fill"></i>
+                <input type="email" name="email" class="form-control"
+                  value="{% if target_user %}{{ target_user.email }}{% else %}{{ request.POST.email }}{% endif %}"
+                  placeholder="utilisateur@isi.dz" />
+              </div>
+            </div>
+
+            <!-- Section: Rôle -->
+            <div class="section-divider"></div>
+            <div class="form-section-title">Rôle & Contact</div>
+
+            <div class="row g-3 mb-3">
+              <div class="col-sm-6">
+                <label class="form-label">Rôle <span style="color:var(--danger);">*</span></label>
+                <select name="role" class="form-select" required>
+                  {% for val, label in role_choices %}
+                  <option value="{{ val }}"
+                    {% if target_user and target_user.profile.role == val %}selected
+                    {% elif not target_user and request.POST.role == val %}selected{% endif %}>
+                    {{ label }}
+                  </option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-sm-6">
+                <label class="form-label">Téléphone</label>
+                <div class="input-icon-wrap">
+                  <i class="bi bi-telephone-fill"></i>
+                  <input type="text" name="phone" class="form-control"
+                    value="{% if target_user %}{{ target_user.profile.phone }}{% else %}{{ request.POST.phone }}{% endif %}"
+                    placeholder="+213 XX XX XX XX" />
+                </div>
+              </div>
+            </div>
+
+            {% if target_user %}
+            <!-- Status toggle (edit only) -->
+            <div class="form-check form-switch mb-3">
+              <input class="form-check-input" type="checkbox" id="is_active" name="is_active"
+                style="width:40px;height:22px;"
+                {% if target_user.is_active %}checked{% endif %}
+                {% if target_user.pk == request.user.pk %}disabled title="Impossible de se désactiver soi-même"{% endif %} />
+              <label class="form-check-label" for="is_active"
+                style="font-size:14px;font-weight:500;color:var(--text-primary);margin-left:8px;margin-top:2px;">
+                Compte actif
+              </label>
+            </div>
+            {% endif %}
+
+            <!-- Section: Mot de passe -->
+            <div class="section-divider"></div>
+            <div class="form-section-title">
+              {% if target_user %}Changer le mot de passe{% else %}Mot de passe{% endif %}
+            </div>
+            {% if target_user %}
+            <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">
+              <i class="bi bi-info-circle-fill" style="color:var(--accent);"></i>
+              Laissez vide pour conserver le mot de passe actuel.
+            </div>
+            {% endif %}
+
+            <div class="row g-3 mb-4">
+              <div class="col-sm-6">
+                <label class="form-label">
+                  {% if not target_user %}Mot de passe <span style="color:var(--danger);">*</span>{% else %}Nouveau mot de passe{% endif %}
+                </label>
+                <div class="input-icon-wrap">
+                  <i class="bi bi-lock-fill"></i>
+                  <input type="password" name="password1" id="id_password1" class="form-control"
+                    placeholder="Min. 8 caractères"
+                    {% if not target_user %}required{% endif %}
+                    autocomplete="new-password" style="padding-right:40px;" />
+                  <button type="button" onclick="togglePwd('id_password1','eye1')"
+                    style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-muted);cursor:pointer;padding:0;">
+                    <i id="eye1" class="bi bi-eye-fill"></i>
+                  </button>
+                </div>
+              </div>
+              <div class="col-sm-6">
+                <label class="form-label">
+                  {% if not target_user %}Confirmer <span style="color:var(--danger);">*</span>{% else %}Confirmer{% endif %}
+                </label>
+                <input type="password" name="password2" class="form-control"
+                  placeholder="Répétez le mot de passe"
+                  {% if not target_user %}required{% endif %}
+                  autocomplete="new-password" />
+              </div>
+            </div>
+
+            <div class="section-divider"></div>
+            <div style="display:flex;gap:12px;">
+              <button type="submit" class="btn btn-amber">
+                <i class="bi bi-check-lg"></i>
+                {% if target_user %}Enregistrer les modifications{% else %}Créer l'utilisateur{% endif %}
+              </button>
+              <a href="{% url 'accounts:user_list' %}" class="btn btn-ghost">
+                <i class="bi bi-arrow-left"></i> Annuler
+              </a>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function togglePwd(inputId, iconId) {
+  var inp = document.getElementById(inputId);
+  var ico = document.getElementById(iconId);
+  if (inp.type === 'password') { inp.type = 'text'; ico.className = 'bi bi-eye-slash-fill'; }
+  else { inp.type = 'password'; ico.className = 'bi bi-eye-fill'; }
+}
+</script>
+{% endblock %}

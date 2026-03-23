@@ -17,6 +17,11 @@ from decimal import Decimal
 from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand
 from django.db import transaction
+from documents.models import GeneratedDocument
+from formations.models import Participant, Session, Formation, Category
+from resources.models import Trainer, Room
+from clients.models import Client
+from core.models import InstituteInfo
 
 
 class Command(BaseCommand):
@@ -53,12 +58,6 @@ class Command(BaseCommand):
     # ------------------------------------------------------------------
     def _flush(self):
         self.stdout.write(self.style.WARNING("Flushing existing data…"))
-        from documents.models import GeneratedDocument
-        from formations.models import Participant, Session, Formation, Category
-        from resources.models import Trainer, Room
-        from clients.models import Client
-        from core.models import InstituteInfo
-        from accounts.models import UserProfile
 
         GeneratedDocument.objects.all().delete()
         Participant.objects.all().delete()

@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Sessions par client — Rapports — ISI Gestion Pédagogique{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'reporting/css/reporting.css' %}" />{% endblock %}
+
+{% block breadcrumb %}
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="{% url 'reporting:dashboard' %}">Rapports</a>
+<i class="bi bi-chevron-right bc-sep"></i>
+{% endblock %}
+{% block breadcrumb_active %}<span class="bc-active">Par client</span>{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% url 'reporting:dashboard' %}" class="topbar-btn"><i class="bi bi-arrow-left"></i> Rapports</a>
+{% endblock %}
+
+{% block content %}
+<div class="fade-up">
+  <div class="page-header">
+    <div class="page-header-left">
+      <h1>Sessions par client</h1>
+      <p class="page-subtitle">Activité et volume de participants par entreprise</p>
+    </div>
+  </div>
+
+  <div class="isi-card mb-4">
+    <div class="report-filter-bar">
+      <form method="get" novalidate>
+        <div class="row g-3 align-items-end">
+          <div class="col-sm-5 col-md-3">
+            <label class="form-label">Du</label>
+            <input type="date" name="date_from" class="form-control" value="{{ form.date_from.value|default_if_none:'' }}" />
+          </div>
+          <div class="col-sm-5 col-md-3">
+            <label class="form-label">Au</label>
+            <input type="date" name="date_to" class="form-control" value="{{ form.date_to.value|default_if_none:'' }}" />
+          </div>
+          <div class="col-sm-2 d-flex gap-2 align-items-end">
+            <button type="submit" class="btn btn-amber" style="justify-content:center;"><i class="bi bi-funnel-fill"></i> Filtrer</button>
+            <a href="{% url 'reporting:by_client' %}" class="btn btn-ghost"><i class="bi bi-x-lg"></i></a>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="isi-card">
+    <div class="isi-card-header">
+      <div class="card-icon amber"><i class="bi bi-building-fill"></i></div>
+      <h3>Clients</h3>
+      <span class="header-count ms-1">({{ rows|length }})</span>
+    </div>
+
+    {% if rows %}
+
+    {% if rows|length > 1 %}
+    <div class="chart-container" style="height:200px;">
+      <canvas id="byClientChart"></canvas>
+    </div>
+    {% endif %}
+
+    <div style="overflow-x:auto;">
+      <table class="isi-table">
+        <thead>
+          <tr>
+            <th>Client</th>
+            <th>Ville</th>
+            <th style="text-align:center;">Sessions</th>
+            <th style="text-align:center;">Participants</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+          <tr>
+            <td>
+              <a href="{% url 'clients:client_detail' row.client.pk %}" class="table-primary-link">{{ row.client.name }}</a>
+              {% if row.client.name_ar %}
+              <span class="table-secondary-text" dir="rtl">{{ row.client.name_ar }}</span>
+              {% endif %}
+            </td>
+            <td><span style="font-size:13.5px;color:var(--text-muted);">{{ row.client.city }}</span></td>
+            <td style="text-align:center;"><span style="font-family:var(--font-head);font-size:18px;font-weight:700;">{{ row.session_count }}</span></td>
+            <td style="text-align:center;"><span style="font-family:var(--font-head);font-size:18px;font-weight:700;">{{ row.total_participants }}</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <div class="empty-state-icon"><i class="bi bi-building-fill"></i></div>
+      <p class="empty-state-text">Aucune donnée pour la période sélectionnée.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script src="{% static 'reporting/js/reporting.js' %}"></script>
+{% if rows|length > 1 %}
+<script>
+buildBarChart(
+  "byClientChart",
+  [{% for row in rows|slice:":15" %}"{{ row.client.name|truncatechars:20 }}"{% if not forloop.last %},{% endif %}{% endfor %}],
+  [{% for row in rows|slice:":15" %}{{ row.session_count }}{% if not forloop.last %},{% endif %}{% endfor %}]
+);
+</script>
+{% endif %}
+{% endblock %}

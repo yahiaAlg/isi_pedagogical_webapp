@@ -1,0 +1,422 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ session.reference }} — Session — ISI Gestion Pédagogique{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'formations/css/formations.css' %}" />{% endblock %}
+
+{% block breadcrumb %}
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="{% url 'formations:session_list' %}">Sessions</a>
+<i class="bi bi-chevron-right bc-sep"></i>
+{% endblock %}
+{% block breadcrumb_active %}<span class="bc-active">{{ session.reference }}</span>{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% url 'formations:session_list' %}" class="topbar-btn"><i class="bi bi-arrow-left"></i> Retour</a>
+{% if request.user.profile.can_manage_sessions and session.can_edit %}
+<a href="{% url 'formations:session_edit' session.pk %}" class="topbar-btn"><i class="bi bi-pencil-fill"></i> Modifier</a>
+{% endif %}
+{% if request.user.profile.can_manage_sessions %}
+<a href="{% url 'formations:session_status' session.pk %}" class="topbar-btn primary"><i class="bi bi-arrow-repeat"></i> Changer statut</a>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="fade-up">
+
+  <div class="page-header">
+    <div class="page-header-left">
+      <h1>{{ session.reference }}</h1>
+      <p class="page-subtitle">{{ session.formation.title }}</p>
+    </div>
+  </div>
+
+  <!-- ── Lifecycle Track (spec §9.1) ────────────────────────── -->
+  <div class="isi-card mb-4">
+    <div class="lifecycle-track">
+      {% with s=session.status %}
+      <div class="lifecycle-step {% if s == 'planned' or s == 'in_progress' or s == 'completed' or s == 'archived' %}done{% endif %} {% if s == 'planned' %}current{% endif %} {% if s == 'cancelled' %}cancelled{% endif %}">
+        <div class="lifecycle-dot"></div>
+        <span class="lifecycle-label">Planifiée</span>
+      </div>
+      <div class="lifecycle-step {% if s == 'in_progress' or s == 'completed' or s == 'archived' %}done{% endif %} {% if s == 'in_progress' %}current{% endif %}" style="flex:1;">
+        <div class="lifecycle-dot"></div>
+        <span class="lifecycle-label">En cours</span>
+      </div>
+      <div class="lifecycle-step {% if s == 'completed' or s == 'archived' %}done{% endif %} {% if s == 'completed' %}current{% endif %}" style="flex:1;">
+        <div class="lifecycle-dot"></div>
+        <span class="lifecycle-label">Terminée</span>
+      </div>
+      <div class="lifecycle-step {% if s == 'archived' %}done current{% endif %}" style="flex:1;">
+        <div class="lifecycle-dot"></div>
+        <span class="lifecycle-label">Archivée</span>
+      </div>
+      {% if s == 'cancelled' %}
+      <div class="lifecycle-step cancelled" style="flex:1;">
+        <div class="lifecycle-dot"></div>
+        <span class="lifecycle-label">Annulée</span>
+      </div>
+      {% endif %}
+      {% endwith %}
+    </div>
+  </div>
+
+  <div class="row g-4">
+
+    <!-- Left: Session identity card -->
+    <div class="col-lg-4">
+      <div class="isi-card">
+        <div class="isi-card-header">
+          <div class="card-icon amber"><i class="bi bi-calendar3-fill"></i></div>
+          <h3>Détails</h3>
+        </div>
+        <div class="isi-card-body">
+
+          <!-- Status + fill rate -->
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
+            {% if session.status == 'planned' %}<span class="isi-badge blue"><i class="bi bi-circle-fill" style="font-size:7px;"></i> Planifiée</span>
+            {% elif session.status == 'in_progress' %}<span class="isi-badge amber"><i class="bi bi-circle-fill" style="font-size:7px;"></i> En cours</span>
+            {% elif session.status == 'completed' %}<span class="isi-badge green"><i class="bi bi-circle-fill" style="font-size:7px;"></i> Terminée</span>
+            {% elif session.status == 'cancelled' %}<span class="isi-badge red"><i class="bi bi-circle-fill" style="font-size:7px;"></i> Annulée</span>
+            {% elif session.status == 'archived' %}<span class="isi-badge gray"><i class="bi bi-circle-fill" style="font-size:7px;"></i> Archivée</span>{% endif %}
+            {% if session.available_spots == 0 %}
+            <span class="isi-badge red"><i class="bi bi-exclamation-circle-fill" style="font-size:8px;"></i> Complet</span>
+            {% else %}
+            <span class="isi-badge green"><i class="bi bi-circle-fill" style="font-size:7px;"></i> {{ session.available_spots }} place{{ session.available_spots|pluralize }} dispo.</span>
+            {% endif %}
+          </div>
+
+          <!-- Fill bar -->
+          <div class="fill-bar-wrap mb-3" style="gap:10px;">
+            <div class="fill-bar-track" style="flex:1;">
+              <div class="fill-bar-fill" style="width:{{ session.fill_rate }}%;background:{% if session.fill_rate >= 80 %}var(--success){% elif session.fill_rate >= 50 %}var(--accent){% else %}#94a3b8{% endif %};"></div>
+            </div>
+            <span class="fill-bar-label">{{ session.fill_rate }}%</span>
+          </div>
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">{{ session.participant_count }} / {{ session.capacity }} participants</div>
+
+          <div class="section-divider" style="margin:0 0 16px;"></div>
+
+          <ul class="detail-meta" style="font-size:13.5px;">
+            <li>
+              <span class="meta-label"><i class="bi bi-mortarboard-fill" style="margin-right:4px;"></i>Formation</span>
+              <span class="meta-value"><a href="{% url 'formations:formation_detail' session.formation.pk %}" style="color:var(--accent);">{{ session.formation.title }}</a></span>
+            </li>
+            <li>
+              <span class="meta-label"><i class="bi bi-calendar3-fill" style="margin-right:4px;"></i>Date début</span>
+              <span class="meta-value">{{ session.date_start|date:"d/m/Y" }}</span>
+            </li>
+            <li>
+              <span class="meta-label"><i class="bi bi-calendar3-fill" style="margin-right:4px;"></i>Date fin</span>
+              <span class="meta-value">{{ session.date_end|date:"d/m/Y" }}</span>
+            </li>
+            <li>
+              <span class="meta-label"><i class="bi bi-clock-history" style="margin-right:4px;"></i>Durée</span>
+              <span class="meta-value">{{ session.duration_days }} jour{{ session.duration_days|pluralize }}</span>
+            </li>
+            <li>
+              <span class="meta-label"><i class="bi bi-building-fill" style="margin-right:4px;"></i>Client</span>
+              <span class="meta-value"><a href="{% url 'clients:client_detail' session.client.pk %}" style="color:var(--accent);">{{ session.client.name }}</a></span>
+            </li>
+            <li>
+              <span class="meta-label"><i class="bi bi-person-fill-check" style="margin-right:4px;"></i>Formateur</span>
+              <span class="meta-value">
+                {% if session.trainer %}<a href="{% url 'resources:trainer_detail' session.trainer.pk %}" style="color:var(--accent);">{{ session.trainer.full_name }}</a>
+                {% else %}<span style="color:var(--text-muted);">—</span>{% endif %}
+              </span>
+            </li>
+            <li>
+              <span class="meta-label"><i class="bi bi-geo-alt-fill" style="margin-right:4px;"></i>Lieu</span>
+              <span class="meta-value">
+                {% if session.location_type == 'institute' %}Institut{% if session.room %} — {{ session.room.name }}{% endif %}
+                {% else %}Sur site — {{ session.external_location }}{% endif %}
+              </span>
+            </li>
+            {% if session.cancellation_reason %}
+            <li>
+              <span class="meta-label"><i class="bi bi-x-circle-fill" style="margin-right:4px;"></i>Annulation</span>
+              <span class="meta-value" style="color:var(--danger);font-size:13px;">{{ session.cancellation_reason }}</span>
+            </li>
+            {% endif %}
+          </ul>
+
+          {% if request.user.profile.can_manage_sessions %}
+          <div class="section-divider"></div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <a href="{% url 'formations:session_status' session.pk %}" class="btn btn-amber" style="justify-content:center;">
+              <i class="bi bi-arrow-repeat"></i> Changer le statut
+            </a>
+            {% if session.can_edit %}
+            <a href="{% url 'formations:session_edit' session.pk %}" class="btn btn-ghost" style="justify-content:center;">
+              <i class="bi bi-pencil-fill"></i> Modifier la session
+            </a>
+            {% endif %}
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: Participants + Documents -->
+    <div class="col-lg-8">
+
+      <!-- Participant roster (spec §9.2) -->
+      <div class="isi-card mb-4">
+        <div class="isi-card-header">
+          <div class="card-icon blue"><i class="bi bi-people-fill"></i></div>
+          <h3>Participants</h3>
+          <span class="header-count ms-1">({{ participants|length }})</span>
+          <div class="ms-auto d-flex gap-2">
+            {% if request.user.profile.can_edit_scores and session.status == 'planned' or session.status == 'in_progress' %}
+            <a href="{% url 'formations:session_attendance' session.pk %}" class="btn btn-ghost btn-sm"><i class="bi bi-person-check-fill"></i> Présences</a>
+            <a href="{% url 'formations:session_scores' session.pk %}" class="btn btn-ghost btn-sm"><i class="bi bi-clipboard2-check-fill"></i> Notes</a>
+            {% endif %}
+            {% if request.user.profile.can_manage_sessions and session.can_add_participants %}
+            <a href="{% url 'formations:participant_import' session.pk %}" class="btn btn-ghost btn-sm"><i class="bi bi-upload"></i> Importer</a>
+            <a href="{% url 'formations:participant_create' session.pk %}" class="btn btn-amber btn-sm"><i class="bi bi-plus-lg"></i> Ajouter</a>
+            {% endif %}
+          </div>
+        </div>
+
+        {% if participants %}
+        <div style="overflow-x:auto;">
+          <table class="isi-table">
+            <thead>
+              <tr>
+                <th style="width:32px;">N°</th>
+                <th>Nom et prénom</th>
+                <th>Fonction / Employeur</th>
+                <th>Présence</th>
+                {% if session.formation.evaluation_type in 'theory_only,both' %}<th style="text-align:center;">Note théo.</th>{% endif %}
+                {% if session.formation.evaluation_type in 'practice_only,both' %}<th style="text-align:center;">Note prat.</th>{% endif %}
+                <th>Résultat</th>
+                <th style="text-align:right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for p in participants %}
+              <tr>
+                <td><span class="roster-num">{{ forloop.counter|stringformat:"02d" }}</span></td>
+                <td>
+                  <span style="font-weight:600;">{{ p.full_name }}</span>
+                  {% if p.full_name_ar %}<span class="table-secondary-text" dir="rtl" style="text-align:right;">{{ p.full_name_ar }}</span>{% endif %}
+                </td>
+                <td>
+                  <span style="font-size:13.5px;">{{ p.job_title|default:"—" }}</span>
+                  {% if p.employer %}<span class="table-secondary-text">{{ p.employer }}</span>{% endif %}
+                </td>
+                <td>
+                  {% if request.user.profile.can_edit_scores and session.status == 'planned' or session.status == 'in_progress' %}
+                  <input type="checkbox" class="form-check-input ajax-attendance attendance-switch"
+                    data-pid="{{ p.pk }}"
+                    {% if p.attended %}checked{% endif %}
+                    style="width:36px;height:20px;cursor:pointer;" />
+                  {% else %}
+                    {% if p.attended %}
+                    <span class="isi-badge green"><i class="bi bi-circle-fill" style="font-size:7px;"></i> Présent</span>
+                    {% else %}
+                    <span class="isi-badge red"><i class="bi bi-circle-fill" style="font-size:7px;"></i> Absent</span>
+                    {% endif %}
+                  {% endif %}
+                </td>
+                {% if session.formation.evaluation_type in 'theory_only,both' %}
+                <td style="text-align:center;">
+                  {% if request.user.profile.can_edit_scores and session.status == 'in_progress' or session.status == 'completed' %}
+                  <input type="number" min="0" max="20" step="0.5"
+                    class="form-control score-input"
+                    data-pid="{{ p.pk }}" data-score-type="score_theory"
+                    value="{{ p.score_theory|default_if_none:'' }}"
+                    style="width:72px;text-align:center;padding:6px 10px;display:inline-block;" />
+                  {% else %}
+                  {{ p.score_theory|default_if_none:"—" }}
+                  {% endif %}
+                </td>
+                {% endif %}
+                {% if session.formation.evaluation_type in 'practice_only,both' %}
+                <td style="text-align:center;">
+                  {% if request.user.profile.can_edit_scores and session.status == 'in_progress' or session.status == 'completed' %}
+                  <input type="number" min="0" max="20" step="0.5"
+                    class="form-control score-input"
+                    data-pid="{{ p.pk }}" data-score-type="score_practice"
+                    value="{{ p.score_practice|default_if_none:'' }}"
+                    style="width:72px;text-align:center;padding:6px 10px;display:inline-block;" />
+                  {% else %}
+                  {{ p.score_practice|default_if_none:"—" }}
+                  {% endif %}
+                </td>
+                {% endif %}
+                <td>
+                  {% if p.result == 'passed' %}<span class="isi-badge green result-badge" data-pid="{{ p.pk }}"><i class="bi bi-circle-fill" style="font-size:7px;"></i> Reçu</span>
+                  {% elif p.result == 'failed' %}<span class="isi-badge red result-badge" data-pid="{{ p.pk }}"><i class="bi bi-circle-fill" style="font-size:7px;"></i> Ajourné</span>
+                  {% elif p.result == 'absent' %}<span class="isi-badge red result-badge" data-pid="{{ p.pk }}"><i class="bi bi-circle-fill" style="font-size:7px;"></i> Absent</span>
+                  {% else %}<span class="isi-badge gray result-badge" data-pid="{{ p.pk }}"><i class="bi bi-circle-fill" style="font-size:7px;"></i> En attente</span>{% endif %}
+                  {% if p.certificate_issued %}
+                  <i class="bi bi-patch-check-fill" style="color:var(--success);font-size:13px;margin-left:4px;" title="Attestation émise"></i>
+                  {% endif %}
+                </td>
+                <td>
+                  <div style="display:flex;justify-content:flex-end;gap:6px;">
+                    {% if request.user.profile.can_manage_sessions and session.can_edit %}
+                    <a href="{% url 'formations:participant_edit' p.pk %}" class="btn btn-ghost btn-sm" title="Modifier"><i class="bi bi-pencil-fill"></i></a>
+                    <a href="{% url 'formations:participant_delete' p.pk %}" class="btn btn-danger-soft btn-sm" title="Supprimer"
+                       onclick="return confirm('Supprimer {{ p.full_name }} de cette session ?')">
+                      <i class="bi bi-trash-fill"></i>
+                    </a>
+                    {% endif %}
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Passing threshold info -->
+        <div style="padding:10px 24px;border-top:1px solid var(--card-border);display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+          <span class="isi-badge gray">Seuil : {{ session.formation.passing_score }} / 20</span>
+          <span style="font-size:12px;color:var(--text-muted);">
+            <i class="bi bi-person-check-fill" style="color:var(--success);"></i> {{ session.total_present }} présent{{ session.total_present|pluralize }}
+            &nbsp;&bull;&nbsp;
+            <i class="bi bi-person-dash-fill" style="color:var(--danger);"></i> {{ session.total_absent }} absent{{ session.total_absent|pluralize }}
+          </span>
+        </div>
+
+        {% else %}
+        <div class="empty-state" style="padding:40px 24px;">
+          <div class="empty-state-icon" style="font-size:40px;"><i class="bi bi-people-fill"></i></div>
+          <p class="empty-state-text" style="font-size:14px;">Aucun participant inscrit à cette session.</p>
+          {% if request.user.profile.can_manage_sessions and session.can_add_participants %}
+          <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+            <a href="{% url 'formations:participant_create' session.pk %}" class="btn btn-amber btn-sm"><i class="bi bi-plus-lg"></i> Ajouter manuellement</a>
+            <a href="{% url 'formations:participant_import' session.pk %}" class="btn btn-ghost btn-sm"><i class="bi bi-upload"></i> Importer CSV</a>
+          </div>
+          {% endif %}
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Document generation panel (spec §9.3) -->
+      <div class="isi-card">
+        <div class="isi-card-header">
+          <div class="card-icon purple"><i class="bi bi-file-earmark-richtext-fill"></i></div>
+          <h3>Documents de la session</h3>
+        </div>
+        <div class="isi-card-body">
+
+          {% with has_participants=participants|length %}
+
+          <!-- Liste candidats -->
+          <div class="doc-row">
+            <div class="doc-row-icon {% if has_participants %}available{% else %}unavailable{% endif %}"><i class="bi bi-list-check"></i></div>
+            <div class="doc-row-label {% if not has_participants %}unavailable{% endif %}">Liste des informations candidats</div>
+            <div class="doc-row-actions">
+              <a href="{% url 'documents:generate_candidate_list' session_pk=session.pk %}" class="btn btn-outline-amber btn-sm {% if not has_participants %}disabled{% endif %}">
+                <i class="bi bi-file-earmark-arrow-down-fill"></i> Générer
+              </a>
+            </div>
+          </div>
+
+          <!-- Feuille présence J1 -->
+          <div class="doc-row">
+            <div class="doc-row-icon {% if has_participants %}available{% else %}unavailable{% endif %}"><i class="bi bi-clipboard2-check-fill"></i></div>
+            <div class="doc-row-label {% if not has_participants %}unavailable{% endif %}">Feuille de présence (J1)</div>
+            <div class="doc-row-actions">
+              <a href="{% url 'documents:generate_attendance_sheet' session_pk=session.pk %}" class="btn btn-outline-amber btn-sm {% if not has_participants %}disabled{% endif %}">
+                <i class="bi bi-file-earmark-arrow-down-fill"></i> Générer
+              </a>
+            </div>
+          </div>
+
+          {% if session.duration_days > 1 %}
+          <div class="doc-row">
+            <div class="doc-row-icon {% if has_participants %}available{% else %}unavailable{% endif %}"><i class="bi bi-clipboard2-check-fill"></i></div>
+            <div class="doc-row-label {% if not has_participants %}unavailable{% endif %}">Feuille de présence (J2)</div>
+            <div class="doc-row-actions">
+              <a href="{% url 'documents:generate_attendance_sheet' session_pk=session.pk %}" class="btn btn-outline-amber btn-sm {% if not has_participants %}disabled{% endif %}">
+                <i class="bi bi-file-earmark-arrow-down-fill"></i> Générer
+              </a>
+            </div>
+          </div>
+          {% endif %}
+
+          <!-- Ordre de mission -->
+          {% with can_mission=session.trainer.can_generate_mission_order %}
+          <div class="doc-row">
+            <div class="doc-row-icon {% if can_mission %}available{% else %}unavailable{% endif %}"><i class="bi bi-signpost-fill"></i></div>
+            <div class="doc-row-label {% if not can_mission %}unavailable{% endif %}">
+              Ordre de mission
+              {% if not can_mission %}<span style="font-size:12px;color:var(--danger);"> — adresse formateur requise</span>{% endif %}
+            </div>
+            <div class="doc-row-actions">
+              <a href="{% url 'documents:generate_mission_order' session_pk=session.pk %}" class="btn btn-outline-amber btn-sm {% if not can_mission %}disabled{% endif %}">
+                <i class="bi bi-file-earmark-arrow-down-fill"></i> Générer
+              </a>
+            </div>
+          </div>
+          {% endwith %}
+
+          <!-- Notes d'évaluation -->
+          {% if session.status == 'completed' or session.status == 'archived' %}
+          <div class="doc-row">
+            <div class="doc-row-icon available"><i class="bi bi-clipboard2-data-fill"></i></div>
+            <div class="doc-row-label ">
+              Liste des notes d'évaluation
+              
+            </div>
+            <div class="doc-row-actions">
+              <a href="{% url 'documents:generate_evaluation_list' session_pk=session.pk %}" class="btn btn-outline-amber btn-sm ">
+                <i class="bi bi-file-earmark-arrow-down-fill"></i> Générer
+              </a>
+            </div>
+          </div>
+
+          <!-- PV délibération -->
+          <div class="doc-row">
+            <div class="doc-row-icon available"><i class="bi bi-journal-richtext"></i></div>
+            <div class="doc-row-label ">
+              Procès-verbal de délibération
+              
+            </div>
+            <div class="doc-row-actions">
+              <a href="{% url 'documents:generate_deliberation_report' session_pk=session.pk %}" class="btn btn-outline-amber btn-sm ">
+                <i class="bi bi-file-earmark-arrow-down-fill"></i> Générer
+              </a>
+            </div>
+          </div>
+          {% endif %}
+
+          <!-- Attestations -->
+          {% with passed_count=participants|length %}
+          <div class="doc-row">
+            <div class="doc-row-icon {% if session.status == 'completed' or session.status == 'archived' %}{% if session.formation.produces_certificate %}available{% else %}unavailable{% endif %}{% else %}unavailable{% endif %}">
+              <i class="bi bi-patch-check-fill"></i>
+            </div>
+            <div class="doc-row-label {% if session.status != 'completed' and session.status != 'archived' or not session.formation.produces_certificate %}unavailable{% endif %}">
+              Attestations ({{ passed_count }} participant{{ passed_count|pluralize }})
+              {% if not session.formation.produces_certificate %}<span style="font-size:12px;color:var(--text-muted);"> — formation sans attestation</span>{% endif %}
+            </div>
+            <div class="doc-row-actions">
+              {% if session.status == 'completed' or session.status == 'archived' %}{% if session.formation.produces_certificate %}
+              <a href="{% url 'documents:generate_batch_attestations' session_pk=session.pk %}" class="btn btn-amber btn-sm">
+                <i class="bi bi-file-earmark-arrow-down-fill"></i> Tout générer
+              </a>
+              {% endif %}{% else %}
+              <button class="btn btn-amber btn-sm" disabled><i class="bi bi-file-earmark-arrow-down-fill"></i> Tout générer</button>
+              {% endif %}
+            </div>
+          </div>
+          {% endwith %}
+
+          {% endwith %}
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Hidden CSRF for AJAX --> 
+{% csrf_token %}
+{% endblock %}
+
+{% block extra_scripts %}<script src="{% static 'formations/js/formations.js' %}"></script>{% endblock %}

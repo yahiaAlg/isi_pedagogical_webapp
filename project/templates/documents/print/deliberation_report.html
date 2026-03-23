@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<title>محضر مداولات — {{ session.reference }}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, sans-serif; font-size: 12px; direction: rtl; background: #fff; color: #000; }
+  .print-btn-bar { text-align: center; padding: 16px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; margin-bottom: 24px; }
+  .print-btn { background: #f59e0b; color: #0f172a; border: none; padding: 10px 28px; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer; margin-left: 10px; }
+  .back-btn { background: none; border: 1px solid #e2e8f0; padding: 10px 20px; border-radius: 8px; font-size: 14px; cursor: pointer; color: #64748b; text-decoration: none; }
+  .page-wrapper { max-width: 800px; margin: 0 auto; padding: 20px; }
+  .doc-page { background: #fff; padding: 30px 35px; border: 1px solid #e2e8f0; min-height: 1050px; }
+
+  /* Header */
+  .ar-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; border-bottom: 2px solid #1e3a5f; padding-bottom: 10px; }
+  .ar-header-text { flex: 1; text-align: center; line-height: 1.7; font-size: 11px; }
+  .ar-header-text .bold { font-weight: bold; font-size: 12px; }
+  .ar-logo { width: 80px; }
+  .ar-logo img { width: 100%; }
+  .ar-logo-ph { width: 80px; height: 80px; border: 1px solid #ccc; display:flex; align-items:center; justify-content:center; font-size:9px; color:#999; }
+  .ar-ref { text-align: left; font-size: 10px; min-width: 80px; }
+
+  /* Service title */
+  .service-title { text-align: center; font-size: 13px; margin: 12px 0 8px; }
+
+  /* Main title */
+  .doc-main-title { text-align: center; font-size: 18px; font-weight: bold; margin: 10px 0 16px; text-decoration: underline; }
+
+  /* Info rows */
+  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 30px; margin-bottom: 16px; font-size: 12px; }
+  .info-row { display: flex; gap: 6px; }
+  .info-label { font-weight: bold; white-space: nowrap; }
+
+  /* Table */
+  table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+  th { background: #1e3a5f; color: #fff; padding: 6px 8px; font-size: 12px; text-align: center; border: 1px solid #555; }
+  td { padding: 10px 8px; border: 1px solid #555; font-size: 12px; text-align: center; }
+
+  /* Footer */
+  .doc-footer { text-align: center; font-size: 10px; color: #555; border-top: 1px solid #ccc; padding-top: 8px; margin-top: 30px; direction: rtl; }
+  .sig-row { display: flex; justify-content: space-between; margin-top: 20px; font-size: 12px; font-weight: bold; }
+
+  @media print {
+    .print-btn-bar { display: none !important; }
+    .page-wrapper { max-width: 100%; margin: 0; padding: 0; }
+    .doc-page { border: none; padding: 15mm 18mm; }
+    @page { size: A4; margin: 0; }
+  }
+</style>
+</head>
+<body>
+
+<div class="print-btn-bar">
+  <button class="print-btn" onclick="window.print()">🖨 طباعة</button>
+  <a class="back-btn" href="javascript:history.back()">← رجوع</a>
+</div>
+
+<div class="page-wrapper">
+<div class="doc-page">
+
+  <!-- Header -->
+  <div class="ar-header">
+    <div class="ar-logo">
+      {% if institute and institute.logo %}
+        <img src="{{ institute.logo.url }}" alt="Logo" />
+      {% else %}
+        <div class="ar-logo-ph">LOGO</div>
+      {% endif %}
+    </div>
+    <div class="ar-header-text">
+      الجمهورية الجزائرية الديمقراطية الشعبية<br>
+      وزارة التكوين و التعليم المهنيين<br>
+      <span class="bold">
+        مؤسسة خاصة لتكوين المهني<br>
+        {% if institute %}{{ institute.name_ar }}{% endif %}
+      </span><br>
+      {% if institute %}
+      إشهاد رقم {{ institute.accreditation_number }} المؤرخ {{ institute.accreditation_date|date:"Y/m/d" }}
+      {% endif %}
+    </div>
+    <div class="ar-ref" dir="ltr">{% if institute %}{{ institute.if_number }}{% endif %}</div>
+  </div>
+
+  <div class="service-title">المصلحة البيداغوجية</div>
+  <div class="doc-main-title">محضر مداولات نهاية التكوين</div>
+
+  <!-- Info grid -->
+  <div class="info-grid">
+    <div class="info-row"><span class="info-label">رقم :</span><span>{{ session.reference }}</span></div>
+    <div class="info-row"><span class="info-label">تاريخ :</span><span>{{ session.date_end|date:"Y-m-d" }}</span></div>
+    <div class="info-row"><span class="info-label">مستوى التأهيل :</span><span>تكوين حسب الطلب</span></div>
+    <div class="info-row"><span class="info-label">الاختصاص :</span><span>{{ session.formation.title }}</span></div>
+    <div class="info-row"><span class="info-label">الزبون :</span><span>{{ session.client.name }}</span></div>
+    <div class="info-row"><span class="info-label">رمز التخصص :</span><span>{{ session.formation.code }}</span></div>
+    <div class="info-row"><span class="info-label">تاريخ بداية التكوين :</span><span>{{ session.date_start|date:"Y-m-d" }}</span></div>
+    <div class="info-row"><span class="info-label">تاريخ نهاية التكوين :</span><span>{{ session.date_end|date:"Y-m-d" }}</span></div>
+    <div class="info-row"><span class="info-label">عدد المتربصين :</span><span>{{ session.participant_count }}</span></div>
+    <div class="info-row"><span class="info-label">عدد الغيابات :</span><span>{{ session.total_absent }}</span></div>
+    <div class="info-row"><span class="info-label">عدد الحضور :</span><span>{{ session.total_present }}</span></div>
+    <div class="info-row"><span class="info-label">عدد الناجحين :</span><span>
+      {% with count=0 %}
+      {% for p in session.participant_set.all %}{% if p.result == 'passed' %}{{ forloop.counter }}{% endif %}{% endfor %}
+      {% endwith %}
+    </span></div>
+    <div class="info-row" style="grid-column:1/-1;"><span class="info-label">الرسمي على التكوين السيد :</span><span>{{ session.trainer.full_name }}</span></div>
+  </div>
+
+  <!-- Committee table -->
+  <table>
+    <thead>
+      <tr>
+        <th>الاسم و اللقب</th>
+        <th>الصفة</th>
+        <th>الإمضاء</th>
+        <th>الملاحظات</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% if session.committee_members %}
+        {% for member in session.committee_members %}
+        <tr>
+          <td>{{ member }}</td>
+          <td></td>
+          <td style="min-height:32px;"></td>
+          <td></td>
+        </tr>
+        {% endfor %}
+      {% else %}
+        {% for i in "12345"|make_list %}
+        <tr><td>&nbsp;</td><td></td><td></td><td></td></tr>
+        {% endfor %}
+      {% endif %}
+    </tbody>
+  </table>
+
+  <div class="sig-row">
+    <div>المؤسسة :</div>
+    <div></div>
+  </div>
+
+  <!-- Footer -->
+  <div class="doc-footer">
+    {% if institute %}
+      {{ institute.address }} | الهاتف : {{ institute.phone }} | {{ institute.email }}
+    {% endif %}
+  </div>
+
+</div>
+</div>
+</body>
+</html>

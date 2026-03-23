@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Clients — ISI Gestion Pédagogique{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'clients/css/clients.css' %}" />
+{% endblock %}
+
+{% block breadcrumb %}
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="#">Ressources</a>
+<i class="bi bi-chevron-right bc-sep"></i>
+{% endblock %}
+{% block breadcrumb_active %}<span class="bc-active">Clients</span>{% endblock %}
+
+{% block topbar_actions %}
+{% if request.user.profile.can_manage_sessions %}
+<a href="{% url 'clients:client_create' %}" class="topbar-btn primary">
+  <i class="bi bi-plus-lg"></i> Nouveau client
+</a>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="fade-up">
+
+  <div class="page-header">
+    <div class="page-header-left">
+      <h1>Clients</h1>
+      <p class="page-subtitle">Entreprises et organismes partenaires</p>
+    </div>
+  </div>
+
+  <!-- Filter bar -->
+  <div class="isi-card mb-4">
+    <div class="isi-card-body" style="padding:16px 24px;">
+      <div class="row g-3 align-items-end">
+        <div class="col-sm-8 col-md-6">
+          <label class="form-label">Rechercher</label>
+          <div class="input-icon-wrap">
+            <i class="bi bi-search"></i>
+            <input type="text" id="clientSearch" class="form-control" placeholder="Raison sociale, ville, contact…" />
+          </div>
+        </div>
+        <div class="col-sm-4 col-md-3">
+          <button type="button" id="clearSearch" class="btn btn-ghost w-100">
+            <i class="bi bi-x-lg"></i> Réinitialiser
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Results card -->
+  <div class="isi-card">
+    <div class="isi-card-header">
+      <div class="card-icon amber"><i class="bi bi-building-fill"></i></div>
+      <h3>Liste des clients</h3>
+      <span class="header-count ms-1">({{ page_obj.paginator.count }} résultat{{ page_obj.paginator.count|pluralize }})</span>
+      {% if request.user.profile.can_manage_sessions %}
+      <a href="{% url 'clients:client_create' %}" class="btn btn-amber btn-sm ms-auto">
+        <i class="bi bi-plus-lg"></i> Nouveau
+      </a>
+      {% endif %}
+    </div>
+
+    {% if page_obj.object_list %}
+    <div style="overflow-x:auto;">
+      <table class="isi-table" id="clientTable">
+        <thead>
+          <tr>
+            <th>Raison sociale</th>
+            <th>Ville</th>
+            <th>Contact</th>
+            <th>Téléphone</th>
+            <th>Email</th>
+            <th>Sessions</th>
+            <th style="text-align:right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for client in page_obj %}
+          <tr class="client-row">
+            <td>
+              <a href="{% url 'clients:client_detail' client.pk %}" class="table-primary-link">
+                {{ client.name }}
+              </a>
+              {% if client.name_ar %}
+              <span class="table-secondary-text" dir="rtl" style="text-align:right;">{{ client.name_ar }}</span>
+              {% endif %}
+            </td>
+            <td>{{ client.city }}</td>
+            <td>{{ client.contact_person|default:"—" }}</td>
+            <td>
+              {% if client.phone %}
+              <a href="tel:{{ client.phone }}" style="color:var(--text-primary);text-decoration:none;">
+                {{ client.phone }}
+              </a>
+              {% else %}—{% endif %}
+            </td>
+            <td>
+              {% if client.email %}
+              <a href="mailto:{{ client.email }}" style="color:var(--text-muted);font-size:13px;text-decoration:none;">
+                {{ client.email }}
+              </a>
+              {% else %}<span style="color:var(--text-muted);">—</span>{% endif %}
+            </td>
+            <td>
+              <span style="font-weight:600;">{{ client.session_count }}</span>
+              <span class="table-secondary-text">session{{ client.session_count|pluralize }}</span>
+            </td>
+            <td>
+              <div style="display:flex;justify-content:flex-end;gap:6px;">
+                <a href="{% url 'clients:client_detail' client.pk %}" class="btn btn-ghost btn-sm" title="Voir">
+                  <i class="bi bi-eye-fill"></i>
+                </a>
+                {% if request.user.profile.can_manage_sessions %}
+                <a href="{% url 'clients:client_edit' client.pk %}" class="btn btn-ghost btn-sm" title="Modifier">
+                  <i class="bi bi-pencil-fill"></i>
+                </a>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if page_obj.paginator.num_pages > 1 %}
+    <div class="isi-pagination">
+      <div class="isi-pagination-info">
+        Page {{ page_obj.number }} sur {{ page_obj.paginator.num_pages }} —
+        {{ page_obj.paginator.count }} client{{ page_obj.paginator.count|pluralize }}
+      </div>
+      <div class="isi-pagination-controls">
+        {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}" class="btn btn-ghost btn-sm">
+          <i class="bi bi-chevron-left"></i>
+        </a>
+        {% endif %}
+
+        {% for num in page_obj.paginator.page_range %}
+          {% if num == page_obj.number %}
+          <button class="btn btn-amber btn-sm" disabled>{{ num }}</button>
+          {% elif num >= page_obj.number|add:"-2" and num <= page_obj.number|add:"2" %}
+          <a href="?page={{ num }}" class="btn btn-ghost btn-sm">{{ num }}</a>
+          {% endif %}
+        {% endfor %}
+
+        {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}" class="btn btn-ghost btn-sm">
+          <i class="bi bi-chevron-right"></i>
+        </a>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <!-- Empty state -->
+    <div class="empty-state">
+      <div class="empty-state-icon"><i class="bi bi-building-fill"></i></div>
+      <p class="empty-state-text">Aucun client pour le moment.</p>
+      {% if request.user.profile.can_manage_sessions %}
+      <a href="{% url 'clients:client_create' %}" class="btn btn-amber">
+        <i class="bi bi-plus-lg"></i> Créer le premier client
+      </a>
+      {% endif %}
+    </div>
+    {% endif %}
+
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{% static 'clients/js/client_list.js' %}"></script>
+{% endblock %}

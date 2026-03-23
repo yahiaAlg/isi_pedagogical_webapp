@@ -582,3 +582,79 @@ def update_score(request, pk):
             "result": participant.result,
         }
     )
+
+
+# ===========================================================================
+# Fill rate + Participant list — sidebar views (added to match urls.py)
+# ===========================================================================
+
+
+@login_required
+def fill_rate(request):
+    """Fill-rate analytics table for all non-cancelled sessions."""
+    sessions_qs = (
+        Session.objects.select_related("formation", "client", "trainer")
+        .exclude(status="cancelled")
+        .order_by("-date_start")
+    )
+
+    session_list = list(sessions_qs)
+    fill_rates = [s.fill_rate for s in session_list if s.capacity > 0]
+    avg_fill_rate = round(sum(fill_rates) / len(fill_rates), 1) if fill_rates else 0
+    full_sessions = sum(1 for s in session_list if s.available_spots == 0)
+    total_participants = sum(s.participant_count for s in session_list)
+
+    return render(
+        request,
+        "formations/fill_rate.html",
+        {
+            "sessions": session_list,
+            "total_sessions": len(session_list),
+            "avg_fill_rate": avg_fill_rate,
+            "full_sessions": full_sessions,
+            "total_participants": total_participants,
+        },
+    )
+
+
+@login_required
+def participant_list(request):
+    """Cross-session participant list with search + result/cert filters."""
+    from django.db.models import Q
+
+    qs = Participant.objects.select_related(
+        "session", "session__formation", "employer_client"
+    ).order_by("-session__date_start", "last_name")
+
+    q = request.GET.get("q", "").strip()
+    if q:
+        qs = qs.filter(
+            Q(first_name__icontains=q)
+            | Q(last_name__icontains=q)
+            | Q(first_name_ar__icontains=q)
+            | Q(last_name_ar__icontains=q)
+            | Q(employer__icontains=q)
+            | Q(session__reference__icontains=q)
+        )
+
+    cert = request.GET.get("cert", "")
+    if cert == "yes":
+        qs = qs.filter(certificate_issued=True)
+    elif cert == "no":
+        qs = qs.filter(certificate_issued=False)
+
+    # result is a @property — filter in Python after evaluating queryset
+    result_filter = request.GET.get("result", "")
+    if result_filter:
+        qs = [p for p in qs if p.result == result_filter]
+
+    paginator = Paginator(qs, 25)
+    page_obj = paginator.get_page(request.GET.get("page"))
+
+    return render(
+        request,
+        "formations/participant_list.html",
+        {
+            "page_obj": page_obj,
+        },
+    )

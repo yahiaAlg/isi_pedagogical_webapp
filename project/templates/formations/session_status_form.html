@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Changer statut — {{ session.reference }} — ISI Gestion Pédagogique{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'formations/css/formations.css' %}" />{% endblock %}
+
+{% block breadcrumb %}
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="{% url 'formations:session_list' %}">Sessions</a>
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="{% url 'formations:session_detail' session.pk %}">{{ session.reference }}</a>
+<i class="bi bi-chevron-right bc-sep"></i>
+{% endblock %}
+{% block breadcrumb_active %}<span class="bc-active">Changer le statut</span>{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% url 'formations:session_detail' session.pk %}" class="topbar-btn"><i class="bi bi-arrow-left"></i> Retour</a>
+{% endblock %}
+
+{% block content %}
+<div class="fade-up">
+  <div class="page-header">
+    <div class="page-header-left">
+      <h1>Changer le statut</h1>
+      <p class="page-subtitle">{{ session.reference }} — {{ session.formation.title }}</p>
+    </div>
+  </div>
+
+  <div class="row justify-content-center">
+    <div class="col-lg-5 col-md-7">
+      <div class="isi-card">
+        <div class="isi-card-header">
+          <div class="card-icon amber"><i class="bi bi-arrow-repeat"></i></div>
+          <h3>Transition de statut</h3>
+        </div>
+        <div class="isi-card-body">
+
+          <!-- Current status -->
+          <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:#f8fafc;border-radius:8px;border:1px solid var(--card-border);margin-bottom:20px;">
+            <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);min-width:70px;">Actuel</div>
+            {% if session.status == 'planned' %}<span class="isi-badge blue"><i class="bi bi-circle-fill" style="font-size:7px;"></i> Planifiée</span>
+            {% elif session.status == 'in_progress' %}<span class="isi-badge amber"><i class="bi bi-circle-fill" style="font-size:7px;"></i> En cours</span>
+            {% elif session.status == 'completed' %}<span class="isi-badge green"><i class="bi bi-circle-fill" style="font-size:7px;"></i> Terminée</span>
+            {% elif session.status == 'cancelled' %}<span class="isi-badge red"><i class="bi bi-circle-fill" style="font-size:7px;"></i> Annulée</span>
+            {% elif session.status == 'archived' %}<span class="isi-badge gray"><i class="bi bi-circle-fill" style="font-size:7px;"></i> Archivée</span>{% endif %}
+          </div>
+
+          {% if form.fields.new_status.choices %}
+          <form method="post" novalidate>
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+            <div class="alert alert-danger mb-4">
+              <i class="bi bi-exclamation-circle-fill"></i>
+              <div>{% for e in form.non_field_errors %}<div>{{ e }}</div>{% endfor %}</div>
+            </div>
+            {% endif %}
+
+            <div class="mb-3">
+              <label class="form-label" for="{{ form.new_status.id_for_label }}">Nouveau statut <span style="color:var(--danger);">*</span></label>
+              <select id="{{ form.new_status.id_for_label }}" name="{{ form.new_status.html_name }}"
+                class="form-select {% if form.new_status.errors %}is-invalid{% endif %}" id="statusSelect" required>
+                {% for val, label in form.fields.new_status.choices %}
+                <option value="{{ val }}" {% if form.new_status.value == val %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+              {% if form.new_status.errors %}<div class="invalid-feedback d-block">{{ form.new_status.errors|join:", " }}</div>{% endif %}
+            </div>
+
+            <!-- Cancellation reason (shown when cancelled selected) -->
+            <div id="cancel-reason-row" style="display:none;">
+              <div class="alert alert-warning mb-3">
+                <i class="bi bi-exclamation-triangle-fill"></i>
+                <span>L'annulation est irréversible. Veuillez renseigner une raison.</span>
+              </div>
+              <div class="mb-3">
+                <label class="form-label" for="{{ form.cancellation_reason.id_for_label }}">Raison d'annulation <span style="color:var(--danger);">*</span></label>
+                <textarea id="{{ form.cancellation_reason.id_for_label }}" name="{{ form.cancellation_reason.html_name }}"
+                  class="form-control {% if form.cancellation_reason.errors %}is-invalid{% endif %}"
+                  rows="3" placeholder="Motif de l'annulation…">{{ form.cancellation_reason.value|default_if_none:'' }}</textarea>
+                {% if form.cancellation_reason.errors %}<div class="invalid-feedback d-block">{{ form.cancellation_reason.errors|join:", " }}</div>{% endif %}
+              </div>
+            </div>
+
+            <!-- Archive warning -->
+            <div id="archive-warning" style="display:none;">
+              <div class="alert alert-warning mb-3">
+                <i class="bi bi-archive-fill"></i>
+                <span>L'archivage est définitif. La session ne pourra plus être modifiée.</span>
+              </div>
+            </div>
+
+            <div class="section-divider"></div>
+            <div style="display:flex;gap:12px;">
+              <button type="submit" class="btn btn-amber"><i class="bi bi-check-lg"></i> Confirmer le changement</button>
+              <a href="{% url 'formations:session_detail' session.pk %}" class="btn btn-ghost"><i class="bi bi-arrow-left"></i> Annuler</a>
+            </div>
+          </form>
+
+          {% else %}
+          <div class="alert alert-info">
+            <i class="bi bi-info-circle-fill"></i>
+            <span>Aucune transition de statut n'est disponible pour cette session.</span>
+          </div>
+          <a href="{% url 'formations:session_detail' session.pk %}" class="btn btn-ghost"><i class="bi bi-arrow-left"></i> Retour</a>
+          {% endif %}
+
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+(function () {
+  const sel = document.getElementById("statusSelect");
+  const cancelRow = document.getElementById("cancel-reason-row");
+  const archiveWarn = document.getElementById("archive-warning");
+  function toggle() {
+    if (!sel) return;
+    if (cancelRow) cancelRow.style.display = sel.value === "cancelled" ? "" : "none";
+    if (archiveWarn) archiveWarn.style.display = sel.value === "archived" ? "" : "none";
+  }
+  if (sel) { sel.addEventListener("change", toggle); toggle(); }
+})();
+</script>
+{% endblock %}

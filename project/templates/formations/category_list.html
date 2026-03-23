@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Catégories — ISI Gestion Pédagogique{% endblock %}
+
+{% block extra_head %}<link rel="stylesheet" href="{% static 'formations/css/formations.css' %}" />{% endblock %}
+
+{% block breadcrumb %}
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="{% url 'formations:formation_list' %}">Formations</a>
+<i class="bi bi-chevron-right bc-sep"></i>
+{% endblock %}
+{% block breadcrumb_active %}<span class="bc-active">Catégories</span>{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% url 'formations:formation_list' %}" class="topbar-btn"><i class="bi bi-arrow-left"></i> Catalogue</a>
+{% if request.user.profile.is_admin %}
+<a href="{% url 'formations:category_create' %}" class="topbar-btn primary"><i class="bi bi-plus-lg"></i> Nouvelle catégorie</a>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="fade-up">
+  <div class="page-header">
+    <div class="page-header-left">
+      <h1>Catégories de formation</h1>
+      <p class="page-subtitle">Classifier et organiser les formations par domaine</p>
+    </div>
+  </div>
+
+  <div class="isi-card">
+    <div class="isi-card-header">
+      <div class="card-icon amber"><i class="bi bi-tags-fill"></i></div>
+      <h3>Catégories</h3>
+      <span class="header-count ms-1">({{ categories|length }})</span>
+      {% if request.user.profile.is_admin %}
+      <a href="{% url 'formations:category_create' %}" class="btn btn-amber btn-sm ms-auto">
+        <i class="bi bi-plus-lg"></i> Nouvelle
+      </a>
+      {% endif %}
+    </div>
+
+    {% if categories %}
+    <div style="overflow-x:auto;">
+      <table class="isi-table">
+        <thead>
+          <tr>
+            <th>Catégorie</th>
+            <th>Description</th>
+            <th>Formations</th>
+            <th style="text-align:right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for cat in categories %}
+          <tr>
+            <td>
+              <div style="display:flex;align-items:center;gap:8px;">
+                {% if cat.color %}
+                <span class="cat-swatch" style="background:{{ cat.color }};"></span>
+                {% endif %}
+                <span style="font-weight:600;">{{ cat.name }}</span>
+              </div>
+            </td>
+            <td>
+              <span style="font-size:13.5px;color:var(--text-muted);">
+                {{ cat.description|truncatechars:80|default:"—" }}
+              </span>
+            </td>
+            <td>
+              <span style="font-weight:600;">{{ cat.formation_set.count }}</span>
+              <span class="table-secondary-text">formation{{ cat.formation_set.count|pluralize }}</span>
+            </td>
+            <td>
+              <div style="display:flex;justify-content:flex-end;gap:6px;">
+                {% if request.user.profile.is_admin %}
+                <a href="{% url 'formations:category_edit' cat.pk %}" class="btn btn-ghost btn-sm">
+                  <i class="bi bi-pencil-fill"></i>
+                </a>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <div class="empty-state-icon"><i class="bi bi-tags-fill"></i></div>
+      <p class="empty-state-text">Aucune catégorie pour le moment.</p>
+      {% if request.user.profile.is_admin %}
+      <a href="{% url 'formations:category_create' %}" class="btn btn-amber">
+        <i class="bi bi-plus-lg"></i> Créer la première catégorie
+      </a>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

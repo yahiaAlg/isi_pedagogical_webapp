@@ -1,0 +1,70 @@
+{% extends "documents/print/base_print.html" %}
+
+{% block doc_title %}Liste des informations candidats — {{ session.reference }}{% endblock %}
+
+{% block doc_body %}
+
+<div class="note-box">
+  <strong>Note : Veuillez Écrire Votre Nom et Prénom en Majuscule</strong><br>
+  Le Certificat sera établi en fonction des renseignements portés sur cette fiche.<br>
+  Toute erreur risque d'être portée sur l'attestation qui ne pourra en aucun cas être renouvelée
+</div>
+
+<div class="doc-title">La liste de Les Information des Candidats</div>
+
+<div class="doc-subtitle">
+  <strong>Titre de formation : {{ session.formation.code }}</strong>
+  &nbsp;&nbsp;&nbsp;
+  <strong>Client : {{ session.client.name }}</strong>
+</div>
+
+<div class="doc-date">
+  <strong>Date : </strong> {{ session.date_start|date:"d/m/Y" }} au {{ session.date_end|date:"d/m/Y" }}
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th style="width:40px;">N°</th>
+      <th>Nom</th>
+      <th>Prénom</th>
+      <th>اللقب</th>
+      <th>الاسم</th>
+      <th>تاريخ و مكان الميلاد</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for p in participants %}
+    <tr>
+      <td>{{ forloop.counter|stringformat:"02d" }}</td>
+      <td class="left">{{ p.last_name|upper }}</td>
+      <td class="left">{{ p.first_name|upper }}</td>
+      <td dir="rtl" style="text-align:right;">{{ p.last_name_ar }}</td>
+      <td dir="rtl" style="text-align:right;">{{ p.first_name_ar }}</td>
+      <td class="left">
+        {% if p.date_of_birth %}{{ p.date_of_birth|date:"d/m/Y" }}{% endif %}
+        {% if p.place_of_birth %} — {{ p.place_of_birth }}{% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+    {# Pad to at least 12 rows #}
+    {% with count=participants|length %}
+    {% if count < 12 %}
+      {% for i in "123456789012"|make_list %}
+        {% if forloop.counter > count %}
+        <tr>
+          <td>{{ forloop.counter|stringformat:"02d" }}</td>
+          <td>&nbsp;</td><td></td><td></td><td></td><td></td>
+        </tr>
+        {% endif %}
+      {% endfor %}
+    {% endif %}
+    {% endwith %}
+  </tbody>
+</table>
+
+<div class="sig-row">
+  <div>Le formateur : <strong>{{ session.trainer.full_name|upper }}</strong></div>
+  <div>Entreprise</div>
+</div>
+{% endblock %}

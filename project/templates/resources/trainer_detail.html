@@ -1,0 +1,249 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ trainer.full_name }} — Formateurs — ISI Gestion Pédagogique{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'resources/css/resources.css' %}" />
+{% endblock %}
+
+{% block breadcrumb %}
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="#">Ressources</a>
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="{% url 'resources:trainer_list' %}">Formateurs</a>
+<i class="bi bi-chevron-right bc-sep"></i>
+{% endblock %}
+{% block breadcrumb_active %}<span class="bc-active">{{ trainer.full_name }}</span>{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% url 'resources:trainer_list' %}" class="topbar-btn">
+  <i class="bi bi-arrow-left"></i> Retour
+</a>
+{% if request.user.profile.is_admin %}
+<a href="{% url 'resources:trainer_edit' trainer.pk %}" class="topbar-btn primary">
+  <i class="bi bi-pencil-fill"></i> Modifier
+</a>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="fade-up">
+
+  <div class="page-header">
+    <div class="page-header-left">
+      <h1>{{ trainer.full_name }}</h1>
+      <p class="page-subtitle">
+        Fiche formateur
+        {% if trainer.full_name_ar %}&nbsp;&mdash;&nbsp;<span dir="rtl" style="font-size:14px;">{{ trainer.full_name_ar }}</span>{% endif %}
+      </p>
+    </div>
+  </div>
+
+  <div class="row g-4">
+
+    <!-- Left column: Identity -->
+    <div class="col-lg-4">
+      <div class="isi-card">
+        <div class="isi-card-header">
+          <div class="card-icon blue"><i class="bi bi-person-fill-check"></i></div>
+          <h3>Identité</h3>
+        </div>
+        <div class="isi-card-body">
+
+          <!-- Avatar + name block -->
+          <div style="text-align:center;padding:8px 0 20px;">
+            <div style="
+              width:68px;height:68px;border-radius:50%;
+              background:rgba(59,130,246,.12);border:2px solid #3b82f6;
+              margin:0 auto 12px;display:flex;align-items:center;justify-content:center;
+              font-family:var(--font-head);font-size:26px;font-weight:700;color:#3b82f6;">
+              {{ trainer.first_name|slice:":1"|upper }}{{ trainer.last_name|slice:":1"|upper }}
+            </div>
+            <div style="font-family:var(--font-head);font-size:18px;font-weight:700;">{{ trainer.full_name }}</div>
+            {% if trainer.full_name_ar %}
+            <div style="font-size:13px;color:var(--text-muted);margin-top:4px;" dir="rtl">{{ trainer.full_name_ar }}</div>
+            {% endif %}
+            <div style="margin-top:8px;display:flex;gap:6px;justify-content:center;flex-wrap:wrap;">
+              {% if trainer.is_active %}
+                <span class="isi-badge green"><i class="bi bi-circle-fill" style="font-size:7px;"></i> Actif</span>
+              {% else %}
+                <span class="isi-badge gray"><i class="bi bi-circle-fill" style="font-size:7px;"></i> Inactif</span>
+              {% endif %}
+              {% if trainer.employment_type == 'internal' %}
+                <span class="isi-badge blue"><i class="bi bi-circle-fill" style="font-size:7px;"></i> Interne</span>
+              {% else %}
+                <span class="isi-badge gray"><i class="bi bi-circle-fill" style="font-size:7px;"></i> Externe</span>
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="section-divider" style="margin:0 0 16px;"></div>
+
+          <!-- Stats -->
+          <div style="display:flex;justify-content:center;margin-bottom:20px;">
+            <div style="text-align:center;">
+              <div class="stat-value" style="font-size:22px;">{{ trainer.session_count }}</div>
+              <div class="stat-label">Sessions effectuées</div>
+            </div>
+          </div>
+
+          <div class="section-divider" style="margin:0 0 16px;"></div>
+
+          <!-- Meta list -->
+          <ul class="detail-meta" style="font-size:13.5px;">
+            <li>
+              <span class="meta-label"><i class="bi bi-briefcase-fill" style="margin-right:4px;"></i>Spécialité</span>
+              <span class="meta-value">{{ trainer.specialty }}</span>
+            </li>
+            {% if trainer.phone %}
+            <li>
+              <span class="meta-label"><i class="bi bi-telephone-fill" style="margin-right:4px;"></i>Téléphone</span>
+              <span class="meta-value">
+                <a href="tel:{{ trainer.phone }}" style="color:var(--text-primary);">{{ trainer.phone }}</a>
+              </span>
+            </li>
+            {% endif %}
+            {% if trainer.email %}
+            <li>
+              <span class="meta-label"><i class="bi bi-envelope-fill" style="margin-right:4px;"></i>Email</span>
+              <span class="meta-value">
+                <a href="mailto:{{ trainer.email }}" style="color:var(--accent);font-size:13px;">{{ trainer.email }}</a>
+              </span>
+            </li>
+            {% endif %}
+            {% if trainer.professional_address %}
+            <li>
+              <span class="meta-label"><i class="bi bi-geo-alt-fill" style="margin-right:4px;"></i>Adresse prof.</span>
+              <span class="meta-value" style="font-size:13px;">{{ trainer.professional_address }}</span>
+            </li>
+            {% endif %}
+          </ul>
+
+          <!-- Mission order warning if address absent -->
+          {% if not trainer.can_generate_mission_order %}
+          <div style="margin-top:16px;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:10px 12px;font-size:12px;">
+            <div style="font-weight:700;color:#92400e;margin-bottom:4px;">
+              <i class="bi bi-exclamation-triangle-fill" style="color:#f59e0b;"></i>
+              Ordre de mission indisponible
+            </div>
+            <div style="color:#92400e;">L'adresse professionnelle est requise pour générer un ordre de mission.</div>
+          </div>
+          {% endif %}
+
+          {% if request.user.profile.is_admin %}
+          <div class="section-divider"></div>
+          <a href="{% url 'resources:trainer_edit' trainer.pk %}" class="btn btn-amber w-100" style="justify-content:center;">
+            <i class="bi bi-pencil-fill"></i> Modifier le formateur
+          </a>
+          {% endif %}
+
+        </div>
+      </div>
+    </div>
+
+    <!-- Right column -->
+    <div class="col-lg-8">
+
+      <!-- Qualifications -->
+      {% if trainer.qualifications.all %}
+      <div class="isi-card mb-4">
+        <div class="isi-card-header">
+          <div class="card-icon amber"><i class="bi bi-mortarboard-fill"></i></div>
+          <h3>Formations qualifiées</h3>
+          <span class="header-count ms-1">({{ trainer.qualifications.count }})</span>
+        </div>
+        <div class="isi-card-body">
+          <div style="display:flex;flex-wrap:wrap;gap:8px;">
+            {% for formation in trainer.qualifications.all %}
+            <span style="
+              display:inline-flex;align-items:center;gap:6px;
+              padding:5px 12px;border-radius:8px;
+              background:var(--accent-soft);border:1px solid rgba(245,158,11,.25);
+              font-size:13px;font-weight:500;color:#92400e;">
+              <i class="bi bi-mortarboard-fill" style="font-size:12px;"></i>
+              {{ formation.title }}
+            </span>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Recent sessions -->
+      <div class="isi-card">
+        <div class="isi-card-header">
+          <div class="card-icon amber"><i class="bi bi-calendar3-fill"></i></div>
+          <h3>Sessions récentes</h3>
+          <span class="header-count ms-1">({{ sessions|length }})</span>
+        </div>
+
+        {% if sessions %}
+        <div style="overflow-x:auto;">
+          <table class="isi-table">
+            <thead>
+              <tr>
+                <th>Formation</th>
+                <th>Date début</th>
+                <th>Client</th>
+                <th>Participants</th>
+                <th>Statut</th>
+                <th style="text-align:right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for session in sessions %}
+              <tr>
+                <td>
+                  <span style="font-weight:600;">{{ session.formation.title }}</span>
+                </td>
+                <td>{{ session.date_start|date:"d/m/Y" }}</td>
+                <td>
+                  {% if session.client %}
+                    <a href="{% url 'clients:client_detail' session.client.pk %}"
+                       style="color:var(--text-muted);font-size:13px;text-decoration:none;">
+                      {{ session.client.name }}
+                    </a>
+                  {% else %}<span style="color:var(--text-muted);">—</span>{% endif %}
+                </td>
+                <td>
+                  <span style="font-weight:600;">{{ session.participant_count }}</span>
+                  <span class="table-secondary-text">/ {{ session.capacity }}</span>
+                </td>
+                <td>
+                  {% if session.status == 'planned' %}
+                    <span class="isi-badge blue"><i class="bi bi-circle-fill" style="font-size:7px;"></i> Planifiée</span>
+                  {% elif session.status == 'in_progress' %}
+                    <span class="isi-badge amber"><i class="bi bi-circle-fill" style="font-size:7px;"></i> En cours</span>
+                  {% elif session.status == 'completed' %}
+                    <span class="isi-badge green"><i class="bi bi-circle-fill" style="font-size:7px;"></i> Terminée</span>
+                  {% elif session.status == 'cancelled' %}
+                    <span class="isi-badge red"><i class="bi bi-circle-fill" style="font-size:7px;"></i> Annulée</span>
+                  {% elif session.status == 'archived' %}
+                    <span class="isi-badge gray"><i class="bi bi-circle-fill" style="font-size:7px;"></i> Archivée</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <div style="display:flex;justify-content:flex-end;">
+                    <a href="{% url 'formations:session_detail' session.pk %}" class="btn btn-ghost btn-sm">
+                      <i class="bi bi-eye-fill"></i>
+                    </a>
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="empty-state" style="padding:40px 24px;">
+          <div class="empty-state-icon" style="font-size:40px;"><i class="bi bi-calendar3-fill"></i></div>
+          <p class="empty-state-text" style="font-size:14px;">Aucune session pour ce formateur.</p>
+        </div>
+        {% endif %}
+
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

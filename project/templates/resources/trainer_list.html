@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Formateurs — ISI Gestion Pédagogique{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'resources/css/resources.css' %}" />
+{% endblock %}
+
+{% block breadcrumb %}
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="#">Ressources</a>
+<i class="bi bi-chevron-right bc-sep"></i>
+{% endblock %}
+{% block breadcrumb_active %}<span class="bc-active">Formateurs</span>{% endblock %}
+
+{% block topbar_actions %}
+{% if request.user.profile.is_admin %}
+<a href="{% url 'resources:trainer_create' %}" class="topbar-btn primary">
+  <i class="bi bi-plus-lg"></i> Nouveau formateur
+</a>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="fade-up">
+
+  <div class="page-header">
+    <div class="page-header-left">
+      <h1>Formateurs</h1>
+      <p class="page-subtitle">Répertoire des formateurs actifs</p>
+    </div>
+  </div>
+
+  <!-- Filter bar -->
+  <div class="isi-card mb-4">
+    <div class="isi-card-body" style="padding:16px 24px;">
+      <div class="row g-3 align-items-end">
+        <div class="col-sm-8 col-md-5">
+          <label class="form-label">Rechercher</label>
+          <div class="input-icon-wrap">
+            <i class="bi bi-search"></i>
+            <input type="text" id="trainerSearch" class="form-control"
+              placeholder="Nom, spécialité, téléphone…" />
+          </div>
+        </div>
+        <div class="col-sm-4 col-md-3">
+          <button type="button" id="clearSearch" class="btn btn-ghost w-100">
+            <i class="bi bi-x-lg"></i> Réinitialiser
+          </button>
+        </div>
+        {% if request.user.profile.is_admin %}
+        <div class="col-md-4 text-md-end">
+          <a href="{% url 'resources:room_list' %}" class="btn btn-ghost">
+            <i class="bi bi-door-open-fill"></i> Gérer les salles
+          </a>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Results -->
+  <div class="isi-card">
+    <div class="isi-card-header">
+      <div class="card-icon blue"><i class="bi bi-person-fill-check"></i></div>
+      <h3>Liste des formateurs</h3>
+      <span class="header-count ms-1">({{ page_obj.paginator.count }} formateur{{ page_obj.paginator.count|pluralize }})</span>
+      {% if request.user.profile.is_admin %}
+      <a href="{% url 'resources:trainer_create' %}" class="btn btn-amber btn-sm ms-auto">
+        <i class="bi bi-plus-lg"></i> Nouveau
+      </a>
+      {% endif %}
+    </div>
+
+    {% if page_obj.object_list %}
+    <div style="overflow-x:auto;">
+      <table class="isi-table">
+        <thead>
+          <tr>
+            <th>Nom et prénom</th>
+            <th>Spécialité</th>
+            <th>Type</th>
+            <th>Téléphone</th>
+            <th>Sessions</th>
+            <th>Statut</th>
+            <th style="text-align:right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for trainer in page_obj %}
+          <tr class="trainer-row">
+            <td>
+              <a href="{% url 'resources:trainer_detail' trainer.pk %}" class="table-primary-link">
+                {{ trainer.full_name }}
+              </a>
+              {% if trainer.full_name_ar %}
+              <span class="table-secondary-text" dir="rtl" style="text-align:right;">{{ trainer.full_name_ar }}</span>
+              {% endif %}
+            </td>
+            <td>{{ trainer.specialty }}</td>
+            <td>
+              {% if trainer.employment_type == 'internal' %}
+                <span class="isi-badge blue"><i class="bi bi-circle-fill" style="font-size:7px;"></i> Interne</span>
+              {% else %}
+                <span class="isi-badge gray"><i class="bi bi-circle-fill" style="font-size:7px;"></i> Externe</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if trainer.phone %}
+              <a href="tel:{{ trainer.phone }}" style="color:var(--text-primary);text-decoration:none;">{{ trainer.phone }}</a>
+              {% else %}<span style="color:var(--text-muted);">—</span>{% endif %}
+            </td>
+            <td>
+              <span style="font-weight:600;">{{ trainer.session_count }}</span>
+              <span class="table-secondary-text">session{{ trainer.session_count|pluralize }}</span>
+            </td>
+            <td>
+              {% if trainer.is_active %}
+                <span class="isi-badge green"><i class="bi bi-circle-fill" style="font-size:7px;"></i> Actif</span>
+              {% else %}
+                <span class="isi-badge gray"><i class="bi bi-circle-fill" style="font-size:7px;"></i> Inactif</span>
+              {% endif %}
+            </td>
+            <td>
+              <div style="display:flex;justify-content:flex-end;gap:6px;">
+                <a href="{% url 'resources:trainer_detail' trainer.pk %}" class="btn btn-ghost btn-sm" title="Voir">
+                  <i class="bi bi-eye-fill"></i>
+                </a>
+                {% if request.user.profile.is_admin %}
+                <a href="{% url 'resources:trainer_edit' trainer.pk %}" class="btn btn-ghost btn-sm" title="Modifier">
+                  <i class="bi bi-pencil-fill"></i>
+                </a>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if page_obj.paginator.num_pages > 1 %}
+    <div class="isi-pagination">
+      <div class="isi-pagination-info">
+        Page {{ page_obj.number }} sur {{ page_obj.paginator.num_pages }} —
+        {{ page_obj.paginator.count }} formateur{{ page_obj.paginator.count|pluralize }}
+      </div>
+      <div class="isi-pagination-controls">
+        {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}" class="btn btn-ghost btn-sm"><i class="bi bi-chevron-left"></i></a>
+        {% endif %}
+        {% for num in page_obj.paginator.page_range %}
+          {% if num == page_obj.number %}
+            <button class="btn btn-amber btn-sm" disabled>{{ num }}</button>
+          {% elif num >= page_obj.number|add:"-2" and num <= page_obj.number|add:"2" %}
+            <a href="?page={{ num }}" class="btn btn-ghost btn-sm">{{ num }}</a>
+          {% endif %}
+        {% endfor %}
+        {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}" class="btn btn-ghost btn-sm"><i class="bi bi-chevron-right"></i></a>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="empty-state">
+      <div class="empty-state-icon"><i class="bi bi-person-fill-check"></i></div>
+      <p class="empty-state-text">Aucun formateur pour le moment.</p>
+      {% if request.user.profile.is_admin %}
+      <a href="{% url 'resources:trainer_create' %}" class="btn btn-amber">
+        <i class="bi bi-plus-lg"></i> Créer le premier formateur
+      </a>
+      {% endif %}
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{% static 'resources/js/trainer_list.js' %}"></script>
+{% endblock %}

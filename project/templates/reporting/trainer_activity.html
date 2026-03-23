@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Activité formateurs — Rapports — ISI Gestion Pédagogique{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'reporting/css/reporting.css' %}" />{% endblock %}
+
+{% block breadcrumb %}
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="{% url 'reporting:dashboard' %}">Rapports</a>
+<i class="bi bi-chevron-right bc-sep"></i>
+{% endblock %}
+{% block breadcrumb_active %}<span class="bc-active">Activité formateurs</span>{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% url 'reporting:dashboard' %}" class="topbar-btn"><i class="bi bi-arrow-left"></i> Rapports</a>
+{% endblock %}
+
+{% block content %}
+<div class="fade-up">
+  <div class="page-header">
+    <div class="page-header-left">
+      <h1>Activité des formateurs</h1>
+      <p class="page-subtitle">Sessions effectuées du {{ date_from|date:"d/m/Y" }} au {{ date_to|date:"d/m/Y" }}</p>
+    </div>
+  </div>
+
+  <!-- Filter bar -->
+  <div class="isi-card mb-4">
+    <div class="report-filter-bar">
+      <form method="get" novalidate>
+        <div class="row g-3 align-items-end">
+          <div class="col-sm-5 col-md-3">
+            <label class="form-label">Du</label>
+            <input type="date" name="date_from" class="form-control" value="{{ form.date_from.value|default:date_from|date:'Y-m-d' }}" />
+          </div>
+          <div class="col-sm-5 col-md-3">
+            <label class="form-label">Au</label>
+            <input type="date" name="date_to" class="form-control" value="{{ form.date_to.value|default:date_to|date:'Y-m-d' }}" />
+          </div>
+          <div class="col-sm-2 d-flex gap-2 align-items-end">
+            <button type="submit" class="btn btn-amber" style="justify-content:center;"><i class="bi bi-funnel-fill"></i> Filtrer</button>
+            <a href="{% url 'reporting:trainer_activity' %}" class="btn btn-ghost" title="Réinitialiser (6 mois)"><i class="bi bi-x-lg"></i></a>
+          </div>
+        </div>
+      </form>
+    </div>
+    <div style="padding:8px 24px;font-size:12px;color:var(--text-muted);border-top:1px solid var(--card-border);">
+      <i class="bi bi-clock-history" style="color:var(--accent);"></i>
+      Par défaut : 6 derniers mois. Réinitialisez pour revenir à cette fenêtre.
+    </div>
+  </div>
+
+  {% if rows %}
+
+  <!-- Summary chart -->
+  <div class="isi-card mb-4">
+    <div class="isi-card-header">
+      <div class="card-icon blue"><i class="bi bi-bar-chart-fill"></i></div>
+      <h3>Nombre de sessions par formateur</h3>
+    </div>
+    <div class="chart-container" style="height:{% if rows|length > 6 %}280{% else %}180{% endif %}px;">
+      <canvas id="trainerActivityChart"></canvas>
+    </div>
+  </div>
+
+  <!-- Detail: per trainer accordion -->
+  <div class="isi-card">
+    <div class="isi-card-header">
+      <div class="card-icon blue"><i class="bi bi-person-lines-fill"></i></div>
+      <h3>Détail par formateur</h3>
+      <span class="header-count ms-1">({{ rows|length }} formateur{{ rows|length|pluralize }})</span>
+    </div>
+
+    {% for row in rows %}
+    <div style="border-bottom:1px solid var(--card-border);">
+      <!-- Trainer header row -->
+      <div style="display:flex;align-items:center;gap:14px;padding:14px 24px;cursor:pointer;transition:background .12s;"
+           onclick="toggleSessions('trainer-{{ row.trainer.pk }}')"
+           onmouseover="this.style.background='#f8fafc'"
+           onmouseout="this.style.background=''">
+        <div style="
+          width:36px;height:36px;border-radius:50%;
+          background:rgba(59,130,246,.12);border:1.5px solid #3b82f6;
+          font-family:var(--font-head);font-size:14px;font-weight:700;color:#3b82f6;
+          display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          {{ row.trainer.first_name|slice:":1"|upper }}{{ row.trainer.last_name|slice:":1"|upper }}
+        </div>
+        <div style="flex:1;min-width:0;">
+          <a href="{% url 'resources:trainer_detail' row.trainer.pk %}" class="table-primary-link" onclick="event.stopPropagation();">{{ row.trainer.full_name }}</a>
+          <span class="table-secondary-text">{{ row.trainer.specialty }}</span>
+        </div>
+        <div style="text-align:center;min-width:60px;">
+          <div class="stat-value" style="font-size:20px;">{{ row.session_count }}</div>
+          <div class="stat-label">session{{ row.session_count|pluralize }}</div>
+        </div>
+        {% if row.trainer.employment_type == 'internal' %}
+        <span class="isi-badge blue"><i class="bi bi-circle-fill" style="font-size:7px;"></i> Interne</span>
+        {% else %}
+        <span class="isi-badge gray"><i class="bi bi-circle-fill" style="font-size:7px;"></i> Externe</span>
+        {% endif %}
+        <i class="bi bi-chevron-down" id="chevron-{{ row.trainer.pk }}" style="color:var(--text-muted);font-size:13px;transition:transform .2s;flex-shrink:0;"></i>
+      </div>
+
+      <!-- Sessions list (collapsed by default) -->
+      <div id="trainer-{{ row.trainer.pk }}" class="trainer-sessions-list" style="display:none;">
+        {% if row.sessions %}
+        {% for s in row.sessions %}
+        <div class="trainer-session-row">
+          <a href="{% url 'formations:session_detail' s.pk %}"
+             style="font-family:monospace;font-size:12px;color:var(--accent);text-decoration:none;min-width:140px;flex-shrink:0;">
+            {{ s.reference }}
+          </a>
+          <span style="flex:1;color:var(--text-primary);font-weight:500;">{{ s.formation.title }}</span>
+          <span style="color:var(--text-muted);min-width:90px;">{{ s.date_start|date:"d/m/Y" }}</span>
+          <span style="min-width:80px;">{{ s.client.name|truncatechars:20 }}</span>
+          {% if s.status == 'planned' %}<span class="isi-badge blue" style="font-size:10px;"><i class="bi bi-circle-fill" style="font-size:6px;"></i> Planifiée</span>
+          {% elif s.status == 'in_progress' %}<span class="isi-badge amber" style="font-size:10px;"><i class="bi bi-circle-fill" style="font-size:6px;"></i> En cours</span>
+          {% elif s.status == 'completed' %}<span class="isi-badge green" style="font-size:10px;"><i class="bi bi-circle-fill" style="font-size:6px;"></i> Terminée</span>
+          {% elif s.status == 'archived' %}<span class="isi-badge gray" style="font-size:10px;"><i class="bi bi-circle-fill" style="font-size:6px;"></i> Archivée</span>{% endif %}
+        </div>
+        {% endfor %}
+        {% else %}
+        <div style="padding:12px 0;color:var(--text-muted);font-size:13px;">Aucune session sur la période.</div>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% else %}
+  <div class="isi-card">
+    <div class="empty-state">
+      <div class="empty-state-icon"><i class="bi bi-person-fill-check"></i></div>
+      <p class="empty-state-text">Aucune activité formateur sur la période sélectionnée.</p>
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script src="{% static 'reporting/js/reporting.js' %}"></script>
+{% if rows %}
+<script>
+buildBarChart(
+  "trainerActivityChart",
+  [{% for row in rows %}"{{ row.trainer.full_name }}"{% if not forloop.last %},{% endif %}{% endfor %}],
+  [{% for row in rows %}{{ row.session_count }}{% if not forloop.last %},{% endif %}{% endfor %}],
+  "rgba(59,130,246,0.75)"
+);
+
+function toggleSessions(id) {
+  var el = document.getElementById(id);
+  var pk = id.replace("trainer-", "");
+  var chevron = document.getElementById("chevron-" + pk);
+  if (el.style.display === "none") {
+    el.style.display = "block";
+    if (chevron) chevron.style.transform = "rotate(180deg)";
+  } else {
+    el.style.display = "none";
+    if (chevron) chevron.style.transform = "";
+  }
+}
+</script>
+{% endif %}
+{% endblock %}

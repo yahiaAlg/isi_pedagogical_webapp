@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ title }} — Session {{ session.reference }} — ISI Gestion Pédagogique{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'formations/css/formations.css' %}" />{% endblock %}
+
+{% block breadcrumb %}
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="{% url 'formations:session_list' %}">Sessions</a>
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="{% url 'formations:session_detail' session.pk %}">{{ session.reference }}</a>
+<i class="bi bi-chevron-right bc-sep"></i>
+{% endblock %}
+{% block breadcrumb_active %}<span class="bc-active">{{ title }}</span>{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% url 'formations:session_detail' session.pk %}" class="topbar-btn"><i class="bi bi-arrow-left"></i> Retour</a>
+{% endblock %}
+
+{% block content %}
+<div class="fade-up">
+  <div class="page-header">
+    <div class="page-header-left">
+      <h1>{{ title }}</h1>
+      <p class="page-subtitle">Session {{ session.reference }} — {{ session.formation.title }}</p>
+    </div>
+  </div>
+
+  <div style="font-size:12px;color:var(--text-muted);padding:6px 10px;background:#f8fafc;border-radius:6px;border:1px solid var(--card-border);display:inline-flex;align-items:center;gap:6px;margin-bottom:20px;">
+    <i class="bi bi-people-fill" style="color:var(--accent);"></i>
+    {{ session.participant_count }} / {{ session.capacity }} participant{{ session.capacity|pluralize }} —
+    <strong>{{ session.available_spots }}</strong> place{{ session.available_spots|pluralize }} disponible{{ session.available_spots|pluralize }}
+  </div>
+
+  <div class="row justify-content-center">
+    <div class="col-lg-8 col-md-10">
+      <div class="isi-card">
+        <div class="isi-card-header">
+          <div class="card-icon blue"><i class="bi bi-person-fill"></i></div>
+          <h3>{{ title }}</h3>
+        </div>
+        <div class="isi-card-body">
+          <form method="post" novalidate class="isi-dirty-guard">
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+            <div class="alert alert-danger mb-4">
+              <i class="bi bi-exclamation-circle-fill"></i>
+              <div>{% for e in form.non_field_errors %}<div>{{ e }}</div>{% endfor %}</div>
+            </div>
+            {% endif %}
+
+            <!-- ── Identité ────────────────────────────────── -->
+            <div class="form-section-title">Identité</div>
+            <div class="row g-3 mb-3">
+              <div class="col-sm-6">
+                <label class="form-label" for="{{ form.first_name.id_for_label }}">Prénom <span style="color:var(--danger);">*</span></label>
+                <input type="text" id="{{ form.first_name.id_for_label }}" name="{{ form.first_name.html_name }}"
+                  value="{{ form.first_name.value|default_if_none:'' }}"
+                  class="form-control {% if form.first_name.errors %}is-invalid{% endif %}" required />
+                {% if form.first_name.errors %}<div class="invalid-feedback d-block">{{ form.first_name.errors|join:", " }}</div>{% endif %}
+              </div>
+              <div class="col-sm-6">
+                <label class="form-label" for="{{ form.last_name.id_for_label }}">Nom <span style="color:var(--danger);">*</span></label>
+                <input type="text" id="{{ form.last_name.id_for_label }}" name="{{ form.last_name.html_name }}"
+                  value="{{ form.last_name.value|default_if_none:'' }}"
+                  class="form-control {% if form.last_name.errors %}is-invalid{% endif %}" required />
+                {% if form.last_name.errors %}<div class="invalid-feedback d-block">{{ form.last_name.errors|join:", " }}</div>{% endif %}
+              </div>
+            </div>
+            <div class="row g-3 mb-3">
+              <div class="col-sm-6">
+                <label class="form-label" for="{{ form.first_name_ar.id_for_label }}">Prénom (AR)</label>
+                <input type="text" id="{{ form.first_name_ar.id_for_label }}" name="{{ form.first_name_ar.html_name }}"
+                  value="{{ form.first_name_ar.value|default_if_none:'' }}"
+                  class="form-control" placeholder="الاسم الأول" dir="rtl" />
+              </div>
+              <div class="col-sm-6">
+                <label class="form-label" for="{{ form.last_name_ar.id_for_label }}">Nom (AR)</label>
+                <input type="text" id="{{ form.last_name_ar.id_for_label }}" name="{{ form.last_name_ar.html_name }}"
+                  value="{{ form.last_name_ar.value|default_if_none:'' }}"
+                  class="form-control" placeholder="اللقب" dir="rtl" />
+              </div>
+            </div>
+            <div class="row g-3">
+              <div class="col-sm-4">
+                <label class="form-label" for="{{ form.date_of_birth.id_for_label }}">Date de naissance</label>
+                <input type="date" id="{{ form.date_of_birth.id_for_label }}" name="{{ form.date_of_birth.html_name }}"
+                  value="{{ form.date_of_birth.value|date:'Y-m-d'|default_if_none:'' }}"
+                  class="form-control {% if form.date_of_birth.errors %}is-invalid{% endif %}" />
+                {% if form.date_of_birth.errors %}<div class="invalid-feedback d-block">{{ form.date_of_birth.errors|join:", " }}</div>{% endif %}
+              </div>
+              <div class="col-sm-4">
+                <label class="form-label" for="{{ form.place_of_birth.id_for_label }}">Lieu de naissance (FR)</label>
+                <input type="text" id="{{ form.place_of_birth.id_for_label }}" name="{{ form.place_of_birth.html_name }}"
+                  value="{{ form.place_of_birth.value|default_if_none:'' }}"
+                  class="form-control" placeholder="Ville, Wilaya" />
+              </div>
+              <div class="col-sm-4">
+                <label class="form-label" for="{{ form.place_of_birth_ar.id_for_label }}">Lieu de naissance (AR)</label>
+                <input type="text" id="{{ form.place_of_birth_ar.id_for_label }}" name="{{ form.place_of_birth_ar.html_name }}"
+                  value="{{ form.place_of_birth_ar.value|default_if_none:'' }}"
+                  class="form-control" placeholder="مكان الميلاد" dir="rtl" />
+              </div>
+            </div>
+
+            <!-- ── Informations professionnelles ──────────── -->
+            <div class="section-divider"></div>
+            <div class="form-section-title">Informations professionnelles</div>
+            <div class="row g-3 mb-3">
+              <div class="col-sm-6">
+                <label class="form-label" for="{{ form.job_title.id_for_label }}">Fonction</label>
+                <input type="text" id="{{ form.job_title.id_for_label }}" name="{{ form.job_title.html_name }}"
+                  value="{{ form.job_title.value|default_if_none:'' }}"
+                  class="form-control" placeholder="Ex : Technicien HSE" />
+              </div>
+              <div class="col-sm-6">
+                <label class="form-label" for="{{ form.employer.id_for_label }}">Employeur (texte libre)</label>
+                <input type="text" id="{{ form.employer.id_for_label }}" name="{{ form.employer.html_name }}"
+                  value="{{ form.employer.value|default_if_none:'' }}"
+                  class="form-control" placeholder="Nom de l'entreprise" />
+              </div>
+            </div>
+            <div class="row g-3">
+              <div class="col-sm-8">
+                <label class="form-label" for="{{ form.employer_client.id_for_label }}">Employeur (client ISI)</label>
+                <select id="{{ form.employer_client.id_for_label }}" name="{{ form.employer_client.html_name }}"
+                  class="form-select {% if form.employer_client.errors %}is-invalid{% endif %}">
+                  <option value="">— Lier à un client —</option>
+                  {% for c in form.fields.employer_client.queryset %}
+                  <option value="{{ c.pk }}" {% if form.employer_client.value|stringformat:"s" == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>
+                  {% endfor %}
+                </select>
+                {% if form.employer_client.errors %}<div class="invalid-feedback d-block">{{ form.employer_client.errors|join:", " }}</div>{% endif %}
+              </div>
+            </div>
+
+            <!-- ── Contact ─────────────────────────────────── -->
+            <div class="section-divider"></div>
+            <div class="form-section-title">Contact</div>
+            <div class="row g-3">
+              <div class="col-sm-6">
+                <label class="form-label" for="{{ form.phone.id_for_label }}">Téléphone</label>
+                <div class="input-icon-wrap">
+                  <i class="bi bi-telephone-fill"></i>
+                  <input type="text" id="{{ form.phone.id_for_label }}" name="{{ form.phone.html_name }}"
+                    value="{{ form.phone.value|default_if_none:'' }}"
+                    class="form-control" placeholder="+213 XX XX XX XX" />
+                </div>
+              </div>
+              <div class="col-sm-6">
+                <label class="form-label" for="{{ form.email.id_for_label }}">Email</label>
+                <div class="input-icon-wrap">
+                  <i class="bi bi-envelope-fill"></i>
+                  <input type="email" id="{{ form.email.id_for_label }}" name="{{ form.email.html_name }}"
+                    value="{{ form.email.value|default_if_none:'' }}"
+                    class="form-control" placeholder="participant@example.dz" />
+                </div>
+              </div>
+            </div>
+
+            <!-- ── Notes ──────────────────────────────────── -->
+            <div class="section-divider"></div>
+            <div class="form-section-title">Notes internes</div>
+            <div class="mb-4">
+              <label class="form-label" for="{{ form.notes.id_for_label }}">Notes</label>
+              <textarea id="{{ form.notes.id_for_label }}" name="{{ form.notes.html_name }}"
+                class="form-control" rows="3"
+                placeholder="Remarques, observations…">{{ form.notes.value|default_if_none:'' }}</textarea>
+            </div>
+
+            <div class="section-divider"></div>
+            <div style="display:flex;gap:12px;">
+              <button type="submit" class="btn btn-amber">
+                <i class="bi bi-check-lg"></i> {% if participant %}Enregistrer{% else %}Ajouter le participant{% endif %}
+              </button>
+              <a href="{% url 'formations:session_detail' session.pk %}" class="btn btn-ghost"><i class="bi bi-arrow-left"></i> Annuler</a>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}<script src="{% static 'formations/js/formations.js' %}"></script>{% endblock %}

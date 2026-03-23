@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ title }} — Sessions — ISI Gestion Pédagogique{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'formations/css/formations.css' %}" />{% endblock %}
+
+{% block breadcrumb %}
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="{% url 'formations:session_list' %}">Sessions</a>
+{% if session %}<i class="bi bi-chevron-right bc-sep"></i><a href="{% url 'formations:session_detail' session.pk %}">{{ session.reference }}</a>{% endif %}
+<i class="bi bi-chevron-right bc-sep"></i>
+{% endblock %}
+{% block breadcrumb_active %}<span class="bc-active">{{ title }}</span>{% endblock %}
+
+{% block topbar_actions %}
+{% if session %}<a href="{% url 'formations:session_detail' session.pk %}" class="topbar-btn"><i class="bi bi-arrow-left"></i> Retour</a>
+{% else %}<a href="{% url 'formations:session_list' %}" class="topbar-btn"><i class="bi bi-arrow-left"></i> Retour</a>{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="fade-up">
+  <div class="page-header">
+    <div class="page-header-left">
+      <h1>{{ title }}</h1>
+      <p class="page-subtitle">{% if session %}Modification{% else %}Planification{% endif %} d'une session de formation</p>
+    </div>
+  </div>
+
+  <div class="row justify-content-center">
+    <div class="col-lg-8 col-md-10">
+      <div class="isi-card">
+        <div class="isi-card-header">
+          <div class="card-icon amber"><i class="bi bi-calendar3-fill"></i></div>
+          <h3>{{ title }}</h3>
+          {% if session %}<code style="font-size:12px;color:var(--text-muted);margin-left:8px;">{{ session.reference }}</code>{% endif %}
+        </div>
+        <div class="isi-card-body">
+          <form method="post" novalidate class="isi-dirty-guard">
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+            <div class="alert alert-danger mb-4">
+              <i class="bi bi-exclamation-circle-fill"></i>
+              <div>{% for e in form.non_field_errors %}<div>{{ e }}</div>{% endfor %}</div>
+            </div>
+            {% endif %}
+
+            <!-- ── Formation + Client ─────────────────────── -->
+            <div class="form-section-title">Formation & Client</div>
+            <div class="row g-3 mb-3">
+              <div class="col-sm-8">
+                <label class="form-label" for="{{ form.formation.id_for_label }}">Formation <span style="color:var(--danger);">*</span></label>
+                <select id="{{ form.formation.id_for_label }}" name="{{ form.formation.html_name }}"
+                  class="form-select {% if form.formation.errors %}is-invalid{% endif %}" required>
+                  <option value="">— Sélectionner une formation —</option>
+                  {% for f in form.fields.formation.queryset %}
+                  <option value="{{ f.pk }}" data-max="{{ f.max_participants }}"
+                    {% if form.formation.value|stringformat:"s" == f.pk|stringformat:"s" %}selected{% endif %}>
+                    {{ f.code }} — {{ f.title }}
+                  </option>
+                  {% endfor %}
+                </select>
+                {% if form.formation.errors %}<div class="invalid-feedback d-block">{{ form.formation.errors|join:", " }}</div>{% endif %}
+              </div>
+              <div class="col-sm-4">
+                <label class="form-label" for="{{ form.capacity.id_for_label }}">Capacité <span style="color:var(--danger);">*</span></label>
+                <input type="number" id="{{ form.capacity.id_for_label }}" name="{{ form.capacity.html_name }}"
+                  value="{{ form.capacity.value|default_if_none:'' }}"
+                  class="form-control {% if form.capacity.errors %}is-invalid{% endif %}" min="1" required />
+                {% if form.capacity.errors %}<div class="invalid-feedback d-block">{{ form.capacity.errors|join:", " }}</div>{% endif %}
+              </div>
+            </div>
+            <div class="row g-3 mb-3">
+              <div class="col-sm-6">
+                <label class="form-label" for="{{ form.client.id_for_label }}">Client <span style="color:var(--danger);">*</span></label>
+                <select id="{{ form.client.id_for_label }}" name="{{ form.client.html_name }}"
+                  class="form-select {% if form.client.errors %}is-invalid{% endif %}" required>
+                  <option value="">— Sélectionner un client —</option>
+                  {% for c in form.fields.client.queryset %}
+                  <option value="{{ c.pk }}" {% if form.client.value|stringformat:"s" == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>
+                  {% endfor %}
+                </select>
+                {% if form.client.errors %}<div class="invalid-feedback d-block">{{ form.client.errors|join:", " }}</div>{% endif %}
+              </div>
+              <div class="col-sm-6">
+                <label class="form-label" for="{{ form.trainer.id_for_label }}">Formateur <span style="color:var(--danger);">*</span></label>
+                <select id="{{ form.trainer.id_for_label }}" name="{{ form.trainer.html_name }}"
+                  class="form-select {% if form.trainer.errors %}is-invalid{% endif %}" required>
+                  <option value="">— Sélectionner un formateur —</option>
+                  {% for t in form.fields.trainer.queryset %}
+                  <option value="{{ t.pk }}" {% if form.trainer.value|stringformat:"s" == t.pk|stringformat:"s" %}selected{% endif %}>{{ t.full_name }}</option>
+                  {% endfor %}
+                </select>
+                {% if form.trainer.errors %}<div class="invalid-feedback d-block">{{ form.trainer.errors|join:", " }}</div>{% endif %}
+              </div>
+            </div>
+
+            <!-- ── Planification ──────────────────────────── -->
+            <div class="section-divider"></div>
+            <div class="form-section-title">Planification</div>
+            <div class="row g-3 mb-3">
+              <div class="col-sm-6">
+                <label class="form-label" for="{{ form.date_start.id_for_label }}">Date de début <span style="color:var(--danger);">*</span></label>
+                <input type="date" id="{{ form.date_start.id_for_label }}" name="{{ form.date_start.html_name }}"
+                  value="{{ form.date_start.value|date:'Y-m-d'|default_if_none:'' }}"
+                  class="form-control {% if form.date_start.errors %}is-invalid{% endif %}" required />
+                {% if form.date_start.errors %}<div class="invalid-feedback d-block">{{ form.date_start.errors|join:", " }}</div>{% endif %}
+              </div>
+              <div class="col-sm-6">
+                <label class="form-label" for="{{ form.date_end.id_for_label }}">Date de fin <span style="color:var(--danger);">*</span></label>
+                <input type="date" id="{{ form.date_end.id_for_label }}" name="{{ form.date_end.html_name }}"
+                  value="{{ form.date_end.value|date:'Y-m-d'|default_if_none:'' }}"
+                  class="form-control {% if form.date_end.errors %}is-invalid{% endif %}" required />
+                {% if form.date_end.errors %}<div class="invalid-feedback d-block">{{ form.date_end.errors|join:", " }}</div>{% endif %}
+              </div>
+            </div>
+
+            <!-- ── Lieu ───────────────────────────────────── -->
+            <div class="section-divider"></div>
+            <div class="form-section-title">Lieu de formation</div>
+            <div class="row g-3 mb-3">
+              <div class="col-sm-4">
+                <label class="form-label" for="{{ form.location_type.id_for_label }}">Type de lieu <span style="color:var(--danger);">*</span></label>
+                <select id="{{ form.location_type.id_for_label }}" name="{{ form.location_type.html_name }}"
+                  class="form-select {% if form.location_type.errors %}is-invalid{% endif %}" required>
+                  {% for val, label in form.fields.location_type.choices %}<option value="{{ val }}" {% if form.location_type.value == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+                </select>
+                {% if form.location_type.errors %}<div class="invalid-feedback d-block">{{ form.location_type.errors|join:", " }}</div>{% endif %}
+              </div>
+              <div class="col-sm-8" id="row-room">
+                <label class="form-label" for="{{ form.room.id_for_label }}">Salle</label>
+                <select id="{{ form.room.id_for_label }}" name="{{ form.room.html_name }}"
+                  class="form-select {% if form.room.errors %}is-invalid{% endif %}">
+                  <option value="">— Sélectionner une salle —</option>
+                  {% for r in form.fields.room.queryset %}<option value="{{ r.pk }}" {% if form.room.value|stringformat:"s" == r.pk|stringformat:"s" %}selected{% endif %}>{{ r.name }} ({{ r.capacity }} places)</option>{% endfor %}
+                </select>
+                {% if form.room.errors %}<div class="invalid-feedback d-block">{{ form.room.errors|join:", " }}</div>{% endif %}
+              </div>
+              <div class="col-sm-8" id="row-external_location" style="display:none;">
+                <label class="form-label" for="{{ form.external_location.id_for_label }}">Lieu externe</label>
+                <input type="text" id="{{ form.external_location.id_for_label }}" name="{{ form.external_location.html_name }}"
+                  value="{{ form.external_location.value|default_if_none:'' }}"
+                  class="form-control {% if form.external_location.errors %}is-invalid{% endif %}"
+                  placeholder="Adresse ou description du site client" />
+                {% if form.external_location.errors %}<div class="invalid-feedback d-block">{{ form.external_location.errors|join:", " }}</div>{% endif %}
+              </div>
+            </div>
+
+            <!-- ── Références internes ─────────────────────── -->
+            <div class="section-divider"></div>
+            <div class="form-section-title">Références internes</div>
+            <div class="row g-3">
+              <div class="col-sm-6">
+                <label class="form-label" for="{{ form.specialty_code.id_for_label }}">Code spécialité</label>
+                <input type="text" id="{{ form.specialty_code.id_for_label }}" name="{{ form.specialty_code.html_name }}"
+                  value="{{ form.specialty_code.value|default_if_none:'' }}"
+                  class="form-control {% if form.specialty_code.errors %}is-invalid{% endif %}"
+                  placeholder="Ex : HSE-01" style="font-family:monospace;" />
+              </div>
+              <div class="col-sm-6">
+                <label class="form-label" for="{{ form.session_number.id_for_label }}">Numéro de session</label>
+                <input type="text" id="{{ form.session_number.id_for_label }}" name="{{ form.session_number.html_name }}"
+                  value="{{ form.session_number.value|default_if_none:'' }}"
+                  class="form-control {% if form.session_number.errors %}is-invalid{% endif %}"
+                  placeholder="Ex : S-2025-001" style="font-family:monospace;" />
+              </div>
+            </div>
+
+            <div class="section-divider"></div>
+            <div style="display:flex;gap:12px;">
+              <button type="submit" class="btn btn-amber"><i class="bi bi-check-lg"></i> {% if session %}Enregistrer{% else %}Créer la session{% endif %}</button>
+              {% if session %}<a href="{% url 'formations:session_detail' session.pk %}" class="btn btn-ghost"><i class="bi bi-arrow-left"></i> Annuler</a>
+              {% else %}<a href="{% url 'formations:session_list' %}" class="btn btn-ghost"><i class="bi bi-arrow-left"></i> Annuler</a>{% endif %}
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+window.FORMATION_MAX_PARTICIPANTS = {
+  {% for f in form.fields.formation.queryset %}"{{ f.pk }}": {{ f.max_participants }}{% if not forloop.last %},{% endif %}{% endfor %}
+};
+</script>
+<script src="{% static 'formations/js/formations.js' %}"></script>
+{% endblock %}

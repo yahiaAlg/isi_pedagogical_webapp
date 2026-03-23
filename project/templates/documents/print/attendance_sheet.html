@@ -1,0 +1,53 @@
+{% extends "documents/print/base_print.html" %}
+
+{% block doc_title %}Feuille de présence J{{ day_number }} — {{ session.reference }}{% endblock %}
+
+{% block doc_body %}
+<div class="doc-title">Liste de Présence</div>
+<div class="doc-subtitle">
+  <strong>Titre de formation : {{ session.formation.code }}</strong>
+  &nbsp;&nbsp;&nbsp;
+  <strong>Client : {{ session.client.name }}</strong>
+</div>
+<div class="doc-date">
+  <strong>Date : </strong>
+  {% if day_date %}{{ day_date|date:"d/m/Y" }}{% else %}{{ session.date_start|date:"d/m/Y" }}{% endif %}
+  &nbsp;&nbsp;
+  <strong>Jour : {{ day_number }}</strong>
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th style="width:40px;">N°</th>
+      <th>Nome et prénom</th>
+      <th>Fonction</th>
+      <th>Signature</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for p in participants %}
+    <tr>
+      <td>{{ forloop.counter|stringformat:"02d" }}</td>
+      <td class="left">{{ p.last_name|upper }} {{ p.first_name }}</td>
+      <td class="left">{{ p.job_title }}</td>
+      <td style="min-height:30px;">&nbsp;</td>
+    </tr>
+    {% endfor %}
+    {% with count=participants|length %}
+    {% if count < 12 %}
+      {% for i in "123456789012"|make_list %}
+        {% if forloop.counter > count %}
+        <tr><td>{{ forloop.counter|stringformat:"02d" }}</td><td></td><td></td><td></td></tr>
+        {% endif %}
+      {% endfor %}
+    {% endif %}
+    {% endwith %}
+  </tbody>
+</table>
+
+<div class="sig-row">
+  <div>Le formateur : <strong>{{ session.trainer.full_name|upper }}</strong></div>
+  <div>Entreprise</div>
+</div>
+{% endblock %}

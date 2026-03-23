@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Salles — ISI Gestion Pédagogique{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'resources/css/resources.css' %}" />
+{% endblock %}
+
+{% block breadcrumb %}
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="#">Ressources</a>
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="{% url 'resources:trainer_list' %}">Formateurs</a>
+<i class="bi bi-chevron-right bc-sep"></i>
+{% endblock %}
+{% block breadcrumb_active %}<span class="bc-active">Salles de formation</span>{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% url 'resources:trainer_list' %}" class="topbar-btn">
+  <i class="bi bi-arrow-left"></i> Formateurs
+</a>
+{% if request.user.profile.is_admin %}
+<a href="{% url 'resources:room_create' %}" class="topbar-btn primary">
+  <i class="bi bi-plus-lg"></i> Nouvelle salle
+</a>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="fade-up">
+
+  <div class="page-header">
+    <div class="page-header-left">
+      <h1>Salles de formation</h1>
+      <p class="page-subtitle">Gestion des espaces de formation disponibles</p>
+    </div>
+  </div>
+
+  {% if rooms %}
+
+  <!-- Summary strip -->
+  <div class="row g-3 mb-4">
+    <div class="col-sm-6 col-lg-3">
+      <div class="isi-card">
+        <div class="isi-card-body" style="display:flex;align-items:center;gap:14px;padding:14px 18px;">
+          <div class="card-icon amber" style="width:44px;height:44px;font-size:20px;border-radius:12px;flex-shrink:0;">
+            <i class="bi bi-door-open-fill"></i>
+          </div>
+          <div>
+            <div class="stat-value" style="font-size:22px;">{{ rooms|length }}</div>
+            <div class="stat-label">Salle{{ rooms|length|pluralize }} active{{ rooms|length|pluralize }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+      <div class="isi-card">
+        <div class="isi-card-body" style="display:flex;align-items:center;gap:14px;padding:14px 18px;">
+          <div class="card-icon blue" style="width:44px;height:44px;font-size:20px;border-radius:12px;flex-shrink:0;">
+            <i class="bi bi-people-fill"></i>
+          </div>
+          <div>
+            {% with total=rooms|length %}
+            <div class="stat-value" style="font-size:22px;">
+              {% for room in rooms %}{{ room.capacity }}{% if not forloop.last %}+{% endif %}{% endfor %}
+            </div>
+            {% endwith %}
+            <div class="stat-label">Capacité totale</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Room cards grid -->
+  <div class="isi-card">
+    <div class="isi-card-header">
+      <div class="card-icon amber"><i class="bi bi-door-open-fill"></i></div>
+      <h3>Salles disponibles</h3>
+      <span class="header-count ms-1">({{ rooms|length }})</span>
+      {% if request.user.profile.is_admin %}
+      <a href="{% url 'resources:room_create' %}" class="btn btn-amber btn-sm ms-auto">
+        <i class="bi bi-plus-lg"></i> Nouvelle salle
+      </a>
+      {% endif %}
+    </div>
+    <div class="isi-card-body">
+      <div class="room-grid">
+        {% for room in rooms %}
+        <div class="room-card">
+          <div class="room-card-header">
+            <div class="card-icon amber" style="flex-shrink:0;">
+              <i class="bi bi-door-open-fill"></i>
+            </div>
+            <div style="flex:1;min-width:0;">
+              <div class="room-card-name">{{ room.name }}</div>
+              <span class="room-capacity-pill">
+                <i class="bi bi-people-fill"></i> {{ room.capacity }} place{{ room.capacity|pluralize }}
+              </span>
+            </div>
+          </div>
+
+          {% if room.equipment %}
+          <div class="room-equipment">
+            <span style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);display:block;margin-bottom:4px;">Équipements</span>
+            {{ room.equipment }}
+          </div>
+          {% else %}
+          <div class="room-equipment" style="color:var(--text-muted);">
+            <i>Aucun équipement renseigné</i>
+          </div>
+          {% endif %}
+
+          <div class="room-card-footer">
+            <span class="isi-badge {% if room.is_active %}green{% else %}gray{% endif %}">
+              <i class="bi bi-circle-fill" style="font-size:7px;"></i>
+              {% if room.is_active %}Active{% else %}Inactive{% endif %}
+            </span>
+            {% if request.user.profile.is_admin %}
+            <a href="{% url 'resources:room_edit' room.pk %}" class="btn btn-ghost btn-sm">
+              <i class="bi bi-pencil-fill"></i> Modifier
+            </a>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  {% else %}
+  <div class="isi-card">
+    <div class="empty-state">
+      <div class="empty-state-icon"><i class="bi bi-door-open-fill"></i></div>
+      <p class="empty-state-text">Aucune salle de formation pour le moment.</p>
+      {% if request.user.profile.is_admin %}
+      <a href="{% url 'resources:room_create' %}" class="btn btn-amber">
+        <i class="bi bi-plus-lg"></i> Créer la première salle
+      </a>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
