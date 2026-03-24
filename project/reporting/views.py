@@ -200,12 +200,12 @@ def sessions_by_formation(request):
     formations = (
         Formation.objects.filter(pk__in=formation_ids)
         .annotate(
-            session_count=Count(
+            num_sessions=Count(
                 "session",
                 filter=~Q(session__status="cancelled"),
             )
         )
-        .order_by("-session_count")
+        .order_by("-num_sessions")
     )
 
     # Attach avg fill rate per formation (computed property, must iterate)
@@ -218,7 +218,7 @@ def sessions_by_formation(request):
         rows.append(
             {
                 "formation": f,
-                "session_count": f.session_count,
+                "session_count": f.num_sessions,
                 "avg_fill_rate": avg_fill,
             }
         )
@@ -241,12 +241,12 @@ def sessions_by_client(request):
     clients = (
         Client.objects.filter(pk__in=client_ids)
         .annotate(
-            session_count=Count(
+            num_sessions=Count(
                 "session",
                 filter=~Q(session__status="cancelled"),
             )
         )
-        .order_by("-session_count")
+        .order_by("-num_sessions")
     )
 
     # Total participants per client
@@ -259,7 +259,7 @@ def sessions_by_client(request):
         rows.append(
             {
                 "client": c,
-                "session_count": c.session_count,
+                "session_count": c.num_sessions,
                 "total_participants": total_p,
             }
         )
@@ -280,12 +280,12 @@ def sessions_by_trainer(request):
     trainers = (
         Trainer.objects.filter(pk__in=trainer_ids)
         .annotate(
-            session_count=Count(
+            num_sessions=Count(
                 "session",
                 filter=~Q(session__status="cancelled"),
             )
         )
-        .order_by("-session_count")
+        .order_by("-num_sessions")
     )
 
     rows = []
@@ -301,7 +301,7 @@ def sessions_by_trainer(request):
         rows.append(
             {
                 "trainer": t,
-                "session_count": t.session_count,
+                "session_count": t.num_sessions,
                 "avg_pass_rate": avg_pass_rate,
             }
         )
