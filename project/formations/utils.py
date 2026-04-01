@@ -1,8 +1,9 @@
 import re
-from datetime import date, timedelta
+from datetime import timedelta
 from decimal import Decimal
-from django.core.exceptions import ValidationError
 from .models import Session, Participant
+
+from django.utils import timezone
 
 
 def generate_session_reference(session):
@@ -32,30 +33,66 @@ def generate_session_reference(session):
     return f"{formation_code}-{next_seq:03d}/{month:02d}/{year}"
 
 
+"""
+Add this function to formations/utils.py
+
+Certificate number format: {YYYY}/{MM} ت.ح.ط /{NNN}
+Example:                   2026/04 ت.ح.ط /001
+
+Counter = number of certificates already issued in the same YYYY/MM,
+starting at 1 and resetting each new month.
+"""
+
+
 def assign_certificate_number(participant):
     """
-    Assign a sequential certificate number within the session.
-    Spec §11.3 — numbers assigned by roster order (pk) among all passed participants.
+    Generate and assign a certificate number to a participant.
+    Format: YYYY/MM ت.ح.ط /NNN
+    Counter is scoped to the current month and resets each month.
+    Safe to call multiple times — no-op if already assigned.
     """
-    if participant.certificate_number or not participant.can_receive_certificate():
-        return
+    if participant.certificate_number:
+        return  # Already assigned; never overwrite
 
-    session = participant.session
+    now = timezone.now()
+    year = now.year
+    month = now.month
 
-    passed_participants = [
-        p for p in session.participant_set.order_by("pk") if p.can_receive_certificate()
-    ]
+    # Prefix used both as the stored key and for counting
+    prefix = f"{year}/{month:02d} ت.ح.ط /"
 
-    sequence = next(
-        (i + 1 for i, p in enumerate(passed_participants) if p.pk == participant.pk),
-        None,
-    )
-    if sequence is None:
-        return
+    # Count how many certificates have already been issued this month
+    from formations.models import Participant  # local import avoids circular refs
 
-    base_ref = session.reference.replace("/", "_")
-    participant.certificate_number = f"{base_ref}-{sequence:02d}"
+    count = Participant.objects.filter(certificate_number__startswith=prefix).count()
+
+    counter = count + 1  # 1-based; next available number
+    participant.certificate_number = f"{prefix}{counter:03d}"
     participant.save(update_fields=["certificate_number"])
+
+
+# ── Existing helper (keep if already present) ────────────────────────────────
+
+
+def generate_session_reference(session):
+    """
+    Auto-generate a unique session reference.
+    Format: {FORMATION_CODE}-{COUNTER:03d}/{YEAR}
+    Example: HSE001-042/2026
+    """
+    from formations.models import Session
+
+    year = session.date_start.year if session.date_start else timezone.now().year
+    code = session.formation.code if session.formation_id else "SES"
+    prefix = f"{code}-"
+
+    existing = Session.objects.filter(
+        reference__startswith=prefix,
+        date_start__year=year,
+    ).count()
+
+    counter = existing + 1
+    return f"{prefix}{counter:03d}/{year}"
 
 
 def validate_session_transition(session, new_status):

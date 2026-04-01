@@ -6,262 +6,92 @@
 <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&display=swap" rel="stylesheet" />
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Amiri', 'Times New Roman', serif; background: #e8e0d0; color: #111; }
 
-  body {
-    font-family: 'Amiri', 'Times New Roman', serif;
-    background: #e8e0d0;
-    color: #111;
-  }
+  .print-btn-bar { text-align: center; padding: 14px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; margin-bottom: 28px; }
+  .print-btn { background: #c8910a; color: #fff; border: none; padding: 10px 30px; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer; margin-left: 10px; font-family: inherit; }
+  .back-btn { background: none; border: 1px solid #ccc; padding: 10px 22px; border-radius: 8px; font-size: 14px; cursor: pointer; color: #555; text-decoration: none; }
 
-  /* ── Screen bar ── */
-  .print-btn-bar {
-    text-align: center;
-    padding: 14px;
-    background: #f8fafc;
-    border-bottom: 1px solid #e2e8f0;
-    margin-bottom: 28px;
-  }
-  .print-btn {
-    background: #c8910a; color: #fff; border: none;
-    padding: 10px 30px; border-radius: 8px; font-size: 14px;
-    font-weight: 700; cursor: pointer; margin-left: 10px;
-    font-family: inherit;
-  }
-  .back-btn {
-    background: none; border: 1px solid #ccc;
-    padding: 10px 22px; border-radius: 8px; font-size: 14px;
-    cursor: pointer; color: #555; text-decoration: none;
-  }
+  .page-wrapper { max-width: 1060px; margin: 0 auto; padding: 20px 20px 40px; }
 
-  /* ── Outer wrapper ── */
-  .page-wrapper {
-    max-width: 1060px;
-    margin: 0 auto;
-    padding: 20px 20px 40px;
-  }
-
-  /* ── Certificate card ── */
   .cert {
-    background: #fffdf5;
-    position: relative;
-    padding: 0;
-    /* layered gold border */
+    background: #fffdf5; position: relative;
     border: 6px solid #a0720a;
-    box-shadow:
-      inset 0 0 0 4px #e8c84a,
-      inset 0 0 0 8px #a0720a,
-      inset 0 0 0 14px #e8c84a,
-      0 6px 30px rgba(0,0,0,.25);
+    box-shadow: inset 0 0 0 4px #e8c84a, inset 0 0 0 8px #a0720a, inset 0 0 0 14px #e8c84a, 0 6px 30px rgba(0,0,0,.25);
   }
+  .cert-corner { position: absolute; width: 64px; height: 64px; color: #a0720a; font-size: 52px; line-height: 1; opacity: .85; }
+  .cert-corner.tl { top: 12px; right: 12px; }
+  .cert-corner.tr { top: 12px; left: 12px; transform: scaleX(-1); }
+  .cert-corner.bl { bottom: 12px; right: 12px; transform: scaleY(-1); }
+  .cert-corner.br { bottom: 12px; left: 12px; transform: scale(-1,-1); }
 
-  /* ornament corners */
-  .cert-corner {
-    position: absolute;
-    width: 56px; height: 56px;
-    color: #a0720a;
-    font-size: 42px;
-    line-height: 1;
-    opacity: .85;
-  }
-  .cert-corner.tl { top: 10px; right: 10px; }
-  .cert-corner.tr { top: 10px; left: 10px; transform: scaleX(-1); }
-  .cert-corner.bl { bottom: 10px; right: 10px; transform: scaleY(-1); }
-  .cert-corner.br { bottom: 10px; left: 10px; transform: scale(-1,-1); }
+  .cert-inner { padding: 32px 44px 26px; }
 
-  /* ── Inner padding ── */
-  .cert-inner {
-    padding: 28px 38px 22px;
-  }
-
-  /* ── Header row ── */
-  .cert-header {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 16px;
-    padding-bottom: 14px;
-    margin-bottom: 10px;
-    border-bottom: 3px double #a0720a;
-  }
-
-  .cert-logo {
-    width: 100px;
-    flex-shrink: 0;
-    text-align: center;
-  }
+  /* Header: [logo=RIGHT] [center] [ref=LEFT] */
+  .cert-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; padding-bottom: 16px; margin-bottom: 12px; border-bottom: 3px double #a0720a; }
+  .cert-logo { width: 110px; flex-shrink: 0; text-align: center; }
   .cert-logo img { width: 100%; border-radius: 4px; }
-  .cert-logo-ph {
-    width: 100px; height: 100px;
-    border: 2px solid #ccc;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 10px; color: #aaa; border-radius: 4px;
-  }
+  .cert-logo-ph { width: 110px; height: 110px; border: 2px solid #ccc; display: flex; align-items: center; justify-content: center; font-size: 11px; color: #aaa; border-radius: 4px; }
+  .cert-header-text { flex: 1; text-align: center; line-height: 1.8; }
+  .cert-header-text .h-line1 { font-size: 18px; font-weight: 700; }
+  .cert-header-text .h-line2 { font-size: 17px; font-weight: 700; }
+  .cert-header-text .h-line3 { font-size: 16px; font-weight: 700; color: #7a5200; }
+  .cert-header-left { min-width: 180px; text-align: right; font-size: 14px; line-height: 2.1; flex-shrink: 0; direction: rtl; }
+  .cert-header-left .cert-label { font-weight: 700; }
 
-  .cert-header-text {
-    flex: 1;
-    text-align: center;
-    line-height: 1.75;
-  }
-  .cert-header-text .h-line1 { font-size: 15px; font-weight: 700; }
-  .cert-header-text .h-line2 { font-size: 14px; font-weight: 700; }
-  .cert-header-text .h-line3 { font-size: 13.5px; font-weight: 700; color: #7a5200; }
-  .cert-header-text .h-line4 { font-size: 12px; }
-  .cert-header-text .h-accred { font-size: 11px; color: #555; }
+  .cert-title { text-align: center; font-size: 46px; font-weight: 700; color: #6b4500; letter-spacing: 1px; margin: 14px 0 8px; text-shadow: 1px 1px 0 rgba(200,145,10,.25); }
+  .cert-rule { text-align: center; color: #a0720a; font-size: 22px; letter-spacing: 5px; margin-bottom: 14px; }
 
-  .cert-header-right {
-    min-width: 140px;
-    text-align: left;
-    font-size: 12px;
-    line-height: 1.8;
-    flex-shrink: 0;
-  }
+  .cert-legal { font-size: 13.5px; line-height: 2; text-align: justify; margin-bottom: 12px; color: #222; direction: rtl; }
+  .cert-witness { font-size: 19px; font-weight: 700; text-align: right; margin-bottom: 12px; color: #4a3000; }
 
-  /* ── Main title ── */
-  .cert-title {
-    text-align: center;
-    font-size: 38px;
-    font-weight: 700;
-    color: #6b4500;
-    letter-spacing: 1px;
-    margin: 12px 0 8px;
-    text-shadow: 1px 1px 0 rgba(200,145,10,.25);
-  }
-
-  /* ── Decorative rule under title ── */
-  .cert-rule {
-    text-align: center;
-    color: #a0720a;
-    font-size: 20px;
-    letter-spacing: 4px;
-    margin-bottom: 12px;
-  }
-
-  /* ── Legal text ── */
-  .cert-legal {
-    font-size: 11.5px;
-    line-height: 1.95;
-    text-align: justify;
-    margin-bottom: 10px;
-    color: #222;
-    direction: rtl;
-  }
-
-  /* ── يشهد أن ── */
-  .cert-witness {
-    font-size: 16px;
-    font-weight: 700;
-    text-align: right;
-    margin-bottom: 10px;
-    color: #4a3000;
-  }
-
-  /* ── Info grid (bilingual 2-col) ── */
-  .info-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 5px 40px;
-    font-size: 13px;
-    margin-bottom: 14px;
-    direction: ltr;
-  }
-  .info-item {
-    display: flex;
-    gap: 5px;
-    align-items: baseline;
-  }
-  .info-label {
-    font-weight: 700;
-    white-space: nowrap;
-    color: #5a3a00;
-  }
+  /* direction:rtl -> Arabic col=RIGHT, French col=LEFT */
+  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 44px; font-size: 15px; margin-bottom: 16px; direction: rtl; }
+  .info-item { display: flex; gap: 6px; align-items: baseline; }
+  .info-label { font-weight: 700; white-space: nowrap; color: #5a3a00; }
   .info-item.full { grid-column: 1 / -1; }
+  .spec-value { font-weight: 700; font-size: 16px; }
 
-  /* ── Speciality highlight ── */
-  .spec-value { font-weight: 700; font-size: 14px; }
+  /* [حرر=RIGHT] [empty] [المدير=LEFT] */
+  .cert-bottom-row { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 18px; gap: 20px; }
+  .cert-sig { text-align: center; font-size: 16px; font-weight: 700; line-height: 1.9; }
+  .cert-written { text-align: right; font-size: 15px; direction: rtl; font-weight: 500; }
 
-  /* ── Bottom row ── */
-  .cert-bottom-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
-    margin-top: 16px;
-    gap: 20px;
-  }
+  .cert-refs { display: flex; justify-content: space-between; margin-top: 18px; padding-top: 9px; border-top: 1px solid #c8a040; font-size: 12px; color: #555; direction: rtl; }
+  .cert-no-copy { text-align: center; font-size: 12px; color: #777; font-style: italic; }
 
-  .cert-sig {
-    text-align: center;
-    font-size: 14px;
-    font-weight: 700;
-    line-height: 1.8;
-  }
-
-  .cert-written {
-    text-align: center;
-    font-size: 13px;
-    direction: rtl;
-    font-weight: 500;
-  }
-
-  /* ── Refs bar ── */
-  .cert-refs {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 16px;
-    padding-top: 8px;
-    border-top: 1px solid #c8a040;
-    font-size: 10.5px;
-    color: #555;
-    direction: rtl;
-  }
-  .cert-no-copy {
-    text-align: center;
-    font-size: 11px;
-    color: #777;
-    font-style: italic;
-  }
-
-  /* ── Footer ── */
-  .cert-footer {
-    text-align: center;
-    font-size: 10.5px;
-    color: #666;
-    margin-top: 8px;
-    direction: rtl;
-  }
-
-  /* ── Print ── */
   @media print {
     .print-btn-bar { display: none !important; }
-    body { background: #fff; font-size: 11px; }
-    .page-wrapper { max-width: 100%; margin: 0; padding: 0; }
+    html, body { height: 100%; background: #fff; }
+    .page-wrapper { max-width: 100%; margin: 0; padding: 0; height: 100%; }
     .cert {
-      border: 4px solid #a0720a;
-      box-shadow:
-        inset 0 0 0 2px #e8c84a,
-        inset 0 0 0 5px #a0720a,
-        inset 0 0 0 8px #e8c84a;
+      margin: 8mm;
+      height: calc(100% - 16mm);
+      display: flex; flex-direction: column;
+      border: 5px solid #a0720a;
+      box-shadow: inset 0 0 0 3px #e8c84a, inset 0 0 0 6px #a0720a, inset 0 0 0 10px #e8c84a;
     }
-    .cert-inner         { padding: 5mm 12mm 4mm; }
+    .cert-inner { flex: 1; display: flex; flex-direction: column; justify-content: space-between; padding: 5mm 11mm 5mm; }
+    .cert-body { flex: 1; display: flex; flex-direction: column; justify-content: space-around; }
+    .cert-corner        { font-size: 32px; width: 40px; height: 40px; }
     .cert-header        { padding-bottom: 5px; margin-bottom: 5px; }
     .cert-header-text   { line-height: 1.5; }
-    .cert-header-text .h-line1 { font-size: 12px; }
-    .cert-header-text .h-line2 { font-size: 11.5px; }
-    .cert-header-text .h-line3 { font-size: 11px; }
-    .cert-header-right  { font-size: 10px; }
-    .cert-logo          { width: 72px; }
-    .cert-logo-ph       { width: 72px; height: 72px; }
-    .cert-title         { font-size: 28px; margin: 5px 0 3px; }
-    .cert-rule          { font-size: 14px; margin-bottom: 5px; }
-    .cert-legal         { font-size: 10px; line-height: 1.6; margin-bottom: 5px; }
-    .cert-witness       { font-size: 13px; margin-bottom: 5px; }
-    .info-grid          { gap: 3px 30px; font-size: 11px; margin-bottom: 7px; }
-    .spec-value         { font-size: 12px; }
-    .cert-bottom-row    { margin-top: 7px; }
-    .cert-sig           { font-size: 12px; }
-    .cert-written       { font-size: 11px; }
-    .cert-refs          { margin-top: 7px; padding-top: 4px; font-size: 9.5px; }
-    .cert-footer        { font-size: 9px; margin-top: 4px; }
-    .cert-corner        { font-size: 28px; width: 34px; height: 34px; }
+    .cert-header-text .h-line1 { font-size: 14px; }
+    .cert-header-text .h-line2 { font-size: 13px; }
+    .cert-header-text .h-line3 { font-size: 12.5px; }
+    .cert-header-left   { font-size: 11px; line-height: 1.9; min-width: 140px; }
+    .cert-logo          { width: 78px; }
+    .cert-logo-ph       { width: 78px; height: 78px; }
+    .cert-title         { font-size: 34px; margin: 5px 0 3px; }
+    .cert-rule          { font-size: 16px; margin-bottom: 5px; }
+    .cert-legal         { font-size: 11.5px; line-height: 1.7; margin-bottom: 5px; }
+    .cert-witness       { font-size: 15px; margin-bottom: 5px; }
+    .info-grid          { gap: 5px 30px; font-size: 13px; margin-bottom: 0; }
+    .spec-value         { font-size: 14px; }
+    .cert-bottom-row    { margin-top: 6px; }
+    .cert-sig           { font-size: 13px; }
+    .cert-written       { font-size: 12px; }
+    .cert-refs          { margin-top: 6px; padding-top: 5px; font-size: 10px; }
     @page { size: A4 landscape; margin: 0; }
   }
 </style>
@@ -275,8 +105,6 @@
 
 <div class="page-wrapper">
 <div class="cert">
-
-  <!-- Corner ornaments -->
   <span class="cert-corner tl">❧</span>
   <span class="cert-corner tr">❧</span>
   <span class="cert-corner bl">❧</span>
@@ -284,28 +112,7 @@
 
   <div class="cert-inner">
 
-    <!-- ── Header ── -->
     <div class="cert-header">
-
-      <!-- Right: dates & cert number -->
-      <div class="cert-header-right" dir="rtl">
-        شهـادة : ح.ط / {% now "Y" %}<br>
-        رقم التسلسلي :
-        {% if participant.certificate_number %}{{ participant.certificate_number }}{% endif %}
-      </div>
-
-      <!-- Center: institute info -->
-      <div class="cert-header-text">
-        <div class="h-line1">الجمهورية الجزائرية الديمقراطية الشعبية</div>
-        <div class="h-line2">وزارة التكوين و التعليم المهنيين</div>
-        <div class="h-line3">مؤسسة خاصة لتكوين المهني معتمدة</div>
-        {% if institute %}
-        <div class="h-line3">{{ institute.name_ar }}</div>
-        <div class="h-accred">إشهاد رقم {{ institute.accreditation_number }} المؤرخ {{ institute.accreditation_date|date:"Y/m/d" }}</div>
-        {% endif %}
-      </div>
-
-      <!-- Left: logo -->
       <div class="cert-logo">
         {% if institute and institute.logo %}
           <img src="{{ institute.logo.url }}" alt="Logo" />
@@ -313,127 +120,96 @@
           <div class="cert-logo-ph">LOGO</div>
         {% endif %}
       </div>
-
-    </div><!-- /cert-header -->
-
-    <!-- ── Main title ── -->
-    <div class="cert-title">شهادة تكوين تأهيلي</div>
-    <div class="cert-rule">— ✦ —</div>
-
-    <!-- ── Legal references ── -->
-    <div class="cert-legal">
-      بمقتضى المرسوم التنفيذي رقم 18-162 المؤرخ في 29 رمضان 1439 الموافق 14 يونيو 2018 الذي يحدد شروط إنشاء المؤسسة الخاصة للتكوين أو التعليم المهني وفتحها ومراقبتها.
-      بمقتضى القرار الوزاري المؤرخ في 4 نوفمبر 2018 الذي يحدد الشروط المتعلق بإنشاء المؤسسة الخاصة للتكوين أو التعليم المهني وفتحها ومراقبتها.
-      {% if institute %}
-      بمقتضى القرار الوزاري رقم {{ institute.accreditation_number }} المؤرخ في {{ institute.accreditation_date|date:"d/m/Y" }} المتضمن إعتماد المؤسسة الخاصة للتكوين المهني المسماة: {{ institute.name_ar }}.
-      {% endif %}
-      وبناءاً على محضر نهاية التكوين : {{ session.reference }}
+      <div class="cert-header-text">
+        <div class="h-line1">الجمهورية الجزائرية الديمقراطية الشعبية</div>
+        <div class="h-line2">وزارة التكوين و التعليم المهنيين</div>
+        <div class="h-line3">مؤسسة خاصة لتكوين المهني معتمدة</div>
+        {% if institute %}<div class="h-line3">{{ institute.name_ar }}</div>{% endif %}
+      </div>
+      <div class="cert-header-left">
+        <div><span class="cert-label">شهـادة :</span> ح.ط / {{ session.date_end|date:"Y" }}</div>
+        <div>
+          <span class="cert-label">رقم التسلسلي :</span>
+          {% if participant.certificate_number %}{{ participant.certificate_number }}{% else %}—{% endif %}
+        </div>
+      </div>
     </div>
 
-    <!-- ── يشهد أن ── -->
-    <div class="cert-witness">يشهد أن :</div>
+    <div class="cert-body">
+      <div>
+        <div class="cert-title">شهادة تكوين تأهيلي</div>
+        <div class="cert-rule">— ✦ —</div>
 
-    <!-- ── Bilingual info grid ── -->
-    <div class="info-grid">
+        <div class="cert-legal">
+          بمقتضى المرسوم التنفيذي رقم 18-162 المؤرخ في 29 رمضان 1439 الموافق 14 يونيو 2018 الذي يحدد شروط إنشاء المؤسسة الخاصة للتكوين أو التعليم المهني وفتحها ومراقبتها.
+          بمقتضى القرار الوزاري المؤرخ في 4 نوفمبر 2018 الذي يحدد الشروط المتعلق بإنشاء المؤسسة الخاصة للتكوين أو التعليم المهني وفتحها ومراقبتها.
+          {% if institute %}بمقتضى القرار الوزاري رقم {{ institute.accreditation_number }} المؤرخ في {{ institute.accreditation_date|date:"d/m/Y" }} المتضمن إعتماد المؤسسة الخاصة للتكوين المهني المسماة: {{ institute.name_ar }}.{% endif %}
+          وبناءاً على محضر نهاية التكوين : {{ session.reference }}
+        </div>
 
-      <div class="info-item" dir="rtl">
-        <span class="info-label">الاسم :</span>
-        <span>{{ participant.first_name_ar }}</span>
-      </div>
-      <div class="info-item" dir="ltr">
-        <span class="info-label">Prénom :</span>
-        <span>{{ participant.first_name|upper }}</span>
-      </div>
+        <div class="cert-witness">يشهد أن :</div>
 
-      <div class="info-item" dir="rtl">
-        <span class="info-label">اللقب :</span>
-        <span>{{ participant.last_name_ar }}</span>
-      </div>
-      <div class="info-item" dir="ltr">
-        <span class="info-label">Nom :</span>
-        <span>{{ participant.last_name|upper }}</span>
-      </div>
+        <div class="info-grid">
+          <div class="info-item" dir="rtl"><span class="info-label">الاسم :</span><span>{{ participant.first_name_ar }}</span></div>
+          <div class="info-item" dir="ltr"><span class="info-label">Prénom :</span><span>{{ participant.first_name|upper }}</span></div>
 
-      <div class="info-item" dir="rtl">
-        <span class="info-label">المولود (ة) في :</span>
-        <span>{% if participant.date_of_birth %}{{ participant.date_of_birth|date:"Y/m/d" }}{% endif %}</span>
-      </div>
-      <div class="info-item" dir="ltr">
-        <span class="info-label">Né (e) le :</span>
-        <span>{% if participant.date_of_birth %}{{ participant.date_of_birth|date:"d/m/Y" }}{% endif %}</span>
-      </div>
+          <div class="info-item" dir="rtl"><span class="info-label">اللقب :</span><span>{{ participant.last_name_ar }}</span></div>
+          <div class="info-item" dir="ltr"><span class="info-label">Nom :</span><span>{{ participant.last_name|upper }}</span></div>
 
-      <div class="info-item" dir="rtl">
-        <span class="info-label">ب :</span>
-        <span>{{ participant.place_of_birth_ar }}</span>
-      </div>
-      <div class="info-item" dir="ltr">
-        <span class="info-label">A :</span>
-        <span>{{ participant.place_of_birth }}</span>
-      </div>
+          <div class="info-item" dir="rtl">
+            <span class="info-label">المولود (ة) في :</span>
+            <span>{% if participant.date_of_birth %}{{ participant.date_of_birth|date:"Y/m/d" }}{% endif %}</span>
+          </div>
+          <div class="info-item" dir="ltr">
+            <span class="info-label">Né (e) le :</span>
+            <span>{% if participant.date_of_birth %}{{ participant.date_of_birth|date:"d/m/Y" }}{% endif %}</span>
+          </div>
 
-      <div class="info-item full" dir="rtl" style="margin-top:6px;">
-        <span>قد تابع (ت) دورة في التكوين المهني التأهيلي حسب الطلب</span>
-      </div>
-      <div class="info-item full" dir="ltr">
-        <span>A suivi une session de formation qualifiante professionnelle à la carte</span>
-      </div>
+          <div class="info-item" dir="rtl"><span class="info-label">ب :</span><span>{{ participant.place_of_birth_ar }}</span></div>
+          <div class="info-item" dir="ltr"><span class="info-label">A :</span><span>{{ participant.place_of_birth }}</span></div>
 
-      <div class="info-item" dir="rtl">
-        <span class="info-label">تخصص :</span>
-        <span class="spec-value">{{ session.formation.title }}</span>
-      </div>
-      <div class="info-item" dir="ltr">
-        <span class="info-label">Spécialité :</span>
-        <span class="spec-value">{{ session.formation.title }}</span>
-      </div>
+          <div class="info-item full" dir="rtl" style="margin-top:8px;"><span>قد تابع (ت) دورة في التكوين المهني التأهيلي حسب الطلب</span></div>
+          <div class="info-item full" dir="ltr"><span>A suivi une session de formation qualifiante professionnelle à la carte</span></div>
 
-      <div class="info-item" dir="rtl">
-        <span class="info-label">مدة التكوين (س) :</span>
-        <span>{{ session.formation.duration_hours }} ساعة (بالأيام) : {{ session.duration_days }} أيام</span>
-      </div>
-      <div class="info-item" dir="ltr">
-        <span class="info-label">Durée de la formation (h) :</span>
-        <span>{{ session.formation.duration_hours }} heures (Jours) : {{ session.duration_days }} jours</span>
-      </div>
+          <div class="info-item" dir="rtl"><span class="info-label">تخصص :</span><span class="spec-value">{{ session.formation.title_ar }}</span></div>
+          <div class="info-item" dir="ltr"><span class="info-label">Spécialité :</span><span class="spec-value">{{ session.formation.title }}</span></div>
 
-      <div class="info-item" dir="rtl">
-        <span class="info-label">في الفترة من :</span>
-        <span>{{ session.date_start|date:"Y/m/d" }} إلى {{ session.date_end|date:"Y/m/d" }}</span>
-      </div>
-      <div class="info-item" dir="ltr">
-        <span class="info-label">Au cours de la période du :</span>
-        <span>{{ session.date_start|date:"d/m/Y" }} à {{ session.date_end|date:"d/m/Y" }}</span>
-      </div>
+          <div class="info-item" dir="rtl">
+            <span class="info-label">مدة التكوين (س) :</span>
+            <span>{{ session.formation.duration_hours }} ساعة (بالأيام) : {{ session.duration_days }} أيام</span>
+          </div>
+          <div class="info-item" dir="ltr">
+            <span class="info-label">Durée de la formation (h) :</span>
+            <span>{{ session.formation.duration_hours }} heures (Jours) : {{ session.duration_days }} jours</span>
+          </div>
 
-    </div><!-- /info-grid -->
+          <div class="info-item" dir="rtl">
+            <span class="info-label">في الفترة من :</span>
+            <span>{{ session.date_start|date:"Y/m/d" }} إلى {{ session.date_end|date:"Y/m/d" }}</span>
+          </div>
+          <div class="info-item" dir="ltr">
+            <span class="info-label">Au cours de la période du :</span>
+            <span>{{ session.date_start|date:"d/m/Y" }} à {{ session.date_end|date:"d/m/Y" }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
 
-    <!-- ── Bottom row: signature + written at ── -->
     <div class="cert-bottom-row">
+      <div class="cert-written" dir="rtl">حرر ب سطيف في : {{ session.date_end|date:"Y/m/d" }}</div>
       <div></div>
-      <div class="cert-written" dir="rtl">
-        حرر ب سطيف في : {{ session.date_end|date:"Y/m/d" }}
-      </div>
-      <div class="cert-sig">
-        المـديـر<br>Le Directeur
-      </div>
+      <div class="cert-sig">المـديـر<br>Le Directeur</div>
     </div>
 
-    <!-- ── Refs bar ── -->
     <div class="cert-refs">
       <div>Agrément n° {% if institute %}{{ institute.accreditation_number }}/{{ institute.accreditation_date|date:"Y" }}{% endif %}</div>
       <div class="cert-no-copy">لا تسلم نسخة أخرى من الشهادة</div>
       <div>IF n° {% if institute %}{{ institute.if_number }}{% endif %}</div>
     </div>
 
-    <!-- ── Footer ── -->
-    <div class="cert-footer">
-      {% if institute %}{{ institute.address }} | الهاتف : {{ institute.phone }} | {{ institute.email }}{% endif %}
-    </div>
-
-  </div><!-- /cert-inner -->
-</div><!-- /cert -->
-</div><!-- /page-wrapper -->
+  </div>
+</div>
+</div>
 
 </body>
 </html>
