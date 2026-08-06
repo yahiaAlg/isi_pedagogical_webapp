@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ title }} — Locaux — ISI Gestion Pédagogique{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'resources/css/resources.css' %}" />
+{% endblock %}
+
+{% block breadcrumb %}
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="#">Ressources</a>
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="{% url 'resources:local_list' %}">Locaux</a>
+<i class="bi bi-chevron-right bc-sep"></i>
+{% endblock %}
+{% block breadcrumb_active %}<span class="bc-active">{{ title }}</span>{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% url 'resources:local_list' %}" class="topbar-btn">
+  <i class="bi bi-arrow-left"></i> Retour
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="fade-up">
+  <div class="page-header">
+    <div class="page-header-left">
+      <h1>{{ title }}</h1>
+      <p class="page-subtitle">
+        {% if local %}Modification du local{% else %}Création d'un nouveau local{% endif %}
+      </p>
+    </div>
+  </div>
+
+  <div class="row justify-content-center">
+    <div class="col-lg-5 col-md-7">
+      <div class="isi-card">
+        <div class="isi-card-header">
+          <div class="card-icon amber"><i class="bi bi-building"></i></div>
+          <h3>{{ title }}</h3>
+        </div>
+        <div class="isi-card-body">
+          <form method="post" novalidate>
+            {% csrf_token %}
+            {% if form.non_field_errors %}
+            <div class="alert alert-danger mb-4">
+              <i class="bi bi-exclamation-circle-fill"></i>
+              <div>{% for e in form.non_field_errors %}<div>{{ e }}</div>{% endfor %}</div>
+            </div>
+            {% endif %}
+
+            <div class="mb-3">
+              <label class="form-label" for="{{ form.name.id_for_label }}">
+                Nom <span style="color:var(--danger);">*</span>
+              </label>
+              <input type="text" id="{{ form.name.id_for_label }}" name="{{ form.name.html_name }}"
+                value="{{ form.name.value|default_if_none:'' }}"
+                class="form-control {% if form.name.errors %}is-invalid{% endif %}" required />
+              {% if form.name.errors %}<div class="invalid-feedback d-block">{{ form.name.errors|join:", " }}</div>{% endif %}
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label" for="{{ form.local_type.id_for_label }}">Type</label>
+              <select id="{{ form.local_type.id_for_label }}" name="{{ form.local_type.html_name }}" class="form-select">
+                {% for value, label in form.fields.local_type.choices %}
+                <option value="{{ value }}" {% if form.local_type.value == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label" for="{{ form.address.id_for_label }}">Adresse (si distincte du siège)</label>
+              <textarea id="{{ form.address.id_for_label }}" name="{{ form.address.html_name }}"
+                class="form-control" rows="2">{{ form.address.value|default_if_none:'' }}</textarea>
+            </div>
+
+            <div class="mb-4">
+              <label class="form-label" for="{{ form.description.id_for_label }}">Description</label>
+              <textarea id="{{ form.description.id_for_label }}" name="{{ form.description.html_name }}"
+                class="form-control" rows="3">{{ form.description.value|default_if_none:'' }}</textarea>
+            </div>
+
+            <div class="section-divider"></div>
+            <div class="form-check form-switch mb-4">
+              <input class="form-check-input" type="checkbox" id="{{ form.is_active.id_for_label }}"
+                name="{{ form.is_active.html_name }}" style="width:40px;height:22px;"
+                {% if form.is_active.value %}checked{% endif %} />
+              <label class="form-check-label" for="{{ form.is_active.id_for_label }}"
+                style="font-size:14px;font-weight:500;color:var(--text-primary);margin-left:8px;margin-top:2px;">
+                Local actif
+              </label>
+            </div>
+
+            <div class="section-divider"></div>
+            <div style="display:flex;gap:12px;flex-wrap:wrap;">
+              <button type="submit" class="btn btn-amber">
+                <i class="bi bi-check-lg"></i>
+                {% if local %}Enregistrer les modifications{% else %}Créer le local{% endif %}
+              </button>
+              <a href="{% url 'resources:local_list' %}" class="btn btn-ghost">
+                <i class="bi bi-arrow-left"></i> Annuler
+              </a>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

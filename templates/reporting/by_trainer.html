@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Sessions par formateur — Rapports — ISI Gestion Pédagogique{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'reporting/css/reporting.css' %}" />{% endblock %}
+
+{% block breadcrumb %}
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="{% url 'reporting:dashboard' %}">Rapports</a>
+<i class="bi bi-chevron-right bc-sep"></i>
+{% endblock %}
+{% block breadcrumb_active %}<span class="bc-active">Par formateur</span>{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% url 'reporting:dashboard' %}" class="topbar-btn"><i class="bi bi-arrow-left"></i> Rapports</a>
+{% endblock %}
+
+{% block content %}
+<div class="fade-up">
+  <div class="page-header">
+    <div class="page-header-left">
+      <h1>Sessions par formateur</h1>
+      <p class="page-subtitle">Volume d'interventions et taux de réussite moyen</p>
+    </div>
+  </div>
+
+  <div class="isi-card mb-4">
+    <div class="report-filter-bar">
+      <form method="get" novalidate>
+        <div class="row g-3 align-items-end">
+          <div class="col-sm-5 col-md-3">
+            <label class="form-label">Du</label>
+            <input type="date" name="date_from" class="form-control" value="{{ form.date_from.value|default_if_none:'' }}" />
+          </div>
+          <div class="col-sm-5 col-md-3">
+            <label class="form-label">Au</label>
+            <input type="date" name="date_to" class="form-control" value="{{ form.date_to.value|default_if_none:'' }}" />
+          </div>
+          <div class="col-sm-2 d-flex gap-2 align-items-end">
+            <button type="submit" class="btn btn-amber" style="justify-content:center;"><i class="bi bi-funnel-fill"></i> Filtrer</button>
+            <a href="{% url 'reporting:by_trainer' %}" class="btn btn-ghost"><i class="bi bi-x-lg"></i></a>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="isi-card">
+    <div class="isi-card-header">
+      <div class="card-icon blue"><i class="bi bi-person-fill-check"></i></div>
+      <h3>Formateurs</h3>
+      <span class="header-count ms-1">({{ rows|length }})</span>
+    </div>
+
+    {% if rows %}
+    <div style="overflow-x:auto;">
+      <table class="isi-table">
+        <thead>
+          <tr>
+            <th>Formateur</th>
+            <th>Spécialité</th>
+            <th>Type</th>
+            <th style="text-align:center;">Sessions</th>
+            <th>Taux de réussite moy.</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+          <tr>
+            <td>
+              <a href="{% url 'resources:trainer_detail' row.trainer.pk %}" class="table-primary-link">{{ row.trainer.full_name }}</a>
+              {% if row.trainer.full_name_ar %}
+              <span class="table-secondary-text" dir="rtl">{{ row.trainer.full_name_ar }}</span>
+              {% endif %}
+            </td>
+            <td><span style="font-size:13.5px;color:var(--text-muted);">{{ row.trainer.specialty }}</span></td>
+            <td>
+              {% if row.trainer.employment_type == 'internal' %}
+              <span class="isi-badge blue"><i class="bi bi-circle-fill" style="font-size:7px;"></i> Interne</span>
+              {% else %}
+              <span class="isi-badge gray"><i class="bi bi-circle-fill" style="font-size:7px;"></i> Externe</span>
+              {% endif %}
+            </td>
+            <td style="text-align:center;"><span style="font-family:var(--font-head);font-size:18px;font-weight:700;">{{ row.session_count }}</span></td>
+            <td>
+              <div class="fill-bar-wrap">
+                <div class="fill-bar-track">
+                  <div class="fill-bar-fill" style="width:{{ row.avg_pass_rate }}%;background:{% if row.avg_pass_rate >= 80 %}var(--success){% elif row.avg_pass_rate >= 50 %}var(--accent){% else %}#94a3b8{% endif %};"></div>
+                </div>
+                <span class="fill-bar-label">{{ row.avg_pass_rate }}%</span>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <div class="empty-state-icon"><i class="bi bi-person-fill-check"></i></div>
+      <p class="empty-state-text">Aucune donnée pour la période sélectionnée.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

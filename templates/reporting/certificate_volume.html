@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Volume d'attestations — Rapports — ISI Gestion Pédagogique{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'reporting/css/reporting.css' %}" />{% endblock %}
+
+{% block breadcrumb %}
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="{% url 'reporting:dashboard' %}">Rapports</a>
+<i class="bi bi-chevron-right bc-sep"></i>
+{% endblock %}
+{% block breadcrumb_active %}<span class="bc-active">Volume d'attestations</span>{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% url 'reporting:dashboard' %}" class="topbar-btn"><i class="bi bi-arrow-left"></i> Rapports</a>
+{% endblock %}
+
+{% block content %}
+<div class="fade-up">
+  <div class="page-header">
+    <div class="page-header-left">
+      <h1>Volume d'attestations</h1>
+      <p class="page-subtitle">Attestations délivrées par mois et par année</p>
+    </div>
+  </div>
+
+  <div class="isi-card mb-4">
+    <div class="report-filter-bar">
+      <form method="get" novalidate>
+        <div class="row g-3 align-items-end">
+          <div class="col-sm-5 col-md-3">
+            <label class="form-label">Du</label>
+            <input type="date" name="date_from" class="form-control" value="{{ form.date_from.value|default_if_none:'' }}" />
+          </div>
+          <div class="col-sm-5 col-md-3">
+            <label class="form-label">Au</label>
+            <input type="date" name="date_to" class="form-control" value="{{ form.date_to.value|default_if_none:'' }}" />
+          </div>
+          <div class="col-sm-2 d-flex gap-2 align-items-end">
+            <button type="submit" class="btn btn-amber" style="justify-content:center;"><i class="bi bi-funnel-fill"></i> Filtrer</button>
+            <a href="{% url 'reporting:certificate_volume' %}" class="btn btn-ghost"><i class="bi bi-x-lg"></i></a>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Total KPI -->
+  <div class="isi-card mb-4">
+    <div class="isi-card-body" style="display:flex;align-items:center;gap:20px;padding:16px 24px;flex-wrap:wrap;">
+      <div class="card-icon purple" style="width:52px;height:52px;font-size:24px;border-radius:14px;flex-shrink:0;"><i class="bi bi-patch-check-fill"></i></div>
+      <div>
+        <div class="stat-value" style="font-size:32px;">{{ total }}</div>
+        <div class="stat-label">Attestations délivrées sur la période</div>
+      </div>
+      {% if by_year %}
+      <div style="margin-left:auto;display:flex;gap:16px;flex-wrap:wrap;">
+        {% for y in by_year %}
+        <div style="text-align:center;padding:10px 16px;background:#f8fafc;border-radius:8px;border:1px solid var(--card-border);">
+          <div class="stat-value" style="font-size:20px;">{{ y.count }}</div>
+          <div class="stat-label">{{ y.year|date:"Y" }}</div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="row g-4">
+
+    <!-- Monthly trend chart -->
+    <div class="col-lg-7">
+      <div class="isi-card">
+        <div class="isi-card-header">
+          <div class="card-icon purple"><i class="bi bi-graph-up-arrow"></i></div>
+          <h3>Tendance mensuelle</h3>
+        </div>
+        {% if by_month %}
+        <div class="chart-container" style="height:240px;">
+          <canvas id="certLineChart"></canvas>
+        </div>
+        {% else %}
+        <div class="empty-state" style="padding:40px 24px;">
+          <div class="empty-state-icon" style="font-size:40px;"><i class="bi bi-graph-up-arrow"></i></div>
+          <p class="empty-state-text" style="font-size:14px;">Aucune attestation sur la période.</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Monthly breakdown table -->
+    <div class="col-lg-5">
+      <div class="isi-card">
+        <div class="isi-card-header">
+          <div class="card-icon purple"><i class="bi bi-table"></i></div>
+          <h3>Détail par mois</h3>
+        </div>
+        <div class="isi-card-body" style="padding:16px 24px;">
+          {% if by_month %}
+          {% with max_count=by_month.0.count %}
+          {% for entry in by_month %}
+          {% with pct=entry.count|default:0 %}
+          <div class="cert-month-row">
+            <div class="cert-month-label">{{ entry.month|date:"M Y" }}</div>
+            <div class="cert-month-bar-track">
+              <div class="cert-month-bar-fill" style="width:{% if max_count > 0 %}{% widthratio entry.count max_count 100 %}{% else %}0{% endif %}%;"></div>
+            </div>
+            <div class="cert-month-count">{{ entry.count }}</div>
+          </div>
+          {% endwith %}
+          {% endfor %}
+          {% endwith %}
+          {% else %}
+          <p style="color:var(--text-muted);font-size:13.5px;margin:0;text-align:center;padding:20px 0;">Aucune donnée</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script src="{% static 'reporting/js/reporting.js' %}"></script>
+{% if by_month %}
+<script>
+buildLineChart(
+  "certLineChart",
+  [{% for e in by_month %}"{{ e.month|date:'M Y' }}"{% if not forloop.last %},{% endif %}{% endfor %}],
+  [{% for e in by_month %}{{ e.count }}{% if not forloop.last %},{% endif %}{% endfor %}],
+  "#8b5cf6"
+);
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Taux de remplissage — Rapports — ISI Gestion Pédagogique{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'reporting/css/reporting.css' %}" />
+{% endblock %}
+
+{% block breadcrumb %}
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="{% url 'reporting:dashboard' %}">Rapports</a>
+<i class="bi bi-chevron-right bc-sep"></i>
+{% endblock %}
+{% block breadcrumb_active %}<span class="bc-active">Taux de remplissage</span>{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% url 'reporting:dashboard' %}" class="topbar-btn"><i class="bi bi-arrow-left"></i> Rapports</a>
+{% endblock %}
+
+{% block content %}
+<div class="fade-up">
+  <div class="page-header">
+    <div class="page-header-left">
+      <h1>Taux de remplissage</h1>
+      <p class="page-subtitle">Analyse de l'occupation par session</p>
+    </div>
+  </div>
+
+  <!-- Filter bar -->
+  <div class="isi-card mb-4">
+    <div class="report-filter-bar">
+      <form method="get" novalidate>
+        <div class="row g-3 align-items-end">
+          <div class="col-sm-6 col-md-2">
+            <label class="form-label">Du</label>
+            <input type="date" name="date_from" class="form-control" value="{{ form.date_from.value|default_if_none:'' }}" />
+          </div>
+          <div class="col-sm-6 col-md-2">
+            <label class="form-label">Au</label>
+            <input type="date" name="date_to" class="form-control" value="{{ form.date_to.value|default_if_none:'' }}" />
+          </div>
+          <div class="col-sm-6 col-md-3">
+            <label class="form-label">Formation</label>
+            <select name="formation" class="form-select">
+              <option value="">Toutes les formations</option>
+              {% for f in form.fields.formation.queryset %}
+              <option value="{{ f.pk }}" {% if form.formation.value|stringformat:"s" == f.pk|stringformat:"s" %}selected{% endif %}>{{ f.code }} — {{ f.title }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-sm-6 col-md-2">
+            <label class="form-label">Formateur</label>
+            <select name="trainer" class="form-select">
+              <option value="">Tous</option>
+              {% for t in form.fields.trainer.queryset %}
+              <option value="{{ t.pk }}" {% if form.trainer.value|stringformat:"s" == t.pk|stringformat:"s" %}selected{% endif %}>{{ t.full_name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-sm-6 col-md-2">
+            <label class="form-label">Statut</label>
+            <select name="status" class="form-select">
+              {% for val, label in form.fields.status.choices %}
+              <option value="{{ val }}" {% if form.status.value == val %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-sm-6 col-md-1 d-flex gap-2">
+            <button type="submit" class="btn btn-amber w-100" style="justify-content:center;"><i class="bi bi-funnel-fill"></i></button>
+            <a href="{% url 'reporting:fill_rate' %}" class="btn btn-ghost" title="Réinitialiser"><i class="bi bi-x-lg"></i></a>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="isi-card">
+    <div class="isi-card-header">
+      <div class="card-icon amber"><i class="bi bi-bar-chart-fill"></i></div>
+      <h3>Résultats</h3>
+      <span class="header-count ms-1">({{ rows|length }} session{{ rows|length|pluralize }})</span>
+      {% if rows %}
+      <div class="ms-auto d-flex align-items-center gap-3">
+        <span style="font-size:13px;color:var(--text-muted);">Taux moyen :</span>
+        <span class="stat-value" style="font-size:18px;color:{% if avg_fill_rate >= 80 %}var(--success){% elif avg_fill_rate >= 60 %}var(--accent){% else %}var(--text-muted){% endif %};">{{ avg_fill_rate }}%</span>
+      </div>
+      {% endif %}
+    </div>
+
+    {% if rows %}
+
+    <!-- Summary bar chart -->
+    {% if rows|length > 1 %}
+    <div class="chart-container" style="height:220px;">
+      <canvas id="fillRateChart"></canvas>
+    </div>
+    {% endif %}
+
+    <div style="overflow-x:auto;">
+      <table class="isi-table">
+        <thead>
+          <tr>
+            <th>Session</th>
+            <th>Dates</th>
+            <th>Formation</th>
+            <th style="text-align:center;">Participants</th>
+            <th style="text-align:center;">Capacité</th>
+            <th style="text-align:center;">Dispo.</th>
+            <th style="min-width:180px;">Taux</th>
+            <th>Statut</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+          <tr>
+            <td>
+              <a href="{% url 'formations:session_detail' row.session.pk %}" class="table-primary-link">
+                <code style="font-size:12.5px;">{{ row.session.reference }}</code>
+              </a>
+              <span class="table-secondary-text">{{ row.session.client.name }}</span>
+            </td>
+            <td>
+              <span style="font-weight:500;">{{ row.session.date_start|date:"d/m/Y" }}</span>
+              <span class="table-secondary-text">→ {{ row.session.date_end|date:"d/m/Y" }}</span>
+            </td>
+            <td>
+              <span style="font-size:13.5px;">{{ row.session.formation.title }}</span>
+              <span class="table-secondary-text">{{ row.session.formation.code }}</span>
+            </td>
+            <td style="text-align:center;font-weight:700;font-size:15px;">{{ row.participant_count }}</td>
+            <td style="text-align:center;color:var(--text-muted);">{{ row.session.capacity }}</td>
+            <td style="text-align:center;">
+              {% if row.available_spots == 0 %}
+              <span class="isi-badge red"><i class="bi bi-circle-fill" style="font-size:7px;"></i> Complet</span>
+              {% else %}
+              <span class="isi-badge green"><i class="bi bi-circle-fill" style="font-size:7px;"></i> {{ row.available_spots }}</span>
+              {% endif %}
+            </td>
+            <td>
+              <div class="fill-bar-wrap">
+                <div class="fill-bar-track">
+                  <div class="fill-bar-fill" style="width:{{ row.fill_rate }}%;background:{% if row.fill_rate >= 90 %}var(--success){% elif row.fill_rate >= 60 %}var(--accent){% else %}#94a3b8{% endif %};"></div>
+                </div>
+                <span class="fill-bar-label" style="color:{% if row.fill_rate >= 90 %}var(--success){% elif row.fill_rate >= 60 %}var(--accent){% else %}var(--text-muted){% endif %};">{{ row.fill_rate }}%</span>
+              </div>
+            </td>
+            <td>
+              {% if row.session.status == 'planned' %}<span class="isi-badge blue"><i class="bi bi-circle-fill" style="font-size:7px;"></i> Planifiée</span>
+              {% elif row.session.status == 'in_progress' %}<span class="isi-badge amber"><i class="bi bi-circle-fill" style="font-size:7px;"></i> En cours</span>
+              {% elif row.session.status == 'completed' %}<span class="isi-badge green"><i class="bi bi-circle-fill" style="font-size:7px;"></i> Terminée</span>
+              {% elif row.session.status == 'archived' %}<span class="isi-badge gray"><i class="bi bi-circle-fill" style="font-size:7px;"></i> Archivée</span>{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <!-- Legend -->
+    <div style="padding:10px 24px;border-top:1px solid var(--card-border);display:flex;gap:20px;flex-wrap:wrap;align-items:center;">
+      <span style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);">Seuils :</span>
+      <span style="display:flex;align-items:center;gap:5px;font-size:12px;"><span style="width:10px;height:10px;background:var(--success);border-radius:2px;display:inline-block;"></span>≥ 90%</span>
+      <span style="display:flex;align-items:center;gap:5px;font-size:12px;"><span style="width:10px;height:10px;background:var(--accent);border-radius:2px;display:inline-block;"></span>60–89%</span>
+      <span style="display:flex;align-items:center;gap:5px;font-size:12px;"><span style="width:10px;height:10px;background:#94a3b8;border-radius:2px;display:inline-block;"></span>&lt; 60%</span>
+    </div>
+
+    {% else %}
+    <div class="empty-state">
+      <div class="empty-state-icon"><i class="bi bi-bar-chart-fill"></i></div>
+      <p class="empty-state-text">Aucune session ne correspond aux filtres.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script src="{% static 'reporting/js/reporting.js' %}"></script>
+{% if rows|length > 1 %}
+<script>
+buildHorizontalBar(
+  "fillRateChart",
+  [{% for row in rows|slice:":20" %}"{{ row.session.reference }}"{% if not forloop.last %},{% endif %}{% endfor %}],
+  [{% for row in rows|slice:":20" %}{{ row.fill_rate }}{% if not forloop.last %},{% endif %}{% endfor %}]
+);
+</script>
+{% endif %}
+{% endblock %}

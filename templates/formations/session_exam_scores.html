@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Notes d'examen — {{ session.reference }} — ISI Gestion Pédagogique{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'formations/css/formations.css' %}" />{% endblock %}
+
+{% block breadcrumb %}
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="{% url 'formations:session_list' %}">Sessions</a>
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="{% url 'formations:session_detail' session.pk %}">{{ session.reference }}</a>
+<i class="bi bi-chevron-right bc-sep"></i>
+{% endblock %}
+{% block breadcrumb_active %}<span class="bc-active">Notes d'examen</span>{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% url 'formations:session_detail' session.pk %}" class="topbar-btn"><i class="bi bi-arrow-left"></i> Retour</a>
+{% endblock %}
+
+{% block content %}
+<div class="fade-up">
+  <div class="page-header">
+    <div class="page-header-left">
+      <h1>Notes d'examen final</h1>
+      <p class="page-subtitle">{{ session.reference }} — {{ session.formation.title }}</p>
+    </div>
+  </div>
+
+  <!-- Info strip -->
+  <div class="isi-card mb-3">
+    <div class="isi-card-body" style="padding:12px 24px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+      <span class="isi-badge blue">Note max : {{ session.formation.max_score|floatformat:"-2" }}</span>
+      <span class="isi-badge green">Note de passage : {{ session.formation.passing_score|floatformat:"-2" }}</span>
+      <span class="isi-badge gray">Présence min. : {{ session.formation.min_attendance_days }} jour{{ session.formation.min_attendance_days|pluralize }}</span>
+      <span style="font-size:12.5px;color:var(--text-muted);">
+        <i class="bi bi-info-circle-fill" style="color:var(--accent);"></i>
+        La réussite et l'attestation sont déterminées par cette note d'examen et la présence cumulée.
+      </span>
+    </div>
+  </div>
+
+  <div class="isi-card">
+    <div class="isi-card-header">
+      <div class="card-icon green"><i class="bi bi-clipboard2-data-fill"></i></div>
+      <h3>Notes d'examen</h3>
+      <span class="header-count ms-1">({{ session.participant_set.filter_attended }} participants présents)</span>
+    </div>
+    <div class="isi-card-body" style="padding:0;">
+      <form method="post" novalidate>
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+        <div style="padding:16px 24px;">
+          <div class="alert alert-danger">
+            <i class="bi bi-exclamation-circle-fill"></i>
+            <div>{% for e in form.non_field_errors %}<div>{{ e }}</div>{% endfor %}</div>
+          </div>
+        </div>
+        {% endif %}
+
+        <!-- Column headers -->
+        <div style="display:flex;align-items:center;padding:10px 16px;background:#f8fafc;border-bottom:2px solid var(--card-border);gap:12px;">
+          <div style="flex:1;font-family:var(--font-head);font-size:11px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--text-muted);">Participant</div>
+          <div style="width:160px;text-align:center;font-family:var(--font-head);font-size:11px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--text-muted);">Note examen</div>
+          <div style="width:140px;text-align:center;font-family:var(--font-head);font-size:11px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--text-muted);">Présence</div>
+          <div style="width:100px;text-align:center;font-family:var(--font-head);font-size:11px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--text-muted);">Résultat</div>
+        </div>
+
+        {% for participant in session.participant_set.all %}
+        {% if participant.attended %}
+        <div class="score-row">
+          <div class="score-participant-name" style="flex:1;">
+            <div style="font-weight:600;font-size:14px;">{{ participant.full_name }}</div>
+            {% if participant.full_name_ar %}
+            <div style="font-size:12px;color:var(--text-muted);" dir="rtl">{{ participant.full_name_ar }}</div>
+            {% endif %}
+          </div>
+
+          <!-- Exam score input -->
+          <div style="width:160px;text-align:center;">
+            <div class="score-field-group">
+              <span class="score-field-label">/ {{ session.formation.max_score|floatformat:"-2" }}</span>
+              <input type="number"
+                min="0" max="{{ session.formation.max_score }}" step="0.25"
+                name="exam_{{ participant.id }}"
+                class="form-control score-input"
+                value="{{ participant.exam_score|default_if_none:'' }}"
+                style="width:80px;text-align:center;padding:6px 10px;display:inline-block;" />
+            </div>
+          </div>
+
+          <!-- Attendance summary -->
+          <div style="width:140px;text-align:center;">
+            <span style="font-size:13px;font-weight:600;color:var(--text-primary);">
+              {{ participant.days_attended }} / {{ participant.total_group_sessions }}
+            </span>
+            <span style="font-size:11px;color:var(--text-muted);display:block;">jours</span>
+            {% if participant.days_attended < session.formation.min_attendance_days %}
+            <span class="isi-badge red" style="font-size:10px;margin-top:2px;"><i class="bi bi-exclamation-circle-fill" style="font-size:8px;"></i> Insuffisante</span>
+            {% else %}
+            <span class="isi-badge green" style="font-size:10px;margin-top:2px;"><i class="bi bi-check-circle-fill" style="font-size:8px;"></i> OK</span>
+            {% endif %}
+          </div>
+
+          <!-- Current result -->
+          <div style="width:100px;text-align:center;">
+            {% if participant.result == 'passed' %}
+            <span class="isi-badge green"><i class="bi bi-circle-fill" style="font-size:7px;"></i> Reçu</span>
+            {% elif participant.result == 'failed' %}
+            <span class="isi-badge red"><i class="bi bi-circle-fill" style="font-size:7px;"></i> Ajourné</span>
+            {% elif participant.result == 'absent' %}
+            <span class="isi-badge red"><i class="bi bi-circle-fill" style="font-size:7px;"></i> Absent</span>
+            {% else %}
+            <span class="isi-badge gray"><i class="bi bi-circle-fill" style="font-size:7px;"></i> En attente</span>
+            {% endif %}
+          </div>
+        </div>
+        {% endif %}
+        {% empty %}
+        <div class="empty-state" style="padding:40px 24px;">
+          <p class="empty-state-text">Aucun participant présent dans cette session.</p>
+        </div>
+        {% endfor %}
+
+        {% if session.participant_set.filter %}
+        <div style="padding:16px 24px;border-top:1px solid var(--card-border);display:flex;gap:12px;flex-wrap:wrap;">
+          <button type="submit" class="btn btn-amber">
+            <i class="bi bi-check-lg"></i> Enregistrer les notes d'examen
+          </button>
+          <a href="{% url 'formations:session_detail' session.pk %}" class="btn btn-ghost">
+            <i class="bi bi-arrow-left"></i> Retour sans enregistrer
+          </a>
+        </div>
+        {% endif %}
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

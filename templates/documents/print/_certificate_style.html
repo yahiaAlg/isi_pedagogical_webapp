@@ -1,0 +1,180 @@
+{% load static %}
+<style>
+  @font-face {
+    font-family: 'Amiri';
+    src: url('{% static "documents/fonts/Amiri-Regular.ttf" %}') format('truetype');
+    font-weight: 400;
+    font-style: normal;
+  }
+  @font-face {
+    font-family: 'Amiri';
+    src: url('{% static "documents/fonts/Amiri-Bold.ttf" %}') format('truetype');
+    font-weight: 700;
+    font-style: normal;
+  }
+  @font-face {
+    font-family: 'Liberation Serif';
+    src: url('{% static "documents/fonts/LiberationSerif-Regular.ttf" %}') format('truetype');
+    font-weight: 400;
+    font-style: normal;
+  }
+  @font-face {
+    font-family: 'Liberation Serif';
+    src: url('{% static "documents/fonts/LiberationSerif-Bold.ttf" %}') format('truetype');
+    font-weight: 700;
+    font-style: normal;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body { margin: 0; padding: 0; background: #d9d9d9; }
+
+  .print-btn-bar { text-align: center; padding: 14px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; margin-bottom: 28px; font-family: sans-serif; }
+  .print-btn { background: #c8910a; color: #fff; border: none; padding: 10px 30px; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer; margin-left: 10px; font-family: inherit; }
+  .back-btn { background: none; border: 1px solid #ccc; padding: 10px 22px; border-radius: 8px; font-size: 14px; cursor: pointer; color: #555; text-decoration: none; }
+
+  .cert-wrap { display: flex; justify-content: center; padding: 20px 20px 40px; page-break-after: always; }
+  .cert-wrap:last-child { page-break-after: auto; }
+
+  .certificate {
+    position: relative;
+    width: {{ canvas_w }}px;
+    height: {{ canvas_h }}px;
+    background: url('{% static "documents/img/attestation_border.jpg" %}') no-repeat;
+    background-size: {{ canvas_w }}px {{ canvas_h }}px;
+    box-shadow: 0 0 14px rgba(0,0,0,.35);
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+
+  .box { position: absolute; color: #000; }
+
+  /* ---- header (4 centered Arabic bold lines) ---- */
+  .header-box { display: flex; flex-direction: column; }
+  .h-line {
+    flex: 1 1 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Amiri', serif;
+    font-weight: 700;
+    font-size: 25px;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  /* ---- title ---- */
+  .title-box {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Amiri', serif;
+    font-weight: 700;
+    font-size: 50px;
+  }
+
+  /* ---- logo ---- */
+  .logo-box { display: flex; align-items: center; justify-content: center; }
+  .logo-box img { max-width: 100%; max-height: 100%; object-fit: contain; }
+
+  /* ---- verification QR ---- */
+  .qr-box { display: flex; align-items: center; justify-content: center; }
+  .qr-box img { max-width: 100%; max-height: 100%; object-fit: contain; }
+
+  /* ---- serial / year (single RTL line, right aligned) ---- */
+  .serial-line {
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-end;
+    font-family: 'Amiri', serif;
+    font-weight: 400;
+    font-size: 15px;
+    white-space: nowrap;
+    text-align: right;
+  }
+
+  /* ---- legal paragraph block ---- */
+  .legal-box {
+    font-family: 'Amiri', serif;
+    font-weight: 400;
+    font-size: 17px;
+    text-align: right;
+    direction: rtl;
+  }
+  .legal-p { margin: 0 0 8px 0; line-height: 25px; overflow-wrap: break-word; }
+  .cip-line { margin: 0; line-height: 25px; text-align: center; overflow-wrap: break-word; }
+
+  /* ---- "يشهد أن:" ---- */
+  .attest-line {
+    font-family: 'Amiri', serif;
+    font-weight: 400;
+    font-size: 17px;
+    text-align: right;
+  }
+
+  /* ---- French fields (LTR) ---- */
+  .french-box {
+    font-family: 'Liberation Serif', serif;
+    font-weight: 400;
+    font-size: 15px;
+    direction: ltr;
+    text-align: left;
+  }
+  .fr-row { position: relative; height: 24px; white-space: nowrap; }
+  .fr-col1 { position: absolute; left: 0; top: 0; }
+  .fr-col2 { position: absolute; left: {{ french_col2_left }}px; top: 0; }
+  .fr-full { white-space: normal; }
+  .fr-bold { font-weight: 700; }
+
+  /* ---- Arabic fields (RTL) ---- */
+  .arabic-box {
+    font-family: 'Amiri', serif;
+    font-weight: 400;
+    font-size: 15px;
+    direction: rtl;
+    text-align: right;
+  }
+  .ar-row { position: relative; height: 23px; white-space: nowrap; }
+  .ar-col1 { position: absolute; right: 0; top: 0; }
+  .ar-col2 { position: absolute; right: {{ arabic_col2_right }}px; top: 0; }
+  .ar-full { white-space: normal; }
+  .ar-bold { font-weight: 700; }
+
+  /* ---- director ---- */
+  .director-box { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; }
+  .director-ar { font-family: 'Amiri', serif; font-weight: 700; font-size: 16px; margin-top: 2px; }
+  .director-fr { font-family: 'Liberation Serif', serif; font-weight: 700; font-size: 15px; margin-top: 6px; }
+
+  /* ---- emission date ---- */
+  .date-line {
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-end;
+    font-family: 'Amiri', serif;
+    font-weight: 400;
+    font-size: 16px;
+    white-space: nowrap;
+  }
+
+  /* ---- no-copy note ---- */
+  .no-copy-line { font-family: 'Amiri', serif; font-weight: 400; font-size: 14px; text-align: right; }
+
+  /* ---- agrement / IF (LTR) ---- */
+  .agrement-line, .if-line {
+    font-family: 'Liberation Serif', serif;
+    font-weight: 400;
+    font-size: 15px;
+    direction: ltr;
+    text-align: left;
+    white-space: nowrap;
+  }
+
+  /* ---- print: pin the page to the certificate's exact pixel size ---- */
+  @media print {
+    .print-btn-bar { display: none !important; }
+    @page { size: {{ canvas_w }}px {{ canvas_h }}px; margin: 0; }
+    html, body { background: none; }
+    .cert-wrap { padding: 0; display: block; }
+    .certificate { box-shadow: none; margin: 0; }
+  }
+</style>

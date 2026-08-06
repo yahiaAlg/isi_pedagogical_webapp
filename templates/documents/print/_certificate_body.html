@@ -1,0 +1,101 @@
+{% load static %}
+<div class="certificate">
+
+  <div class="box logo-box" style="{{ boxes.logo_box }}">
+    {% if institute and institute.logo %}
+      <img src="{{ institute.logo.url }}" alt="logo">
+    {% else %}
+      <img src="{% static 'documents/img/eems_logo.png' %}" alt="logo">
+    {% endif %}
+  </div>
+
+  <div class="box qr-box" style="{{ boxes.qr_box }}">
+    {% if participant.qr_code_data_uri %}
+      <img src="{{ participant.qr_code_data_uri }}" alt="QR">
+    {% endif %}
+  </div>
+
+  <div class="box header-box" style="{{ boxes.header_box }}">
+    <div class="h-line">الجمهورية الجزائرية الديمقراطية الشعبية</div>
+    <div class="h-line">وزارة التكوين و التعليم المهنيين</div>
+    <div class="h-line">مؤسسة خاصة لتكوين المهني معـتمدة</div>
+    <div class="h-line">التميز للإدارة و السلامة</div>
+  </div>
+
+  <div class="box title-box" style="{{ boxes.title_box }}">
+    شهادة تكوين تأهيلي
+  </div>
+
+  <div class="box serial-line" style="{{ boxes.serial_year_box }}">
+    شهـادة  : ح.ط/{{ data.ANNEE }}
+  </div>
+
+  <div class="box serial-line" style="{{ boxes.serial_num_box }}">
+    رقم التسلسلي  : {{ data.NUM_SERIE }}/ت.ح.ط/{{ data.ANNEE }}/{{ data.MOIS_SERIE }}
+  </div>
+
+  <div class="box legal-box" style="{{ boxes.legal_box }}">
+    <p class="legal-p">بمقتضى المرسوم التنفيذي رقم 18-162 المؤرخ في 29 رمضان 1439 الموافق 14 يونيو 2018 الذي يحدد شروط إنشاء المؤسسة الخاصة للتكوين أو التعليم المهني وفتحها ومراقبتها.</p>
+    <p class="legal-p">بمقتضى القرار الوزاري المؤرخ في 4 نوفمبر 2018 الذي يحدد دفتر الشروط المتعلق بإنشاء المؤسسة الخاصة للتكوين أو التعليم المهني وفتحها ومراقبتها.</p>
+    <p class="legal-p">بمقتضى القرار الوزاري رقم 003 المؤرخ في 14 مارس 2022 المتضمن اعتماد المؤسسة الخاصة للتكوين المهني المسماة: التميز للإدارة و السلامة</p>
+    <p class="legal-p">و بناءا على مقرر الفتح رقم 055 المؤرخ 18 أفريل 2022 يتضمن فتح المؤسسة الخاصة للتكوين المهني</p>
+    <p class="cip-line">وبناءا على محضر نهاية التكوين : {{ data.CIP_NUM }}</p>
+  </div>
+
+  <div class="box attest-line" style="{{ boxes.attest_line_box }}">
+    يشهد أن:
+  </div>
+
+  <div class="box french-box" style="{{ boxes.french_fields_box }}">
+    <div class="fr-row">
+      <span class="fr-col1">Prénom : {{ data.PRENOM_FR }}</span>
+      <span class="fr-col2">Nom : {{ data.NOM_FR }}</span>
+    </div>
+    <div class="fr-row">
+      <span class="fr-col1">Né (e) le : {{ data.DATE_NAISSANCE }}</span>
+      <span class="fr-col2">A : {{ data.LIEU_NAISSANCE_FR }}</span>
+    </div>
+    <div class="fr-row fr-full">A suivi une session de formation qualifiante professionnelle à la carte</div>
+    <div class="fr-row fr-full fr-bold">Spécialité : {{ data.SPECIALITE_FR }}</div>
+    <div class="fr-row fr-full">Durée de la formation (h): {{ data.DUREE_HEURES }} heures</div>
+    <div class="fr-row fr-full">.(Jours) : {{ data.DUREE_MOIS_FR }}</div>
+    <div class="fr-row fr-full">Au cours de la période du : {{ data.DATE_DEBUT }} à {{ data.DATE_FIN }}</div>
+  </div>
+
+  <div class="box arabic-box" style="{{ boxes.arabic_fields_box }}">
+    <div class="ar-row">
+      <span class="ar-col1">الاسم : {{ data.PRENOM_AR }}</span>
+      <span class="ar-col2">اللقب: {{ data.NOM_AR }}</span>
+    </div>
+    <div class="ar-row">
+      <span class="ar-col1">المولود (ة) في: {{ data.DATE_NAISSANCE }}</span>
+      <span class="ar-col2">ب : {{ data.LIEU_NAISSANCE_AR }}</span>
+    </div>
+    <div class="ar-row ar-full">قد تابع (ت) دورة في التكوين المهني التأهيلي حسب الطلب</div>
+    <div class="ar-row ar-full ar-bold">تخصص : {{ data.SPECIALITE_AR }}</div>
+    <div class="ar-row ar-full">مدة التكوين (س) ساعة (بالأيام) : {{ data.DUREE_HEURES }}  {{ data.DUREE_MOIS_AR }}</div>
+    <div class="ar-row ar-full">في الفترة من : {{ data.DATE_DEBUT }} إلى {{ data.DATE_FIN }}</div>
+  </div>
+
+  <div class="box director-box" style="{{ boxes.director_box }}">
+    <div class="director-ar">المدير</div>
+    <div class="director-fr">Le Directeur</div>
+  </div>
+
+  <div class="box date-line" style="{{ boxes.date_box }}">
+    حرر ب سطيف في : {{ data.DATE_EMISSION }}
+  </div>
+
+  <div class="box no-copy-line" style="{{ boxes.no_copy_box }}">
+    لا تسلم نسخة أخرى من الشهادة
+  </div>
+
+  <div class="box agrement-line" style="{{ boxes.agrement_box }}">
+    Agrément n° {{ data.AGREMENT_NUM }}
+  </div>
+
+  <div class="box if-line" style="{{ boxes.if_box }}">
+    IF n° {{ data.IF_NUM }}
+  </div>
+
+</div>

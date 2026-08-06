@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Équipements — ISI Gestion Pédagogique{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'resources/css/resources.css' %}" />
+{% endblock %}
+
+{% block breadcrumb %}
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="#">Ressources</a>
+<i class="bi bi-chevron-right bc-sep"></i>
+{% endblock %}
+{% block breadcrumb_active %}<span class="bc-active">Équipements</span>{% endblock %}
+
+{% block topbar_actions %}
+{% if request.user.profile.is_admin %}
+<a href="{% url 'resources:equipment_create' %}" class="topbar-btn primary">
+  <i class="bi bi-plus-lg"></i> Nouvel équipement
+</a>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="fade-up">
+
+  <div class="page-header">
+    <div class="page-header-left">
+      <h1>Équipements</h1>
+      <p class="page-subtitle">Inventaire des machines, outils et équipements de sécurité</p>
+    </div>
+  </div>
+
+  <div class="isi-card">
+    <div class="isi-card-header">
+      <div class="card-icon amber"><i class="bi bi-tools"></i></div>
+      <h3>Liste des équipements</h3>
+      <span class="header-count ms-1">({{ equipment_list|length }} équipement{{ equipment_list|length|pluralize }})</span>
+      {% if request.user.profile.is_admin %}
+      <a href="{% url 'resources:equipment_create' %}" class="btn btn-amber btn-sm ms-auto">
+        <i class="bi bi-plus-lg"></i> Nouveau
+      </a>
+      {% endif %}
+    </div>
+
+    {% if equipment_list %}
+    <div style="overflow-x:auto;">
+      <table class="isi-table">
+        <thead>
+          <tr>
+            <th>Nom</th>
+            <th>Catégorie</th>
+            <th>Réf.</th>
+            <th>Qté</th>
+            <th>État</th>
+            <th>Assignation</th>
+            <th style="text-align:right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for eq in equipment_list %}
+          <tr>
+            <td class="table-primary-link">{{ eq.name }}</td>
+            <td>{{ eq.get_category_display }}</td>
+            <td>{{ eq.inventory_code|default:"—" }}</td>
+            <td>{{ eq.quantity }}</td>
+            <td>
+              {% if eq.status == 'available' %}
+                <span class="isi-badge green"><i class="bi bi-circle-fill" style="font-size:7px;"></i> Disponible</span>
+              {% elif eq.status == 'under_maintenance' %}
+                <span class="isi-badge amber"><i class="bi bi-circle-fill" style="font-size:7px;"></i> En maintenance</span>
+              {% else %}
+                <span class="isi-badge red"><i class="bi bi-circle-fill" style="font-size:7px;"></i> Hors service</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if eq.room %}{{ eq.room.name }}{% elif eq.local %}{{ eq.local.name }}{% else %}<span style="color:var(--text-muted);">—</span>{% endif %}
+            </td>
+            <td>
+              <div style="display:flex;justify-content:flex-end;gap:6px;">
+                {% if request.user.profile.is_admin %}
+                <a href="{% url 'resources:equipment_edit' eq.pk %}" class="btn btn-ghost btn-sm" title="Modifier">
+                  <i class="bi bi-pencil-fill"></i>
+                </a>
+                <button type="button" class="btn btn-ghost btn-sm" style="color:var(--danger);"
+                  data-delete-url="{% url 'resources:equipment_delete' eq.pk %}"
+                  data-delete-msg="Supprimer l'équipement {{ eq.name }} ?"
+                  title="Supprimer">
+                  <i class="bi bi-trash-fill"></i>
+                </button>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <div class="empty-state-icon"><i class="bi bi-tools"></i></div>
+      <p class="empty-state-text">Aucun équipement pour le moment.</p>
+      {% if request.user.profile.is_admin %}
+      <a href="{% url 'resources:equipment_create' %}" class="btn btn-amber">
+        <i class="bi bi-plus-lg"></i> Créer le premier équipement
+      </a>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:420px;">
+    <div class="modal-content" style="border-radius:14px;border:none;box-shadow:var(--shadow-md);">
+      <div class="modal-header" style="border-bottom:1px solid var(--card-border);padding:18px 24px 14px;">
+        <h5 class="modal-title" style="font-family:var(--font-head);font-weight:700;font-size:16px;">
+          <i class="bi bi-exclamation-triangle-fill" style="color:var(--danger);margin-right:8px;"></i>
+          Confirmer la suppression
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" style="padding:18px 24px;">
+        <p style="margin:0;font-size:14px;color:var(--text-primary);" id="deleteModalMsg">Êtes-vous sûr ?</p>
+        <p style="margin:8px 0 0;font-size:12px;color:var(--text-muted);">Cette action est irréversible.</p>
+      </div>
+      <div class="modal-footer" style="border-top:1px solid var(--card-border);padding:14px 24px;gap:10px;">
+        <button type="button" class="btn btn-ghost" data-bs-dismiss="modal">Annuler</button>
+        <form id="deleteForm" method="post" style="display:inline;">
+          {% csrf_token %}
+          <button type="submit" class="btn" style="background:var(--danger);color:#fff;border:none;">
+            <i class="bi bi-trash-fill"></i> Supprimer
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+{{ block.super }}
+<script>
+document.querySelectorAll('[data-delete-url]').forEach(function(btn){
+  btn.addEventListener('click', function(){
+    document.getElementById('deleteForm').action = this.dataset.deleteUrl;
+    document.getElementById('deleteModalMsg').textContent = this.dataset.deleteMsg;
+    new bootstrap.Modal(document.getElementById('deleteModal')).show();
+  });
+});
+</script>
+{% endblock %}

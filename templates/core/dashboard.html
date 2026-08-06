@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Tableau de bord — ISI Gestion Pédagogique{% endblock %}
+
+{% block breadcrumb %}{% endblock %}
+{% block breadcrumb_active %}<span class="bc-active">Tableau de bord</span>{% endblock %}
+
+{% block content %}
+<div class="fade-up">
+
+  <!-- Page Header -->
+  <div class="page-header">
+    <div class="page-header-left">
+      <h1>Tableau de bord</h1>
+      <p class="page-subtitle">Vue d'ensemble de l'activité pédagogique</p>
+    </div>
+  </div>
+
+  <!-- ── KPI Row ──────────────────────────────────────────── -->
+  <div class="row g-3 mb-4">
+
+    <!-- KPI 1: Sessions ce mois -->
+    <div class="col-sm-6 col-lg-4 fade-up-delay-1">
+      <div class="isi-card">
+        <div class="isi-card-body" style="display:flex;align-items:center;gap:14px;padding:16px 18px;">
+          <div class="card-icon amber" style="width:44px;height:44px;font-size:20px;border-radius:12px;flex-shrink:0;">
+            <i class="bi bi-calendar3-fill"></i>
+          </div>
+          <div>
+            <div class="stat-value">{{ sessions_this_month }}</div>
+            <div class="stat-label">Sessions ce mois</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- KPI 2: Participants ce mois -->
+    <div class="col-sm-6 col-lg-4 fade-up-delay-1">
+      <div class="isi-card">
+        <div class="isi-card-body" style="display:flex;align-items:center;gap:14px;padding:16px 18px;">
+          <div class="card-icon blue" style="width:44px;height:44px;font-size:20px;border-radius:12px;flex-shrink:0;">
+            <i class="bi bi-people-fill"></i>
+          </div>
+          <div>
+            <div class="stat-value">{{ participants_this_month }}</div>
+            <div class="stat-label">Participants ce mois</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- KPI 3: Attestations YTD -->
+    <div class="col-sm-6 col-lg-4 fade-up-delay-1">
+      <div class="isi-card">
+        <div class="isi-card-body" style="display:flex;align-items:center;gap:14px;padding:16px 18px;">
+          <div class="card-icon purple" style="width:44px;height:44px;font-size:20px;border-radius:12px;flex-shrink:0;">
+            <i class="bi bi-patch-check-fill"></i>
+          </div>
+          <div>
+            <div class="stat-value">{{ attestations_ytd }}</div>
+            <div class="stat-label">Attestations délivrées (YTD)</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- KPI 4: Sessions actives -->
+    <div class="col-sm-6 col-lg-4 fade-up-delay-2">
+      <div class="isi-card">
+        <div class="isi-card-body" style="display:flex;align-items:center;gap:14px;padding:16px 18px;">
+          <div class="card-icon green" style="width:44px;height:44px;font-size:20px;border-radius:12px;flex-shrink:0;">
+            <i class="bi bi-play-circle-fill"></i>
+          </div>
+          <div>
+            <div class="stat-value">{{ active_sessions }}</div>
+            <div class="stat-label">Sessions actives</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- KPI 5: Taux de remplissage moyen -->
+    <div class="col-sm-6 col-lg-4 fade-up-delay-2">
+      <div class="isi-card">
+        <div class="isi-card-body" style="display:flex;align-items:center;gap:14px;padding:16px 18px;">
+          <div class="card-icon amber" style="width:44px;height:44px;font-size:20px;border-radius:12px;flex-shrink:0;">
+            <i class="bi bi-bar-chart-fill"></i>
+          </div>
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;align-items:baseline;gap:6px;">
+              <div class="stat-value">{{ avg_fill_rate }}%</div>
+            </div>
+            <div class="stat-label">Taux de remplissage moy.</div>
+            <div class="fill-bar-wrap" style="margin-top:6px;">
+              <div class="fill-bar-track">
+                <div class="fill-bar-fill" style="
+                  width:{{ avg_fill_rate }}%;
+                  background:{% if avg_fill_rate >= 80 %}var(--success){% elif avg_fill_rate >= 50 %}var(--accent){% else %}#94a3b8{% endif %};
+                "></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- KPI 6: Taux de réussite -->
+    <div class="col-sm-6 col-lg-4 fade-up-delay-2">
+      <div class="isi-card">
+        <div class="isi-card-body" style="display:flex;align-items:center;gap:14px;padding:16px 18px;">
+          <div class="card-icon green" style="width:44px;height:44px;font-size:20px;border-radius:12px;flex-shrink:0;">
+            <i class="bi bi-clipboard2-check-fill"></i>
+          </div>
+          <div style="flex:1;min-width:0;">
+            <div class="stat-value">{{ overall_pass_rate }}%</div>
+            <div class="stat-label">Taux de réussite global</div>
+            <div class="fill-bar-wrap" style="margin-top:6px;">
+              <div class="fill-bar-track">
+                <div class="fill-bar-fill" style="
+                  width:{{ overall_pass_rate }}%;
+                  background:{% if overall_pass_rate >= 80 %}var(--success){% elif overall_pass_rate >= 50 %}var(--accent){% else %}#94a3b8{% endif %};
+                "></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /.row KPIs -->
+
+  <!-- ── Quick Access Cards ────────────────────────────────── -->
+  <div class="row g-4 fade-up-delay-3">
+
+    <!-- Dernières sessions -->
+    <div class="col-lg-8">
+      <div class="isi-card">
+        <div class="isi-card-header">
+          <div class="card-icon amber"><i class="bi bi-calendar3-fill"></i></div>
+          <h3>Activité récente</h3>
+          <a href="{% url 'formations:session_list' %}" class="btn btn-ghost btn-sm ms-auto">
+            <i class="bi bi-arrow-right"></i> Voir tout
+          </a>
+        </div>
+        <div class="isi-card-body" style="padding:0;">
+          <div style="padding:32px 24px;text-align:center;">
+            <div style="font-size:40px;color:#e2e8f0;margin-bottom:12px;">
+              <i class="bi bi-calendar3-fill"></i>
+            </div>
+            <p style="color:var(--text-muted);font-size:14px;margin:0 0 14px;">
+              Naviguez vers les sessions pour voir l'activité détaillée.
+            </p>
+            <a href="{% url 'formations:session_list' %}" class="btn btn-amber btn-sm">
+              <i class="bi bi-calendar3-fill"></i> Gérer les sessions
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Accès rapide -->
+    <div class="col-lg-4">
+      <div class="isi-card">
+        <div class="isi-card-header">
+          <div class="card-icon amber"><i class="bi bi-lightning-fill"></i></div>
+          <h3>Accès rapide</h3>
+        </div>
+        <div class="isi-card-body" style="padding:16px;">
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <a href="{% url 'formations:session_list' %}" class="btn btn-ghost" style="justify-content:flex-start;">
+              <i class="bi bi-calendar3-fill" style="color:var(--accent);"></i> Sessions
+            </a>
+            <a href="{% url 'formations:formation_list' %}" class="btn btn-ghost" style="justify-content:flex-start;">
+              <i class="bi bi-mortarboard-fill" style="color:var(--accent);"></i> Catalogue formations
+            </a>
+            <a href="{% url 'clients:client_list' %}" class="btn btn-ghost" style="justify-content:flex-start;">
+              <i class="bi bi-building-fill" style="color:var(--accent);"></i> Clients
+            </a>
+            <a href="{% url 'resources:trainer_list' %}" class="btn btn-ghost" style="justify-content:flex-start;">
+              <i class="bi bi-person-fill-check" style="color:var(--accent);"></i> Formateurs
+            </a>
+            <a href="{% url 'formations:session_list' %}" class="btn btn-ghost" style="justify-content:flex-start;">
+              <i class="bi bi-patch-check-fill" style="color:var(--accent);"></i> Attestations
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</div><!-- /.fade-up -->
+{% endblock %}

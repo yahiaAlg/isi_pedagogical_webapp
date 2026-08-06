@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Présences — {{ session.reference }} — ISI Gestion Pédagogique{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'formations/css/formations.css' %}" />{% endblock %}
+
+{% block breadcrumb %}
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="{% url 'formations:session_list' %}">Sessions</a>
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="{% url 'formations:session_detail' session.pk %}">{{ session.reference }}</a>
+<i class="bi bi-chevron-right bc-sep"></i>
+{% endblock %}
+{% block breadcrumb_active %}<span class="bc-active">Saisie des présences</span>{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% url 'formations:session_detail' session.pk %}" class="topbar-btn"><i class="bi bi-arrow-left"></i> Retour</a>
+{% endblock %}
+
+{% block content %}
+<div class="fade-up">
+  <div class="page-header">
+    <div class="page-header-left">
+      <h1>Saisie des présences</h1>
+      <p class="page-subtitle">{{ session.reference }} — {{ session.formation.title }}</p>
+    </div>
+  </div>
+
+  <div class="row justify-content-center">
+    <div class="col-lg-7 col-md-9">
+      <div class="isi-card">
+        <div class="isi-card-header">
+          <div class="card-icon blue"><i class="bi bi-person-check-fill"></i></div>
+          <h3>Liste des présences</h3>
+          <span class="header-count ms-1">({{ session.participant_set.count }} participant{{ session.participant_set.count|pluralize }})</span>
+        </div>
+        <div class="isi-card-body">
+
+          <!-- All present shortcut -->
+          <div style="display:flex;justify-content:flex-end;margin-bottom:12px;">
+            <button type="button" id="markAllPresent" style="font-size:12px;color:var(--accent);background:none;border:none;cursor:pointer;padding:0;font-weight:600;">
+              <i class="bi bi-check-all"></i> Tous présents
+            </button>
+          </div>
+
+          <form method="post" novalidate>
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+            <div class="alert alert-danger mb-4">
+              <i class="bi bi-exclamation-circle-fill"></i>
+              <div>{% for e in form.non_field_errors %}<div>{{ e }}</div>{% endfor %}</div>
+            </div>
+            {% endif %}
+
+            <div style="border:1px solid var(--card-border);border-radius:8px;overflow:hidden;">
+              {% for field in form %}
+              {% if field.name|slice:":12" == "participant_" %}
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--card-border);">
+                <label for="{{ field.id_for_label }}" style="font-size:14px;font-weight:500;color:var(--text-primary);cursor:pointer;margin:0;flex:1;">
+                  {{ field.label }}
+                </label>
+                <div style="display:flex;align-items:center;gap:10px;">
+                  <span id="status-{{ field.name }}" style="font-size:12px;font-weight:600;color:{% if field.value %}var(--success){% else %}var(--danger){% endif %};">
+                    {% if field.value %}Présent{% else %}Absent{% endif %}
+                  </span>
+                  <input type="checkbox" id="{{ field.id_for_label }}" name="{{ field.html_name }}"
+                    class="form-check-input attendance-checkbox"
+                    data-field="{{ field.name }}"
+                    style="width:36px;height:20px;cursor:pointer;"
+                    {% if field.value %}checked{% endif %} />
+                </div>
+              </div>
+              {% endif %}
+              {% endfor %}
+            </div>
+
+            <div class="section-divider"></div>
+            <div style="display:flex;gap:12px;">
+              <button type="submit" class="btn btn-amber"><i class="bi bi-check-lg"></i> Enregistrer les présences</button>
+              <a href="{% url 'formations:session_detail' session.pk %}" class="btn btn-ghost"><i class="bi bi-arrow-left"></i> Annuler</a>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+(function () {
+  // Update "Présent/Absent" label on toggle
+  document.querySelectorAll(".attendance-checkbox").forEach(function (cb) {
+    cb.addEventListener("change", function () {
+      const statusEl = document.getElementById("status-" + this.dataset.field);
+      if (statusEl) {
+        statusEl.textContent = this.checked ? "Présent" : "Absent";
+        statusEl.style.color = this.checked ? "var(--success)" : "var(--danger)";
+      }
+    });
+  });
+
+  // All present button
+  const markAllBtn = document.getElementById("markAllPresent");
+  if (markAllBtn) {
+    markAllBtn.addEventListener("click", function () {
+      document.querySelectorAll(".attendance-checkbox").forEach(function (cb) {
+        cb.checked = true;
+        cb.dispatchEvent(new Event("change"));
+      });
+    });
+  }
+})();
+</script>
+{% endblock %}

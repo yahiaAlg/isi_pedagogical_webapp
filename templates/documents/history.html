@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Historique documents — {{ session.reference }} — ISI Gestion Pédagogique{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'documents/css/documents.css' %}" />{% endblock %}
+
+{% block breadcrumb %}
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="{% url 'formations:session_list' %}">Sessions</a>
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="{% url 'formations:session_detail' session.pk %}">{{ session.reference }}</a>
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="{% url 'documents:dashboard' session_pk=session.pk %}">Documents</a>
+<i class="bi bi-chevron-right bc-sep"></i>
+{% endblock %}
+{% block breadcrumb_active %}<span class="bc-active">Historique</span>{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% url 'documents:dashboard' session_pk=session.pk %}" class="topbar-btn">
+  <i class="bi bi-arrow-left"></i> Retour documents
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="fade-up">
+  <div class="page-header">
+    <div class="page-header-left">
+      <h1>Historique des documents</h1>
+      <p class="page-subtitle">{{ session.reference }} — toutes les générations</p>
+    </div>
+  </div>
+
+  <div class="isi-card">
+    <div class="isi-card-header">
+      <div class="card-icon purple"><i class="bi bi-clock-history"></i></div>
+      <h3>Journal de génération</h3>
+      <span class="header-count ms-1">({{ documents|length }} entrée{{ documents|length|pluralize }})</span>
+    </div>
+
+    {% if documents %}
+    <div style="overflow-x:auto;">
+      <table class="isi-table">
+        <thead>
+          <tr>
+            <th>Type de document</th>
+            <th>Participant</th>
+            <th>Jour</th>
+            <th>Généré le</th>
+            <th>Généré par</th>
+            <th>Statut</th>
+            <th style="text-align:right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for doc in documents %}
+          <tr {% if not doc.is_latest %}class="history-row-outdated"{% endif %}>
+            <td>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <div class="card-icon {% if doc.is_latest %}purple{% else %}gray{% endif %}" style="width:26px;height:26px;font-size:13px;border-radius:6px;">
+                  <i class="bi bi-file-earmark-richtext-fill"></i>
+                </div>
+                <span style="font-weight:{% if doc.is_latest %}600{% else %}400{% endif %};">{{ doc.get_doc_type_display }}</span>
+              </div>
+            </td>
+            <td>
+              {% if doc.participant %}
+                <span style="font-size:13.5px;">{{ doc.participant.full_name }}</span>
+              {% else %}
+                <span style="color:var(--text-muted);">—</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if doc.day_number %}
+                <span class="isi-badge gray">Jour {{ doc.day_number }}</span>
+              {% else %}
+                <span style="color:var(--text-muted);">—</span>
+              {% endif %}
+            </td>
+            <td>
+              <span style="font-weight:500;">{{ doc.generated_at|date:"d/m/Y" }}</span>
+              <span class="table-secondary-text">{{ doc.generated_at|date:"H:i" }}</span>
+            </td>
+            <td>
+              <span style="font-size:13.5px;">{{ doc.generated_by.get_full_name|default:doc.generated_by.username }}</span>
+            </td>
+            <td>
+              {% if doc.is_latest %}
+              <span class="isi-badge green"><i class="bi bi-circle-fill" style="font-size:7px;"></i> Version actuelle</span>
+              {% else %}
+              <span class="isi-badge gray"><i class="bi bi-circle-fill" style="font-size:7px;"></i> Obsolète</span>
+              {% endif %}
+            </td>
+            <td>
+              <div style="display:flex;justify-content:flex-end;">
+                {% if doc.file %}
+                <a href="{% url 'documents:download' pk=doc.pk %}" class="btn btn-ghost btn-sm">
+                  <i class="bi bi-download"></i> Télécharger
+                </a>
+                {% else %}
+                <span style="font-size:12px;color:var(--text-muted);">Fichier absent</span>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <div class="empty-state-icon"><i class="bi bi-clock-history"></i></div>
+      <p class="empty-state-text">Aucun document généré pour cette session.</p>
+      <a href="{% url 'documents:dashboard' session_pk=session.pk %}" class="btn btn-amber">
+        <i class="bi bi-file-earmark-arrow-down-fill"></i> Générer des documents
+      </a>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

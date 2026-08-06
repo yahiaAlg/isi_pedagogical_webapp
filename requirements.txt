@@ -1,0 +1,32 @@
+# Core
+Django
+gunicorn
+
+# Database
+psycopg2-binary
+
+# Static files
+whitenoise
+
+# Image handling
+Pillow
+
+# Excel / CSV import
+openpyxl
+python-dateutil
+
+# django-import-export
+django-import-export
+
+# Document generation
+python-docx
+
+# QR codes (spec §11.6 — attestation verification QR)
+qrcode[pil]
+
+# Attestation — rendered as HTML/CSS (documents/print/attestation.html)
+# and printed/saved-as-PDF by the browser, like every other document type;
+# no server-side rendering libraries needed for it.
+
+# Environment variables
+python-dotenv

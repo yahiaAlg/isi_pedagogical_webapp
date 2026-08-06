@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Rapports & Analytique — ISI Gestion Pédagogique{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'reporting/css/reporting.css' %}" />
+{% endblock %}
+
+{% block breadcrumb %}
+<i class="bi bi-chevron-right bc-sep"></i>
+{% endblock %}
+{% block breadcrumb_active %}<span class="bc-active">Rapports</span>{% endblock %}
+
+{% block content %}
+<div class="fade-up">
+
+  <div class="page-header">
+    <div class="page-header-left">
+      <h1>Rapports & Analytique</h1>
+      <p class="page-subtitle">Vue d'ensemble et accès aux rapports opérationnels</p>
+    </div>
+  </div>
+
+  <!-- ── KPI row ───────────────────────────────────────────── -->
+  <div class="row g-3 mb-4">
+    <div class="col-sm-6 col-lg-4 fade-up-delay-1">
+      <div class="isi-card">
+        <div class="isi-card-body" style="display:flex;align-items:center;gap:14px;padding:14px 18px;">
+          <div class="card-icon amber" style="width:44px;height:44px;font-size:20px;border-radius:12px;flex-shrink:0;"><i class="bi bi-calendar3-fill"></i></div>
+          <div>
+            <div class="stat-value">{{ sessions_this_month }}</div>
+            <div class="stat-label">Sessions ce mois</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-sm-6 col-lg-4 fade-up-delay-1">
+      <div class="isi-card">
+        <div class="isi-card-body" style="display:flex;align-items:center;gap:14px;padding:14px 18px;">
+          <div class="card-icon blue" style="width:44px;height:44px;font-size:20px;border-radius:12px;flex-shrink:0;"><i class="bi bi-people-fill"></i></div>
+          <div>
+            <div class="stat-value">{{ participants_this_month }}</div>
+            <div class="stat-label">Participants ce mois</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-sm-6 col-lg-4 fade-up-delay-1">
+      <div class="isi-card">
+        <div class="isi-card-body" style="display:flex;align-items:center;gap:14px;padding:14px 18px;">
+          <div class="card-icon purple" style="width:44px;height:44px;font-size:20px;border-radius:12px;flex-shrink:0;"><i class="bi bi-patch-check-fill"></i></div>
+          <div>
+            <div class="stat-value">{{ attestations_ytd }}</div>
+            <div class="stat-label">Attestations (YTD)</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-sm-6 col-lg-4 fade-up-delay-2">
+      <div class="isi-card">
+        <div class="isi-card-body" style="display:flex;align-items:center;gap:14px;padding:14px 18px;">
+          <div class="card-icon green" style="width:44px;height:44px;font-size:20px;border-radius:12px;flex-shrink:0;"><i class="bi bi-play-circle-fill"></i></div>
+          <div>
+            <div class="stat-value">{{ active_sessions }}</div>
+            <div class="stat-label">Sessions actives</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-sm-6 col-lg-4 fade-up-delay-2">
+      <div class="isi-card">
+        <div class="isi-card-body" style="display:flex;align-items:center;gap:14px;padding:14px 18px;">
+          <div class="card-icon amber" style="width:44px;height:44px;font-size:20px;border-radius:12px;flex-shrink:0;"><i class="bi bi-bar-chart-fill"></i></div>
+          <div style="flex:1;min-width:0;">
+            <div class="stat-value">{{ avg_fill_rate }}%</div>
+            <div class="stat-label">Taux remplissage moy.</div>
+            <div class="fill-bar-wrap" style="margin-top:5px;">
+              <div class="fill-bar-track"><div class="fill-bar-fill" style="width:{{ avg_fill_rate }}%;background:{% if avg_fill_rate >= 80 %}var(--success){% elif avg_fill_rate >= 50 %}var(--accent){% else %}#94a3b8{% endif %};"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-sm-6 col-lg-4 fade-up-delay-2">
+      <div class="isi-card">
+        <div class="isi-card-body" style="display:flex;align-items:center;gap:14px;padding:14px 18px;">
+          <div class="card-icon green" style="width:44px;height:44px;font-size:20px;border-radius:12px;flex-shrink:0;"><i class="bi bi-clipboard2-check-fill"></i></div>
+          <div style="flex:1;min-width:0;">
+            <div class="stat-value">{{ overall_pass_rate }}%</div>
+            <div class="stat-label">Taux de réussite global</div>
+            <div class="fill-bar-wrap" style="margin-top:5px;">
+              <div class="fill-bar-track"><div class="fill-bar-fill" style="width:{{ overall_pass_rate }}%;background:{% if overall_pass_rate >= 80 %}var(--success){% elif overall_pass_rate >= 50 %}var(--accent){% else %}#94a3b8{% endif %};"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Report navigation cards ───────────────────────────── -->
+  <div class="isi-card mb-4">
+    <div class="isi-card-header">
+      <div class="card-icon amber"><i class="bi bi-bar-chart-fill"></i></div>
+      <h3>Rapports disponibles</h3>
+    </div>
+    <div class="isi-card-body">
+      <div class="row g-3">
+
+        <div class="col-sm-6 col-lg-4">
+          <a href="{% url 'reporting:fill_rate' %}" class="report-nav-card">
+            <div class="report-nav-card-icon amber"><i class="bi bi-bar-chart-fill"></i></div>
+            <div class="report-nav-card-title">Taux de remplissage</div>
+            <div class="report-nav-card-desc">Analyse de l'occupation par session — barres de progression colorées par seuil.</div>
+            <div class="report-nav-card-arrow"><i class="bi bi-arrow-right"></i></div>
+          </a>
+        </div>
+
+        <div class="col-sm-6 col-lg-4">
+          <a href="{% url 'reporting:by_formation' %}" class="report-nav-card">
+            <div class="report-nav-card-icon amber"><i class="bi bi-mortarboard-fill"></i></div>
+            <div class="report-nav-card-title">Sessions par formation</div>
+            <div class="report-nav-card-desc">Volume de sessions et taux de remplissage moyen pour chaque formation du catalogue.</div>
+            <div class="report-nav-card-arrow"><i class="bi bi-arrow-right"></i></div>
+          </a>
+        </div>
+
+        <div class="col-sm-6 col-lg-4">
+          <a href="{% url 'reporting:by_client' %}" class="report-nav-card">
+            <div class="report-nav-card-icon amber"><i class="bi bi-building-fill"></i></div>
+            <div class="report-nav-card-title">Sessions par client</div>
+            <div class="report-nav-card-desc">Activité par entreprise cliente : sessions commandées et participants formés.</div>
+            <div class="report-nav-card-arrow"><i class="bi bi-arrow-right"></i></div>
+          </a>
+        </div>
+
+        <div class="col-sm-6 col-lg-4">
+          <a href="{% url 'reporting:by_trainer' %}" class="report-nav-card">
+            <div class="report-nav-card-icon blue"><i class="bi bi-person-fill-check"></i></div>
+            <div class="report-nav-card-title">Sessions par formateur</div>
+            <div class="report-nav-card-desc">Volume d'interventions et taux de réussite moyen par formateur.</div>
+            <div class="report-nav-card-arrow"><i class="bi bi-arrow-right"></i></div>
+          </a>
+        </div>
+
+        <div class="col-sm-6 col-lg-4">
+          <a href="{% url 'reporting:pass_rate' %}" class="report-nav-card">
+            <div class="report-nav-card-icon green"><i class="bi bi-clipboard2-check-fill"></i></div>
+            <div class="report-nav-card-title">Taux de réussite</div>
+            <div class="report-nav-card-desc">Répartition reçu / ajourné / absent par formation sur les sessions terminées.</div>
+            <div class="report-nav-card-arrow"><i class="bi bi-arrow-right"></i></div>
+          </a>
+        </div>
+
+        <div class="col-sm-6 col-lg-4">
+          <a href="{% url 'reporting:certificate_volume' %}" class="report-nav-card">
+            <div class="report-nav-card-icon purple"><i class="bi bi-patch-check-fill"></i></div>
+            <div class="report-nav-card-title">Volume d'attestations</div>
+            <div class="report-nav-card-desc">Attestations délivrées par mois et par année avec tendance chronologique.</div>
+            <div class="report-nav-card-arrow"><i class="bi bi-arrow-right"></i></div>
+          </a>
+        </div>
+
+        <div class="col-sm-6 col-lg-4">
+          <a href="{% url 'reporting:trainer_activity' %}" class="report-nav-card">
+            <div class="report-nav-card-icon blue"><i class="bi bi-person-lines-fill"></i></div>
+            <div class="report-nav-card-title">Activité formateurs</div>
+            <div class="report-nav-card-desc">Sessions effectuées par chaque formateur sur une période glissante de 6 mois.</div>
+            <div class="report-nav-card-arrow"><i class="bi bi-arrow-right"></i></div>
+          </a>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Quick totals strip ─────────────────────────────────── -->
+  <div class="isi-card fade-up-delay-3">
+    <div class="isi-card-body" style="padding:14px 24px;display:flex;gap:32px;flex-wrap:wrap;align-items:center;">
+      <div class="report-summary-item">
+        <span class="report-summary-value">{{ total_sessions }}</span>
+        <span class="report-summary-label">Sessions totales</span>
+      </div>
+      <div style="width:1px;height:30px;background:var(--card-border);"></div>
+      <div class="report-summary-item">
+        <span class="report-summary-value">{{ total_formations }}</span>
+        <span class="report-summary-label">Formations actives</span>
+      </div>
+      <div style="width:1px;height:30px;background:var(--card-border);"></div>
+      <div class="report-summary-item">
+        <span class="report-summary-value">{{ total_trainers }}</span>
+        <span class="report-summary-label">Formateurs actifs</span>
+      </div>
+      <div style="width:1px;height:30px;background:var(--card-border);"></div>
+      <div class="report-summary-item">
+        <span class="report-summary-value">{{ total_certs_ever }}</span>
+        <span class="report-summary-label">Attestations délivrées</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

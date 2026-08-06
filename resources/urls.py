@@ -1,0 +1,24 @@
+from django.urls import path
+from . import views
+
+app_name = "resources"
+
+urlpatterns = [
+    path("trainers/", views.trainer_list, name="trainer_list"),
+    path("trainers/create/", views.trainer_create, name="trainer_create"),
+    path("trainers/<int:pk>/", views.trainer_detail, name="trainer_detail"),
+    path("trainers/<int:pk>/edit/", views.trainer_edit, name="trainer_edit"),
+    path("trainers/<int:pk>/delete/", views.trainer_delete, name="trainer_delete"),
+    path("rooms/", views.room_list, name="room_list"),
+    path("rooms/create/", views.room_create, name="room_create"),
+    path("rooms/<int:pk>/edit/", views.room_edit, name="room_edit"),
+    path("rooms/<int:pk>/delete/", views.room_delete, name="room_delete"),
+    path("locals/", views.local_list, name="local_list"),
+    path("locals/create/", views.local_create, name="local_create"),
+    path("locals/<int:pk>/edit/", views.local_edit, name="local_edit"),
+    path("locals/<int:pk>/delete/", views.local_delete, name="local_delete"),
+    path("equipment/", views.equipment_list, name="equipment_list"),
+    path("equipment/create/", views.equipment_create, name="equipment_create"),
+    path("equipment/<int:pk>/edit/", views.equipment_edit, name="equipment_edit"),
+    path("equipment/<int:pk>/delete/", views.equipment_delete, name="equipment_delete"),
+]

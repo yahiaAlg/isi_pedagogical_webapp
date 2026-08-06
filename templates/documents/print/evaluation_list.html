@@ -1,0 +1,77 @@
+{% extends "documents/print/base_print.html" %}
+
+{% block doc_title %}Liste des notes — {{ session.reference }}{% endblock %}
+
+{% block doc_body %}
+<div class="doc-title">Liste des Notes D'évaluation des Candidats</div>
+<div class="doc-subtitle">
+  <strong>formation : {{ session.formation.code }}</strong>
+  &nbsp;&nbsp;&nbsp;
+  <strong>Client : {{ session.client.name }}</strong>
+</div>
+<div class="doc-date"><strong>Date : </strong>{{ session.date_start|date:"d/m/Y" }}</div>
+
+<table>
+  <thead>
+    <tr>
+      <th style="width:40px;">N°</th>
+      <th>Nom et prénom</th>
+      {% if session.formation.evaluation_type == 'theory_only' or session.formation.evaluation_type == 'both' %}
+      <th>Note Théorique</th>
+      {% endif %}
+      {% if session.formation.evaluation_type == 'practice_only' or session.formation.evaluation_type == 'both' %}
+      <th>Note Pratique</th>
+      {% endif %}
+      <th>Résultat</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for p in participants %}
+    <tr>
+      <td>{{ forloop.counter|stringformat:"02d" }}</td>
+      <td class="left">{{ p.last_name|upper }} {{ p.first_name }}</td>
+      {% if session.formation.evaluation_type == 'theory_only' or session.formation.evaluation_type == 'both' %}
+      <td>{% if p.score_theory %}{{ p.score_theory }}{% endif %}</td>
+      {% endif %}
+      {% if session.formation.evaluation_type == 'practice_only' or session.formation.evaluation_type == 'both' %}
+      <td>{% if p.score_practice %}{{ p.score_practice }}{% endif %}</td>
+      {% endif %}
+      <td>
+        {% if p.result == 'passed' %}Reçu
+        {% elif p.result == 'failed' %}Ajourné
+        {% elif p.result == 'absent' %}Absent
+        {% else %}—{% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+    {% with count=participants|length %}
+    {% if count < 12 %}
+      {% for i in "123456789012"|make_list %}
+        {% if forloop.counter > count %}
+        <tr>
+          <td>{{ forloop.counter|stringformat:"02d" }}</td>
+          <td></td>
+          {% if session.formation.evaluation_type == 'theory_only' or session.formation.evaluation_type == 'both' %}<td></td>{% endif %}
+          {% if session.formation.evaluation_type == 'practice_only' or session.formation.evaluation_type == 'both' %}<td></td>{% endif %}
+          <td></td>
+        </tr>
+        {% endif %}
+      {% endfor %}
+    {% endif %}
+    {% endwith %}
+  </tbody>
+</table>
+
+<div style="font-size:11px;margin-bottom:16px;">
+  <strong>Seuil de passage : {{ session.formation.passing_score }}/20</strong>
+  &nbsp;|&nbsp;
+  Présents : {{ session.total_present }}
+  &nbsp;|&nbsp;
+  Absents : {{ session.total_absent }}
+</div>
+
+<div class="sig-row">
+  <div>Le formateur : <strong>{{ session.trainer.full_name|upper }}</strong></div>
+  <div>Entreprise</div>
+</div>
+{% endblock %}

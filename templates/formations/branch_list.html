@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Branches — ISI Gestion Pédagogique{% endblock %}
+
+{% block extra_head %}<link rel="stylesheet" href="{% static 'formations/css/formations.css' %}" />{% endblock %}
+
+{% block breadcrumb %}
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="{% url 'formations:formation_list' %}">Formations</a>
+<i class="bi bi-chevron-right bc-sep"></i>
+{% endblock %}
+{% block breadcrumb_active %}<span class="bc-active">Branches</span>{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% url 'formations:formation_list' %}" class="topbar-btn"><i class="bi bi-arrow-left"></i> Catalogue</a>
+<a href="{% url 'formations:specialty_list' %}" class="topbar-btn"><i class="bi bi-bookmarks-fill"></i> Spécialités</a>
+{% if request.user.profile.is_admin %}
+<a href="{% url 'formations:branch_create' %}" class="topbar-btn primary"><i class="bi bi-plus-lg"></i> Nouvelle branche</a>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="fade-up">
+  <div class="page-header">
+    <div class="page-header-left">
+      <h1>Branches (الشعبة)</h1>
+      <p class="page-subtitle">Groupement de haut niveau du catalogue — détermine le type de cursus et d'attestation. <strong>Planifié — non encore utilisé en production.</strong></p>
+    </div>
+  </div>
+
+  <div class="isi-card">
+    <div class="isi-card-header">
+      <div class="card-icon amber"><i class="bi bi-diagram-3-fill"></i></div>
+      <h3>Branches</h3>
+      <span class="header-count ms-1">({{ branches|length }})</span>
+      {% if request.user.profile.is_admin %}
+      <a href="{% url 'formations:branch_create' %}" class="btn btn-amber btn-sm ms-auto">
+        <i class="bi bi-plus-lg"></i> Nouvelle
+      </a>
+      {% endif %}
+    </div>
+
+    {% if branches %}
+    <div style="overflow-x:auto;">
+      <table class="isi-table">
+        <thead>
+          <tr>
+            <th>Abréviation</th>
+            <th>Nom</th>
+            <th>Type de cursus</th>
+            <th style="text-align:center;">Durée (mois)</th>
+            <th style="text-align:center;">Spécialités</th>
+            <th style="text-align:right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for branch in branches %}
+          <tr>
+            <td><code style="font-size:12.5px;font-weight:700;">{{ branch.abbreviation }}</code></td>
+            <td>
+              <span style="font-weight:600;">{{ branch.name }}</span>
+              <span class="table-secondary-text" dir="rtl" style="display:block;">{{ branch.name_ar }}</span>
+            </td>
+            <td>
+              <span class="badge" style="background:var(--accent-soft, #fef3c7);color:var(--accent, #b45309);">
+                {{ branch.get_curriculum_type_display }}
+              </span>
+              <span class="table-secondary-text" style="display:block;font-size:12px;">→ {{ branch.attestation_type|capfirst }}</span>
+            </td>
+            <td style="text-align:center;">{{ branch.curriculum_min_months }}–{{ branch.curriculum_max_months }}</td>
+            <td style="text-align:center;">
+              <span style="font-weight:600;">{{ branch.specialties_total }}</span>
+            </td>
+            <td>
+              <div style="display:flex;justify-content:flex-end;gap:6px;">
+                {% if request.user.profile.is_admin %}
+                <a href="{% url 'formations:branch_edit' branch.pk %}" class="btn btn-ghost btn-sm">
+                  <i class="bi bi-pencil-fill"></i>
+                </a>
+                <button type="button" class="btn btn-ghost btn-sm" style="color:var(--danger);"
+                  data-delete-url="{% url 'formations:branch_delete' branch.pk %}"
+                  data-delete-msg="Supprimer la branche {{ branch.abbreviation }} ?"
+                  title="Supprimer">
+                  <i class="bi bi-trash-fill"></i>
+                </button>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <div class="empty-state-icon"><i class="bi bi-diagram-3-fill"></i></div>
+      <p class="empty-state-text">Aucune branche pour le moment.</p>
+      {% if request.user.profile.is_admin %}
+      <a href="{% url 'formations:branch_create' %}" class="btn btn-amber">
+        <i class="bi bi-plus-lg"></i> Créer la première branche
+      </a>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+  <!-- Delete confirmation modal -->
+  <div class="modal fade" id="deleteModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:420px;">
+      <div class="modal-content" style="border-radius:14px;border:none;box-shadow:var(--shadow-md);">
+        <div class="modal-header" style="border-bottom:1px solid var(--card-border);padding:18px 24px 14px;">
+          <h5 class="modal-title" style="font-family:var(--font-head);font-weight:700;font-size:16px;">
+            <i class="bi bi-exclamation-triangle-fill" style="color:var(--danger);margin-right:8px;"></i>
+            Confirmer la suppression
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body" style="padding:18px 24px;">
+          <p style="margin:0;font-size:14px;color:var(--text-primary);" id="deleteModalMsg">Êtes-vous sûr ?</p>
+          <p style="margin:8px 0 0;font-size:12px;color:var(--text-muted);">Cette action est irréversible.</p>
+        </div>
+        <div class="modal-footer" style="border-top:1px solid var(--card-border);padding:14px 24px;gap:10px;">
+          <button type="button" class="btn btn-ghost" data-bs-dismiss="modal">Annuler</button>
+          <form id="deleteForm" method="post" style="display:inline;">
+            {% csrf_token %}
+            <button type="submit" class="btn" style="background:var(--danger);color:#fff;border:none;">
+              <i class="bi bi-trash-fill"></i> Supprimer
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+
+{% block extra_scripts %}
+{{ block.super }}
+<script>
+document.querySelectorAll('[data-delete-url]').forEach(function(btn){
+  btn.addEventListener('click', function(){
+    document.getElementById('deleteForm').action = this.dataset.deleteUrl;
+    document.getElementById('deleteModalMsg').textContent = this.dataset.deleteMsg;
+    new bootstrap.Modal(document.getElementById('deleteModal')).show();
+  });
+});
+</script>
+{% endblock %}

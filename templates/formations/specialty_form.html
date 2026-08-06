@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ title }} — Spécialités — ISI Gestion Pédagogique{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'formations/css/formations.css' %}" />{% endblock %}
+
+{% block breadcrumb %}
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="{% url 'formations:formation_list' %}">Formations</a>
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="{% url 'formations:specialty_list' %}">Spécialités</a>
+<i class="bi bi-chevron-right bc-sep"></i>
+{% endblock %}
+{% block breadcrumb_active %}<span class="bc-active">{{ title }}</span>{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% url 'formations:specialty_list' %}" class="topbar-btn"><i class="bi bi-arrow-left"></i> Retour</a>
+{% endblock %}
+
+{% block content %}
+<div class="fade-up">
+  <div class="page-header">
+    <div class="page-header-left">
+      <h1>{{ title }}</h1>
+      <p class="page-subtitle">{% if specialty %}Modification{% else %}Création{% endif %} d'une spécialité rattachée à une branche</p>
+    </div>
+  </div>
+
+  <div class="row justify-content-center">
+    <div class="col-lg-5 col-md-7">
+      <div class="isi-card">
+        <div class="isi-card-header">
+          <div class="card-icon amber"><i class="bi bi-bookmarks-fill"></i></div>
+          <h3>{{ title }}</h3>
+        </div>
+        <div class="isi-card-body">
+          <form method="post" novalidate>
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+            <div class="alert alert-danger mb-4">
+              <i class="bi bi-exclamation-circle-fill"></i>
+              <div>{% for e in form.non_field_errors %}<div>{{ e }}</div>{% endfor %}</div>
+            </div>
+            {% endif %}
+
+            <div class="form-section-title">Identification</div>
+
+            <div class="mb-3">
+              <label class="form-label" for="{{ form.branch.id_for_label }}">Branche <span style="color:var(--danger);">*</span></label>
+              <select id="{{ form.branch.id_for_label }}" name="{{ form.branch.html_name }}"
+                class="form-select {% if form.branch.errors %}is-invalid{% endif %}" required>
+                <option value="">—</option>
+                {% for b in form.fields.branch.queryset %}
+                <option value="{{ b.pk }}" {% if form.branch.value|stringformat:"s" == b.pk|stringformat:"s" %}selected{% endif %}>{{ b.abbreviation }} — {{ b.name }}</option>
+                {% endfor %}
+              </select>
+              {% if form.branch.errors %}<div class="invalid-feedback d-block">{{ form.branch.errors|join:", " }}</div>{% endif %}
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label" for="{{ form.code.id_for_label }}">Code <span style="color:var(--danger);">*</span></label>
+              <input type="text" id="{{ form.code.id_for_label }}" name="{{ form.code.html_name }}"
+                value="{{ form.code.value|default_if_none:'' }}"
+                class="form-control {% if form.code.errors %}is-invalid{% endif %}"
+                placeholder="Ex : 1202" required />
+              <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">Numérique, unique au sein de la branche — combiné à l'abréviation pour former la racine (ex : CIP1202).</div>
+              {% if form.code.errors %}<div class="invalid-feedback d-block">{{ form.code.errors|join:", " }}</div>{% endif %}
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label" for="{{ form.title.id_for_label }}">Titre <span style="color:var(--danger);">*</span></label>
+              <input type="text" id="{{ form.title.id_for_label }}" name="{{ form.title.html_name }}"
+                value="{{ form.title.value|default_if_none:'' }}"
+                class="form-control {% if form.title.errors %}is-invalid{% endif %}" required />
+              {% if form.title.errors %}<div class="invalid-feedback d-block">{{ form.title.errors|join:", " }}</div>{% endif %}
+            </div>
+
+            <div class="mb-4">
+              <label class="form-label" for="{{ form.title_ar.id_for_label }}">Titre (AR)</label>
+              <input type="text" id="{{ form.title_ar.id_for_label }}" name="{{ form.title_ar.html_name }}"
+                value="{{ form.title_ar.value|default_if_none:'' }}"
+                class="form-control {% if form.title_ar.errors %}is-invalid{% endif %}" dir="rtl" />
+              {% if form.title_ar.errors %}<div class="invalid-feedback d-block">{{ form.title_ar.errors|join:", " }}</div>{% endif %}
+            </div>
+
+            <div class="section-divider"></div>
+            <div style="display:flex;gap:12px;">
+              <button type="submit" class="btn btn-amber">
+                <i class="bi bi-check-lg"></i> {% if specialty %}Enregistrer{% else %}Créer la spécialité{% endif %}
+              </button>
+              <a href="{% url 'formations:specialty_list' %}" class="btn btn-ghost"><i class="bi bi-arrow-left"></i> Annuler</a>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

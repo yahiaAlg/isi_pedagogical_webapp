@@ -1,0 +1,296 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ title }} — Formateurs — ISI Gestion Pédagogique{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'resources/css/resources.css' %}" />
+{% endblock %}
+
+{% block breadcrumb %}
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="#">Ressources</a>
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="{% url 'resources:trainer_list' %}">Formateurs</a>
+{% if trainer %}
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="{% url 'resources:trainer_detail' trainer.pk %}">{{ trainer.full_name }}</a>
+{% endif %}
+<i class="bi bi-chevron-right bc-sep"></i>
+{% endblock %}
+{% block breadcrumb_active %}<span class="bc-active">{{ title }}</span>{% endblock %}
+
+{% block topbar_actions %}
+{% if trainer %}
+<a href="{% url 'resources:trainer_detail' trainer.pk %}" class="topbar-btn">
+  <i class="bi bi-arrow-left"></i> Retour
+</a>
+{% else %}
+<a href="{% url 'resources:trainer_list' %}" class="topbar-btn">
+  <i class="bi bi-arrow-left"></i> Retour
+</a>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="fade-up">
+
+  <div class="page-header">
+    <div class="page-header-left">
+      <h1>{{ title }}</h1>
+      <p class="page-subtitle">
+        {% if trainer %}Modification de la fiche formateur{% else %}Création d'un nouveau formateur{% endif %}
+      </p>
+    </div>
+  </div>
+
+  <div class="row justify-content-center">
+    <div class="col-lg-8 col-md-10">
+      <div class="isi-card">
+        <div class="isi-card-header">
+          <div class="card-icon blue"><i class="bi bi-person-fill-check"></i></div>
+          <h3>{{ title }}</h3>
+        </div>
+        <div class="isi-card-body">
+
+          <form method="post" novalidate>
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+            <div class="alert alert-danger mb-4">
+              <i class="bi bi-exclamation-circle-fill"></i>
+              <div>{% for e in form.non_field_errors %}<div>{{ e }}</div>{% endfor %}</div>
+            </div>
+            {% endif %}
+
+            <!-- ── Section: Informations personnelles ──────────── -->
+            <div class="form-section-title">Informations personnelles</div>
+
+            <div class="row g-3 mb-3">
+              <div class="col-sm-6">
+                <label class="form-label" for="{{ form.first_name.id_for_label }}">
+                  Prénom <span style="color:var(--danger);">*</span>
+                </label>
+                <input type="text"
+                  id="{{ form.first_name.id_for_label }}"
+                  name="{{ form.first_name.html_name }}"
+                  value="{{ form.first_name.value|default_if_none:'' }}"
+                  class="form-control {% if form.first_name.errors %}is-invalid{% endif %}"
+                  placeholder="Prénom" required />
+                {% if form.first_name.errors %}
+                <div class="invalid-feedback d-block">{{ form.first_name.errors|join:", " }}</div>
+                {% endif %}
+              </div>
+              <div class="col-sm-6">
+                <label class="form-label" for="{{ form.last_name.id_for_label }}">
+                  Nom <span style="color:var(--danger);">*</span>
+                </label>
+                <input type="text"
+                  id="{{ form.last_name.id_for_label }}"
+                  name="{{ form.last_name.html_name }}"
+                  value="{{ form.last_name.value|default_if_none:'' }}"
+                  class="form-control {% if form.last_name.errors %}is-invalid{% endif %}"
+                  placeholder="Nom de famille" required />
+                {% if form.last_name.errors %}
+                <div class="invalid-feedback d-block">{{ form.last_name.errors|join:", " }}</div>
+                {% endif %}
+              </div>
+            </div>
+
+            <div class="row g-3">
+              <div class="col-sm-6">
+                <label class="form-label" for="{{ form.first_name_ar.id_for_label }}">Prénom (AR)</label>
+                <input type="text"
+                  id="{{ form.first_name_ar.id_for_label }}"
+                  name="{{ form.first_name_ar.html_name }}"
+                  value="{{ form.first_name_ar.value|default_if_none:'' }}"
+                  class="form-control {% if form.first_name_ar.errors %}is-invalid{% endif %}"
+                  placeholder="الاسم الأول"
+                  dir="rtl" />
+                {% if form.first_name_ar.errors %}
+                <div class="invalid-feedback d-block">{{ form.first_name_ar.errors|join:", " }}</div>
+                {% endif %}
+              </div>
+              <div class="col-sm-6">
+                <label class="form-label" for="{{ form.last_name_ar.id_for_label }}">Nom (AR)</label>
+                <input type="text"
+                  id="{{ form.last_name_ar.id_for_label }}"
+                  name="{{ form.last_name_ar.html_name }}"
+                  value="{{ form.last_name_ar.value|default_if_none:'' }}"
+                  class="form-control {% if form.last_name_ar.errors %}is-invalid{% endif %}"
+                  placeholder="اللقب"
+                  dir="rtl" />
+                {% if form.last_name_ar.errors %}
+                <div class="invalid-feedback d-block">{{ form.last_name_ar.errors|join:", " }}</div>
+                {% endif %}
+              </div>
+            </div>
+
+            <!-- ── Section: Informations professionnelles ──────── -->
+            <div class="section-divider"></div>
+            <div class="form-section-title">Informations professionnelles</div>
+
+            <div class="row g-3 mb-3">
+              <div class="col-sm-8">
+                <label class="form-label" for="{{ form.specialty.id_for_label }}">
+                  Spécialité <span style="color:var(--danger);">*</span>
+                </label>
+                <div class="input-icon-wrap">
+                  <i class="bi bi-briefcase-fill"></i>
+                  <input type="text"
+                    id="{{ form.specialty.id_for_label }}"
+                    name="{{ form.specialty.html_name }}"
+                    value="{{ form.specialty.value|default_if_none:'' }}"
+                    class="form-control {% if form.specialty.errors %}is-invalid{% endif %}"
+                    placeholder="Ex : Sécurité incendie, ATEX…" required />
+                </div>
+                {% if form.specialty.errors %}
+                <div class="invalid-feedback d-block">{{ form.specialty.errors|join:", " }}</div>
+                {% endif %}
+              </div>
+              <div class="col-sm-4">
+                <label class="form-label" for="{{ form.employment_type.id_for_label }}">
+                  Type d'emploi <span style="color:var(--danger);">*</span>
+                </label>
+                <select
+                  id="{{ form.employment_type.id_for_label }}"
+                  name="{{ form.employment_type.html_name }}"
+                  class="form-select {% if form.employment_type.errors %}is-invalid{% endif %}">
+                  {% for val, label in form.fields.employment_type.choices %}
+                  <option value="{{ val }}" {% if form.employment_type.value == val %}selected{% endif %}>{{ label }}</option>
+                  {% endfor %}
+                </select>
+                {% if form.employment_type.errors %}
+                <div class="invalid-feedback d-block">{{ form.employment_type.errors|join:", " }}</div>
+                {% endif %}
+              </div>
+            </div>
+
+            <div class="row g-3 mb-3">
+              <div class="col-sm-6">
+                <label class="form-label" for="{{ form.phone.id_for_label }}">Téléphone</label>
+                <div class="input-icon-wrap">
+                  <i class="bi bi-telephone-fill"></i>
+                  <input type="text"
+                    id="{{ form.phone.id_for_label }}"
+                    name="{{ form.phone.html_name }}"
+                    value="{{ form.phone.value|default_if_none:'' }}"
+                    class="form-control {% if form.phone.errors %}is-invalid{% endif %}"
+                    placeholder="+213 XX XX XX XX" />
+                </div>
+                {% if form.phone.errors %}
+                <div class="invalid-feedback d-block">{{ form.phone.errors|join:", " }}</div>
+                {% endif %}
+              </div>
+              <div class="col-sm-6">
+                <label class="form-label" for="{{ form.email.id_for_label }}">Email</label>
+                <div class="input-icon-wrap">
+                  <i class="bi bi-envelope-fill"></i>
+                  <input type="email"
+                    id="{{ form.email.id_for_label }}"
+                    name="{{ form.email.html_name }}"
+                    value="{{ form.email.value|default_if_none:'' }}"
+                    class="form-control {% if form.email.errors %}is-invalid{% endif %}"
+                    placeholder="formateur@example.dz" />
+                </div>
+                {% if form.email.errors %}
+                <div class="invalid-feedback d-block">{{ form.email.errors|join:", " }}</div>
+                {% endif %}
+              </div>
+            </div>
+
+            <div class="row g-3">
+              <div class="col-12">
+                <label class="form-label" for="{{ form.professional_address.id_for_label }}">
+                  Adresse professionnelle
+                  <span style="color:var(--text-muted);font-weight:400;text-transform:none;letter-spacing:0;font-size:11px;margin-left:6px;">
+                    (requise pour l'ordre de mission)
+                  </span>
+                </label>
+                <textarea
+                  id="{{ form.professional_address.id_for_label }}"
+                  name="{{ form.professional_address.html_name }}"
+                  class="form-control {% if form.professional_address.errors %}is-invalid{% endif %}"
+                  rows="3"
+                  placeholder="Adresse complète de l'employeur ou du domicile professionnel"
+                >{{ form.professional_address.value|default_if_none:'' }}</textarea>
+                {% if form.professional_address.errors %}
+                <div class="invalid-feedback d-block">{{ form.professional_address.errors|join:", " }}</div>
+                {% endif %}
+              </div>
+            </div>
+
+            <!-- ── Section: Formations qualifiées ─────────────── -->
+            <div class="section-divider"></div>
+            <div class="form-section-title">Formations qualifiées</div>
+            <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">
+              Sélectionnez les formations que ce formateur est habilité à animer.
+            </p>
+
+            {% if form.qualifications.field.queryset.exists %}
+            <div class="qualifications-grid">
+              {% for choice in form.fields.qualifications.queryset %}
+              <label class="qualif-item">
+                <input type="checkbox"
+                  name="{{ form.qualifications.html_name }}"
+                  value="{{ choice.pk }}"
+                  {% if choice.pk in form.qualifications.value %}checked{% endif %} />
+                <span class="qualif-item-label">{{ choice.title }}</span>
+              </label>
+              {% endfor %}
+            </div>
+            {% else %}
+            <div style="font-size:13px;color:var(--text-muted);padding:10px 14px;background:#f8fafc;border-radius:8px;border:1px solid var(--card-border);">
+              <i class="bi bi-info-circle-fill" style="color:var(--accent);"></i>
+              Aucune formation disponible dans le catalogue. Créez d'abord des formations.
+            </div>
+            {% endif %}
+            {% if form.qualifications.errors %}
+            <div class="invalid-feedback d-block mt-2">{{ form.qualifications.errors|join:", " }}</div>
+            {% endif %}
+
+            <!-- ── Section: Statut ─────────────────────────────── -->
+            <div class="section-divider"></div>
+            <div class="form-section-title">Statut</div>
+
+            <div class="form-check form-switch mb-4">
+              <input class="form-check-input" type="checkbox"
+                id="{{ form.is_active.id_for_label }}"
+                name="{{ form.is_active.html_name }}"
+                style="width:40px;height:22px;"
+                {% if form.is_active.value %}checked{% endif %} />
+              <label class="form-check-label" for="{{ form.is_active.id_for_label }}"
+                style="font-size:14px;font-weight:500;color:var(--text-primary);margin-left:8px;margin-top:2px;">
+                Formateur actif
+              </label>
+            </div>
+
+            <!-- ── Actions ─────────────────────────────────────── -->
+            <div class="section-divider"></div>
+            <div style="display:flex;gap:12px;flex-wrap:wrap;">
+              <button type="submit" class="btn btn-amber">
+                <i class="bi bi-check-lg"></i>
+                {% if trainer %}Enregistrer les modifications{% else %}Créer le formateur{% endif %}
+              </button>
+              {% if trainer %}
+              <a href="{% url 'resources:trainer_detail' trainer.pk %}" class="btn btn-ghost">
+                <i class="bi bi-arrow-left"></i> Annuler
+              </a>
+              {% else %}
+              <a href="{% url 'resources:trainer_list' %}" class="btn btn-ghost">
+                <i class="bi bi-arrow-left"></i> Annuler
+              </a>
+              {% endif %}
+            </div>
+
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{% static 'resources/js/trainer_form.js' %}"></script>
+{% endblock %}
