@@ -8,14 +8,22 @@ institutional text, consumed by the on-screen/print HTML templates
 (documents/print/attestation.html, batch_attestations.html) via
 boxes_css()/column_offsets().
 
-CANVAS_SIZE is the native resolution of the border artwork
-(static/documents/img/attestation_border.jpg).
+CANVAS_SIZE is the pixel size of the border artwork
+(static/documents/img/attestation_border.jpg), which has been stretched
+to exactly match the A4 landscape aspect ratio (297:210 = 1.41429). The
+artwork's native scan was 1294x861 (ratio 1.503) — a 6% mismatch with A4
+that no amount of print-side scaling could fully resolve without leaving
+a blank strip on real printers. It was resized once, non-uniformly
+(area-preserving: ~2.9% narrower, ~3.1% taller), to 1256x888 (ratio
+1.41441, within 0.01% of true A4) so that screen preview, browser print,
+and "Save as PDF" are all now the *same* exact-fit rendering with no
+special-casing. BOXES below are defined directly on this baked canvas.
 """
 
 # --------------------------------------------------------------------------
-# 1. CANVAS  (native pixel size of attestation_border.jpg)
+# 1. CANVAS  (pixel size of attestation_border.jpg, baked to A4 ratio)
 # --------------------------------------------------------------------------
-CANVAS_SIZE = (1294, 861)
+CANVAS_SIZE = (1256, 888)
 
 # --------------------------------------------------------------------------
 # 2. FIELD BOXES  -- (x0, y0, x1, y1) in pixels on the CANVAS above.
@@ -25,26 +33,26 @@ CANVAS_SIZE = (1294, 861)
 #    agrement/IF line) so it doesn't collide with any other field.
 # --------------------------------------------------------------------------
 BOXES = {
-    "serial_year_box": (237, 206, 404, 230),  # "شهادة : ح.ط/{ANNEE}"
-    "serial_num_box": (138, 230, 379, 264),  # "رقم التسلسلي : ..."
+    "serial_year_box": (230, 212, 392, 237),  # "شهادة : ح.ط/{ANNEE}"
+    "serial_num_box": (134, 237, 368, 272),  # "رقم التسلسلي : ..."
     "header_box": (
-        374,
-        91,
-        916,
-        265,
+        363,
+        94,
+        889,
+        273,
     ),  # republic / ministry / institute (4 lines, static)
-    "title_box": (400, 261, 880, 347),  # "شهادة تكوين تأهيلي" (static)
-    "logo_box": (931, 97, 1087, 234),  # institute logo
-    "qr_box": (315, 700, 735, 770),  # verification QR — under the director signature
-    "legal_box": (110, 350, 1169, 495),  # legal decree paragraphs + CIP line
-    "attest_line_box": (968, 510, 1169, 530),  # "يشهد أن:" (static)
-    "french_fields_box": (178, 535, 697, 684),
-    "arabic_fields_box": (709, 535, 1121, 682),
-    "director_box": (640, 665, 766, 719),  # static "المدير / Le Directeur"
-    "date_box": (904, 693, 1161, 729),
-    "no_copy_box": (850, 738, 1050, 758),  # "لا تسلم نسخة أخرى من الشهادة" (static)
-    "agrement_box": (118, 792, 290, 813),
-    "if_box": (1000, 792, 1179, 822),
+    "title_box": (388, 269, 854, 358),  # "شهادة تكوين تأهيلي" (static)
+    "logo_box": (904, 100, 1055, 241),  # institute logo
+    "qr_box": (306, 722, 713, 794),  # verification QR — under the director signature
+    "legal_box": (107, 361, 1135, 511),  # legal decree paragraphs + CIP line
+    "attest_line_box": (940, 526, 1135, 547),  # "يشهد أن:" (static)
+    "french_fields_box": (173, 552, 677, 705),
+    "arabic_fields_box": (688, 552, 1088, 703),
+    "director_box": (621, 686, 744, 742),  # static "المدير / Le Directeur"
+    "date_box": (877, 715, 1127, 752),
+    "no_copy_box": (825, 761, 1019, 782),  # "لا تسلم نسخة أخرى من الشهادة" (static)
+    "agrement_box": (115, 817, 281, 838),
+    "if_box": (971, 817, 1144, 848),
 }
 
 # --------------------------------------------------------------------------
@@ -85,54 +93,22 @@ STATIC = {
 #    string, matching exactly the region the PIL renderer draws into.
 #    Ported from certificate_project/certificate_generator_html.py.
 #
-#    Every value is wrapped in calc(...px * var(--s,1)) rather than a bare
-#    px value. On screen --s is 1 (a no-op). For print, --s is set to
-#    print_zoom() (see below) so the *real* box model shrinks to fit A4 —
-#    this is deliberately not done with `zoom` or `transform`, both of
-#    which turned out to be ignored or mis-measured by Chrome's print
-#    pagination/auto-fit logic (it either double-shrank the page or
-#    computed page breaks off the un-scaled size and produced a blank
-#    extra page). calc() with a real px unit is a genuine layout value,
-#    so there's nothing left for the browser to get wrong.
+#    Plain px values. No print-time rescaling is needed: the canvas itself
+#    (CANVAS_SIZE / attestation_border.jpg) is already baked to the A4
+#    aspect ratio, so `@page { size: {{ canvas_w }}px {{ canvas_h }}px }`
+#    in _certificate_style.html fits real A4 paper exactly on its own —
+#    screen preview, browser print, and "Save as PDF" all render this one
+#    unscaled box model.
 # --------------------------------------------------------------------------
 def box_css(box, extra: str = "") -> str:
     x0, y0, x1, y1 = box
-    return (
-        f"left:calc({x0}px * var(--s,1));"
-        f"top:calc({y0}px * var(--s,1));"
-        f"width:calc({x1 - x0}px * var(--s,1));"
-        f"height:calc({y1 - y0}px * var(--s,1));{extra}"
-    )
+    return f"left:{x0}px;top:{y0}px;width:{x1 - x0}px;height:{y1 - y0}px;{extra}"
 
 
 def boxes_css() -> dict:
     """Pre-computed {box_name: css_style_string} for every entry in BOXES,
     for use in the print/download HTML templates."""
     return {name: box_css(box) for name, box in BOXES.items()}
-
-
-# --------------------------------------------------------------------------
-# 5. PRINT SCALING -- "Save as PDF" honors the exact @page size, so the
-#    certificate always fits it perfectly. A real printer only offers
-#    standard paper (A4), which is smaller than the certificate's native
-#    canvas, so without this the browser has to auto-shrink the page and
-#    tends to leave the unused height as blank space rather than
-#    centering it.
-#
-#    print_zoom() is the CSS custom property --s used throughout this
-#    file's calc() expressions (box positions, font sizes, canvas size —
-#    see _certificate_style.html's @media print block): under print it's
-#    set to this value everywhere at once, so the certificate becomes a
-#    genuinely smaller, real-sized element that already fits A4 with no
-#    further browser-side auto-fit needed.
-# --------------------------------------------------------------------------
-_A4_LANDSCAPE_PX = (1122.52, 793.70)  # 297mm x 210mm at 96dpi
-
-
-def print_zoom() -> float:
-    scale_w = _A4_LANDSCAPE_PX[0] / CANVAS_SIZE[0]
-    scale_h = _A4_LANDSCAPE_PX[1] / CANVAS_SIZE[1]
-    return round(min(scale_w, scale_h), 4)
 
 
 # --------------------------------------------------------------------------

@@ -36,29 +36,15 @@
   .cert-wrap { display: flex; justify-content: center; padding: 20px 20px 40px; page-break-after: always; }
   .cert-wrap:last-child { page-break-after: auto; }
 
-  /* Two copies of the certificate are rendered (see _certificate_body.html):
-     .certificate--screen at native canvas size (used on screen and by
-     "Save as PDF", which honors the custom @page size below exactly), and
-     .certificate--print pre-shrunk in Python to fit real A4 paper (used by
-     @media print further down, for actual printers which only offer
-     standard paper sizes). Only one of the two is ever visible. */
   .certificate {
     position: relative;
+    width: {{ canvas_w }}px;
+    height: {{ canvas_h }}px;
     background: url('{% static "documents/img/attestation_border.jpg" %}') no-repeat;
+    background-size: {{ canvas_w }}px {{ canvas_h }}px;
     box-shadow: 0 0 14px rgba(0,0,0,.35);
     overflow: hidden;
     flex-shrink: 0;
-  }
-  .certificate--screen {
-    width: {{ canvas_w }}px;
-    height: {{ canvas_h }}px;
-    background-size: {{ canvas_w }}px {{ canvas_h }}px;
-  }
-  .certificate--print {
-    display: none;
-    width: {{ canvas_w_print }}px;
-    height: {{ canvas_h_print }}px;
-    background-size: {{ canvas_w_print }}px {{ canvas_h_print }}px;
   }
 
   .box { position: absolute; color: #000; }

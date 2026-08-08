@@ -144,32 +144,19 @@ def print_attestation(request, participant_pk):
         participant.certificate_issued = True
         participant.save(update_fields=["certificate_issued"])
 
-    from .certificate_layout import CANVAS_SIZE, boxes_css, column_offsets, print_zoom
+    from .certificate_layout import CANVAS_SIZE, boxes_css, column_offsets
     from .certificate_render import build_certificate_data
-
-    scale = print_zoom()
-    offsets = column_offsets()
-    offsets_print = column_offsets()
 
     context = {
         "participant": participant,
         "session": participant.session,
         "institute": _get_institute(),
         "data": build_certificate_data(participant),
-        # on-screen / "Save as PDF": native canvas size, scale 1
         "boxes": boxes_css(),
         "canvas_w": CANVAS_SIZE[0],
         "canvas_h": CANVAS_SIZE[1],
-        "french_col2_left": offsets["french_col2_left"],
-        "arabic_col2_right": offsets["arabic_col2_right"],
-        # real printer (A4): everything pre-shrunk to literal px
-        "boxes_print": boxes_css(),
-        "canvas_w_print": CANVAS_SIZE[0] * scale,
-        "canvas_h_print": CANVAS_SIZE[1] * scale,
-        "french_col2_left_print": offsets_print["french_col2_left"],
-        "arabic_col2_right_print": offsets_print["arabic_col2_right"],
-        "print_scale": scale,
     }
+    context.update(column_offsets())
 
     return render(request, "documents/print/attestation.html", context)
 
@@ -201,16 +188,12 @@ def print_batch_attestations(request, session_pk):
             p.certificate_issued = True
             p.save(update_fields=["certificate_issued"])
 
-    from .certificate_layout import CANVAS_SIZE, boxes_css, column_offsets, print_zoom
+    from .certificate_layout import CANVAS_SIZE, boxes_css, column_offsets
     from .certificate_render import build_certificate_data
 
     certificates = [
         {"participant": p, "data": build_certificate_data(p)} for p in passed
     ]
-
-    scale = print_zoom()
-    offsets = column_offsets()
-    offsets_print = column_offsets()
 
     context = {
         "participants": passed,
@@ -220,14 +203,7 @@ def print_batch_attestations(request, session_pk):
         "boxes": boxes_css(),
         "canvas_w": CANVAS_SIZE[0],
         "canvas_h": CANVAS_SIZE[1],
-        "french_col2_left": offsets["french_col2_left"],
-        "arabic_col2_right": offsets["arabic_col2_right"],
-        "boxes_print": boxes_css(),
-        "canvas_w_print": CANVAS_SIZE[0] * scale,
-        "canvas_h_print": CANVAS_SIZE[1] * scale,
-        "french_col2_left_print": offsets_print["french_col2_left"],
-        "arabic_col2_right_print": offsets_print["arabic_col2_right"],
-        "print_scale": scale,
     }
+    context.update(column_offsets())
 
     return render(request, "documents/print/batch_attestations.html", context)
