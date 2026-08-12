@@ -1,20 +1,8 @@
 from django.contrib import admin
-from import_export.admin import ImportExportModelAdmin
-from .models import InstituteInfo, CommitteeMember
-from .resources import CommitteeMemberResource, InstituteInfoResource
-
-
-@admin.register(CommitteeMember)
-class CommitteeMemberAdmin(ImportExportModelAdmin):
-    resource_classes = [CommitteeMemberResource]
-    list_display = ("full_name", "role", "order", "is_active")
-    list_editable = ("order", "is_active")
-    ordering = ("order", "id")
-
+from .models import InstituteInfo, PVDefaultSignatory
 
 @admin.register(InstituteInfo)
-class InstituteInfoAdmin(ImportExportModelAdmin):
-    resource_classes = [InstituteInfoResource]
+class InstituteInfoAdmin(admin.ModelAdmin):
     fieldsets = (
         ('Informations générales', {
             'fields': ('name_fr', 'name_ar', 'logo', 'address', 'phone', 'email')
@@ -38,3 +26,10 @@ class InstituteInfoAdmin(ImportExportModelAdmin):
     
     def has_delete_permission(self, request, obj=None):
         return False
+
+
+@admin.register(PVDefaultSignatory)
+class PVDefaultSignatoryAdmin(admin.ModelAdmin):
+    list_display = ("full_name", "role", "order", "is_active")
+    list_editable = ("order", "is_active")
+    ordering = ("order", "id")

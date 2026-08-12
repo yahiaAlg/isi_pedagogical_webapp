@@ -1,28 +1,17 @@
 from django.contrib import admin
 from django.urls import reverse
 from django.utils.html import format_html
-from import_export.admin import ImportExportModelAdmin
 from .models import Category, Branch, Specialty, Formation, Session, Participant
-from .resources import (
-    CategoryResource,
-    BranchResource,
-    SpecialtyResource,
-    FormationResource,
-    SessionResource,
-    ParticipantResource,
-)
 
 
 @admin.register(Category)
-class CategoryAdmin(ImportExportModelAdmin):
-    resource_classes = [CategoryResource]
+class CategoryAdmin(admin.ModelAdmin):
     list_display = ["name", "description", "color"]
     search_fields = ["name"]
 
 
 @admin.register(Branch)
-class BranchAdmin(ImportExportModelAdmin):
-    resource_classes = [BranchResource]
+class BranchAdmin(admin.ModelAdmin):
     list_display = [
         "abbreviation",
         "name",
@@ -36,16 +25,14 @@ class BranchAdmin(ImportExportModelAdmin):
 
 
 @admin.register(Specialty)
-class SpecialtyAdmin(ImportExportModelAdmin):
-    resource_classes = [SpecialtyResource]
+class SpecialtyAdmin(admin.ModelAdmin):
     list_display = ["reference_root", "branch", "code", "title", "title_ar"]
     list_filter = ["branch"]
     search_fields = ["code", "title", "title_ar"]
 
 
 @admin.register(Formation)
-class FormationAdmin(ImportExportModelAdmin):
-    resource_classes = [FormationResource]
+class FormationAdmin(admin.ModelAdmin):
     list_display = [
         "code",
         "title",
@@ -147,8 +134,7 @@ class ParticipantInline(admin.TabularInline):
 
 
 @admin.register(Session)
-class SessionAdmin(ImportExportModelAdmin):
-    resource_classes = [SessionResource]
+class SessionAdmin(admin.ModelAdmin):
     list_display = [
         "reference",
         "formation",
@@ -230,8 +216,7 @@ class SessionAdmin(ImportExportModelAdmin):
 
 
 @admin.register(Participant)
-class ParticipantAdmin(ImportExportModelAdmin):
-    resource_classes = [ParticipantResource]
+class ParticipantAdmin(admin.ModelAdmin):
     list_display = [
         "full_name",
         "full_name_ar",
@@ -276,6 +261,7 @@ class ParticipantAdmin(ImportExportModelAdmin):
                     "last_name",
                     "first_name_ar",
                     "last_name_ar",
+                    "gender",
                 )
             },
         ),
@@ -296,8 +282,6 @@ class ParticipantAdmin(ImportExportModelAdmin):
                     "attendance_per_day",
                     "score_theory",
                     "score_practice",
-                    "exam_score",
-                    "exam_score_manual",
                     "get_result",
                 )
             },
@@ -343,8 +327,6 @@ class ParticipantAdmin(ImportExportModelAdmin):
                     "attended",
                     "score_theory",
                     "score_practice",
-                    "exam_score",
-                    "exam_score_manual",
                 ]
             )
         return readonly

@@ -3,8 +3,12 @@
 {% block doc_title %}Feuille de présence J{{ day_number }} — {{ session.reference }}{% endblock %}
 
 {% block doc_body %}
+{% if blank_mode %}
+<div class="note-box" style="background:#fffbeb;border:1px solid #fbbf24;padding:8px;border-radius:4px;">
+  <strong>Feuille vierge — à compléter manuellement</strong> par le formateur et les candidats.
+</div>
+{% endif %}
 <div class="doc-title">Liste de Présence</div>
-<div style="text-align:center;font-size:12px;margin:8px 0 12px;">{% if print_mode == "empty" %}<strong>Modèle vide — remplissage manuel</strong>{% else %}<strong>Liste remplie automatiquement</strong>{% endif %}</div>
 <div class="doc-subtitle">
   <strong>Titre de formation : {{ session.formation.code }}</strong>
   &nbsp;&nbsp;&nbsp;
@@ -27,34 +31,23 @@
     </tr>
   </thead>
   <tbody>
-    {% if print_mode == "empty" %}
-      {% for i in "123456789012"|make_list %}
-      <tr>
-        <td>{{ forloop.counter|stringformat:"02d" }}</td>
-        <td class="left">&nbsp;</td>
-        <td class="left">&nbsp;</td>
-        <td style="min-height:30px;">&nbsp;</td>
-      </tr>
+    {% for p in participants %}
+    <tr>
+      <td>{{ forloop.counter|stringformat:"02d" }}</td>
+      <td class="left">{% if p.has_fr_name %}{{ p.last_name|upper }} {{ p.first_name }}{% else %}{{ p.full_name }}{% endif %}</td>
+      <td class="left">{{ p.job_title }}</td>
+      <td style="min-height:30px;">&nbsp;</td>
+    </tr>
+    {% endfor %}
+    {% with count=participants|length %}
+    {% if count < blank_rows %}
+      {% for i in ""|ljust:blank_rows %}
+        {% if forloop.counter > count %}
+        <tr><td>{{ forloop.counter|stringformat:"02d" }}</td><td></td><td></td><td></td></tr>
+        {% endif %}
       {% endfor %}
-    {% else %}
-      {% for p in participants %}
-      <tr>
-        <td>{{ forloop.counter|stringformat:"02d" }}</td>
-        <td class="left">{{ p.last_name|upper }} {{ p.first_name }}</td>
-        <td class="left">{{ p.job_title }}</td>
-        <td style="min-height:30px;">&nbsp;</td>
-      </tr>
-      {% endfor %}
-      {% with count=participants|length %}
-      {% if count < 12 %}
-        {% for i in "123456789012"|make_list %}
-          {% if forloop.counter > count %}
-          <tr><td>{{ forloop.counter|stringformat:"02d" }}</td><td></td><td></td><td></td></tr>
-          {% endif %}
-        {% endfor %}
-      {% endif %}
-      {% endwith %}
     {% endif %}
+    {% endwith %}
   </tbody>
 </table>
 

@@ -4,8 +4,8 @@ from django.contrib import messages
 from django.utils import timezone
 
 from formations.models import Session, Participant
-from .models import InstituteInfo, CommitteeMember
-from .forms import InstituteInfoForm, CommitteeMemberForm
+from .models import InstituteInfo, PVDefaultSignatory
+from .forms import InstituteInfoForm, PVDefaultSignatoryForm
 
 
 # ---------------------------------------------------------------------------
@@ -88,59 +88,67 @@ def settings_view(request):
         {
             "form": form,
             "instance": instance,
-            "committee_members": CommitteeMember.objects.all(),
-            "committee_member_form": CommitteeMemberForm(),
         },
     )
 
 
 @login_required
-def committee_member_add(request):
-    """Add a default PV committee member (e.g. a director) — Admin only.
-    Editing reuses this same view: POST with `member_id` updates instead
-    of creating."""
+def pv_signatory_list(request):
+    """Spec — default PV (محضر مداولات) committee members, e.g. institute
+    director(s). Configured once here; the trainer and the client's company
+    representative are always entered fresh on each PV, never here."""
     if not request.user.profile.is_admin():
         messages.error(request, "Accès réservé aux administrateurs.")
         return redirect("core:dashboard")
 
-    member_id = request.POST.get("member_id") or request.GET.get("member_id")
-    instance = get_object_or_404(CommitteeMember, pk=member_id) if member_id else None
-
-    if request.method == "POST":
-        form = CommitteeMemberForm(request.POST, instance=instance)
-        if form.is_valid():
-            form.save()
-            messages.success(
-                request,
-                "Membre du comité mis à jour." if instance else "Membre du comité ajouté.",
-            )
-            return redirect("core:settings")
-        messages.error(request, "Veuillez corriger les erreurs du formulaire.")
-        return render(
-            request,
-            "core/settings.html",
-            {
-                "form": InstituteInfoForm(instance=InstituteInfo.get_instance()),
-                "instance": InstituteInfo.get_instance(),
-                "committee_members": CommitteeMember.objects.all(),
-                "committee_member_form": form,
-                "editing_member_id": instance.pk if instance else None,
-            },
-        )
-
-    return redirect("core:settings")
+    signatories = PVDefaultSignatory.objects.all()
+    return render(
+        request,
+        "core/pv_signatory_list.html",
+        {"signatories": signatories},
+    )
 
 
 @login_required
-def committee_member_delete(request, pk):
+def pv_signatory_form(request, pk=None):
     if not request.user.profile.is_admin():
         messages.error(request, "Accès réservé aux administrateurs.")
         return redirect("core:dashboard")
-    member = get_object_or_404(CommitteeMember, pk=pk)
+
+    instance = get_object_or_404(PVDefaultSignatory, pk=pk) if pk else None
+
     if request.method == "POST":
-        member.delete()
-        messages.success(request, "Membre du comité supprimé.")
-    return redirect("core:settings")
+        form = PVDefaultSignatoryForm(request.POST, instance=instance)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Membre par défaut du PV enregistré.")
+            return redirect("core:pv_signatory_list")
+    else:
+        form = PVDefaultSignatoryForm(instance=instance)
+
+    return render(
+        request,
+        "core/pv_signatory_form.html",
+        {"form": form, "instance": instance},
+    )
+
+
+@login_required
+def pv_signatory_delete(request, pk):
+    if not request.user.profile.is_admin():
+        messages.error(request, "Accès réservé aux administrateurs.")
+        return redirect("core:dashboard")
+
+    signatory = get_object_or_404(PVDefaultSignatory, pk=pk)
+    if request.method == "POST":
+        signatory.delete()
+        messages.success(request, "Membre par défaut du PV supprimé.")
+        return redirect("core:pv_signatory_list")
+    return render(
+        request,
+        "core/pv_signatory_confirm_delete.html",
+        {"signatory": signatory},
+    )
 
 
 def verify_attestation(request, token):

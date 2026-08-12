@@ -316,6 +316,13 @@ class Session(models.Model):
     external_location = models.CharField(
         max_length=200, blank=True, verbose_name="Lieu externe"
     )
+    equipment = models.ManyToManyField(
+        "resources.Equipment",
+        blank=True,
+        related_name="session_set",
+        verbose_name="Équipements réservés",
+        help_text="Utilisé pour détecter les doubles réservations entre sessions qui se chevauchent.",
+    )
 
     capacity = models.IntegerField(verbose_name="Capacité")
     status = models.CharField(
@@ -421,6 +428,15 @@ class Session(models.Model):
         return self.participant_set.filter(attended=False).count()
 
     @property
+    def female_count(self):
+        """عدد المتربصات — used as « منهم بنات » on the محضر مداولات."""
+        return self.participant_set.filter(gender="F").count()
+
+    @property
+    def passed_count(self):
+        return sum(1 for p in self.participant_set.all() if p.result == "passed")
+
+    @property
     def duration_days(self):
         return (self.date_end - self.date_start).days + 1
 
@@ -474,10 +490,34 @@ class Session(models.Model):
 
 
 class Participant(models.Model):
+    GENDER_CHOICES = [
+        ("M", "Homme"),
+        ("F", "Femme"),
+    ]
+
     session = models.ForeignKey(Session, on_delete=models.CASCADE)
 
-    first_name = models.CharField(max_length=50, verbose_name="Prénom")
-    last_name = models.CharField(max_length=50, verbose_name="Nom")
+    first_name = models.CharField(
+        max_length=50,
+        blank=True,
+        verbose_name="Prénom",
+        help_text="Nom complet en français/latin OPTIONNEL — au moins un nom complet "
+        "(français OU arabe) est requis au total.",
+    )
+    last_name = models.CharField(
+        max_length=50,
+        blank=True,
+        verbose_name="Nom",
+        help_text="Nom complet en français/latin OPTIONNEL — au moins un nom complet "
+        "(français OU arabe) est requis au total.",
+    )
+    gender = models.CharField(
+        max_length=1,
+        choices=GENDER_CHOICES,
+        blank=True,
+        verbose_name="Genre",
+        help_text="Utilisé pour le décompte « منهم بنات » du محضر مداولات",
+    )
     first_name_ar = models.CharField(
         max_length=50, blank=True, verbose_name="Prénom (AR)"
     )
@@ -507,33 +547,22 @@ class Participant(models.Model):
         default=dict, blank=True, verbose_name="Présence par jour"
     )
 
-    # Final evaluation marks, entered once after the full formation is completed.
-    # They intentionally live on the primary-session participant only.
     score_theory = models.DecimalField(
         max_digits=5,
         decimal_places=2,
         null=True,
         blank=True,
-        verbose_name="Note théorique finale",
+        verbose_name="Note théorique (journée)",
     )
     score_practice = models.DecimalField(
         max_digits=5,
         decimal_places=2,
         null=True,
         blank=True,
-        verbose_name="Note pratique finale",
+        verbose_name="Note pratique (journée)",
     )
 
-    exam_score_manual = models.BooleanField(
-        default=False,
-        verbose_name="Note d'examen modifiée manuellement",
-        help_text=(
-            "Lorsque faux, la note d'examen est calculée automatiquement à partir "
-            "des notes théorique et pratique finales."
-        ),
-    )
-
-    # Final exam score; only meaningful for primary-session participants.
+    # Spec §new — final exam score; only meaningful for primary-session participants
     exam_score = models.DecimalField(
         max_digits=5,
         decimal_places=2,
@@ -589,16 +618,10 @@ class Participant(models.Model):
 
     def save(self, *args, **kwargs):
         if self.pk:
-            # Protect certificate_number from being changed once assigned.
-            # self.pk may be set (e.g. from an import file) without a row
-            # actually existing yet, so treat "not found" as a new record.
-            try:
-                old = Participant.objects.get(pk=self.pk)
-            except Participant.DoesNotExist:
-                old = None
+            # Protect certificate_number from being changed once assigned
+            old = Participant.objects.get(pk=self.pk)
             if (
-                old is not None
-                and old.certificate_number
+                old.certificate_number
                 and self.certificate_number != old.certificate_number
             ):
                 self.certificate_number = old.certificate_number
@@ -608,6 +631,15 @@ class Participant(models.Model):
         super().save(*args, **kwargs)
 
     def clean(self):
+        # Spec — first/last name (FR) and first/last name (AR) are each
+        # individually optional, but at least one complete pair (FR or AR)
+        # must be provided — never demand one language over the other.
+        if not self.has_fr_name and not self.has_ar_name:
+            raise ValidationError(
+                "Veuillez renseigner au moins un nom complet : soit Prénom + Nom "
+                "(français/latin), soit الاسم و اللقب (arabe)."
+            )
+
         max_s = self.session.formation.max_score if self.pk else Decimal("20.00")
         try:
             max_s = self.session.formation.max_score
@@ -629,12 +661,26 @@ class Participant(models.Model):
 
     # ---------------------------------------------------------------- computed
     @property
+    def has_fr_name(self):
+        """Spec — a name pair counts as provided only when BOTH prénom and
+        nom are filled (an isolated prénom or nom is not a usable name)."""
+        return bool(self.first_name and self.last_name)
+
+    @property
+    def has_ar_name(self):
+        return bool(self.first_name_ar and self.last_name_ar)
+
+    @property
     def full_name(self):
-        return f"{self.first_name} {self.last_name}"
+        if self.has_fr_name:
+            return f"{self.first_name} {self.last_name}"
+        if self.has_ar_name:
+            return self.full_name_ar
+        return (f"{self.first_name} {self.last_name}").strip() or "—"
 
     @property
     def full_name_ar(self):
-        if self.first_name_ar and self.last_name_ar:
+        if self.has_ar_name:
             return f"{self.first_name_ar} {self.last_name_ar}"
         return ""
 
@@ -657,27 +703,6 @@ class Participant(models.Model):
         return self.session.group_sessions_count
 
     @property
-    def computed_exam_score(self):
-        """Default final exam mark derived from the final evaluation marks."""
-        eval_type = self.session.formation.evaluation_type
-        if eval_type == "both":
-            if self.score_theory is None or self.score_practice is None:
-                return None
-            return ((self.score_theory + self.score_practice) / Decimal("2")).quantize(
-                Decimal("0.01")
-            )
-        if eval_type == "theory_only":
-            return self.score_theory
-        if eval_type == "practice_only":
-            return self.score_practice
-        return self.exam_score
-
-    @property
-    def exam_score_effective(self):
-        """Final score used for results/certificates, preferring manual override."""
-        return self.exam_score if self.exam_score_manual else self.computed_exam_score
-
-    @property
     def result(self):
         """
         Spec §new — result logic updated:
@@ -695,12 +720,11 @@ class Participant(models.Model):
         if self.days_attended < min_days:
             return "absent"
 
-        # Check final exam score (automatic average by default, manual override allowed).
-        effective_exam_score = self.exam_score_effective
-        if effective_exam_score is None:
+        # Check exam score
+        if self.exam_score is None:
             return "pending"
 
-        if effective_exam_score >= formation.passing_score:
+        if self.exam_score >= formation.passing_score:
             return "passed"
         return "failed"
 

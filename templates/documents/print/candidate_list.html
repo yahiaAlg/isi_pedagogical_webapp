@@ -4,6 +4,12 @@
 
 {% block doc_body %}
 
+{% if blank_mode %}
+<div class="note-box" style="background:#fffbeb;border:1px solid #fbbf24;padding:8px;border-radius:4px;">
+  <strong>Fiche vierge — à compléter manuellement</strong> par le formateur et les candidats.
+</div>
+{% endif %}
+
 <div class="note-box">
   <strong>Note : Veuillez Écrire Votre Nom et Prénom en Majuscule</strong><br>
   Le Certificat sera établi en fonction des renseignements portés sur cette fiche.<br>
@@ -11,7 +17,6 @@
 </div>
 
 <div class="doc-title">La liste de Les Information des Candidats</div>
-<div style="text-align:center;font-size:12px;margin:8px 0 12px;">{% if print_mode == "empty" %}<strong>Modèle vide — remplissage manuel</strong>{% else %}<strong>Liste remplie automatiquement</strong>{% endif %}</div>
 
 <div class="doc-subtitle">
   <strong>Titre de formation : {{ session.formation.code }}</strong>
@@ -35,44 +40,32 @@
     </tr>
   </thead>
   <tbody>
-    {% if print_mode == "empty" %}
-      {% for i in "123456789012"|make_list %}
-      <tr>
-        <td>{{ forloop.counter|stringformat:"02d" }}</td>
-        <td class="left">&nbsp;</td>
-        <td class="left">&nbsp;</td>
-        <td dir="rtl" style="text-align:right;">&nbsp;</td>
-        <td dir="rtl" style="text-align:right;">&nbsp;</td>
-        <td class="left">&nbsp;</td>
-      </tr>
+    {% for p in participants %}
+    <tr>
+      <td>{{ forloop.counter|stringformat:"02d" }}</td>
+      <td class="left">{{ p.last_name|upper }}</td>
+      <td class="left">{{ p.first_name|upper }}</td>
+      <td dir="rtl" style="text-align:right;">{{ p.last_name_ar }}</td>
+      <td dir="rtl" style="text-align:right;">{{ p.first_name_ar }}</td>
+      <td class="left">
+        {% if p.date_of_birth %}{{ p.date_of_birth|date:"d/m/Y" }}{% endif %}
+        {% if p.place_of_birth %} — {{ p.place_of_birth }}{% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+    {# Pad to at least `blank_rows` rows (12 by default, or session capacity in blank mode) #}
+    {% with count=participants|length %}
+    {% if count < blank_rows %}
+      {% for i in ""|ljust:blank_rows %}
+        {% if forloop.counter > count %}
+        <tr>
+          <td>{{ forloop.counter|stringformat:"02d" }}</td>
+          <td>&nbsp;</td><td></td><td></td><td></td><td></td>
+        </tr>
+        {% endif %}
       {% endfor %}
-    {% else %}
-      {% for p in participants %}
-      <tr>
-        <td>{{ forloop.counter|stringformat:"02d" }}</td>
-        <td class="left">{{ p.last_name|upper }}</td>
-        <td class="left">{{ p.first_name|upper }}</td>
-        <td dir="rtl" style="text-align:right;">{{ p.last_name_ar }}</td>
-        <td dir="rtl" style="text-align:right;">{{ p.first_name_ar }}</td>
-        <td class="left">
-          {% if p.date_of_birth %}{{ p.date_of_birth|date:"d/m/Y" }}{% endif %}
-          {% if p.place_of_birth %} — {{ p.place_of_birth }}{% endif %}
-        </td>
-      </tr>
-      {% endfor %}
-      {% with count=participants|length %}
-      {% if count < 12 %}
-        {% for i in "123456789012"|make_list %}
-          {% if forloop.counter > count %}
-          <tr>
-            <td>{{ forloop.counter|stringformat:"02d" }}</td>
-            <td>&nbsp;</td><td></td><td></td><td></td><td></td>
-          </tr>
-          {% endif %}
-        {% endfor %}
-      {% endif %}
-      {% endwith %}
     {% endif %}
+    {% endwith %}
   </tbody>
 </table>
 

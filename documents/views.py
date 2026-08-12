@@ -9,7 +9,7 @@ from django.core.exceptions import PermissionDenied
 
 from formations.models import Session, Participant
 from .models import GeneratedDocument
-from .forms import AttendanceSheetForm, CandidateListForm, AttestationGenerationForm, CommitteeForm
+from .forms import AttendanceSheetForm, AttestationGenerationForm, CommitteeForm
 from .utils import check_document_requirements
 from .notifications import notify_pv_generated
 
@@ -100,25 +100,18 @@ def generate_candidate_list_view(request, session_pk):
     session = get_object_or_404(Session, pk=session_pk)
     if not request.user.profile.can_generate_documents():
         raise PermissionDenied()
-    errors = check_document_requirements(session, "candidate_list")
-    if errors:
-        messages.error(request, f"Impossible de générer: {'; '.join(errors)}")
-        return redirect("documents:dashboard", session_pk=session.pk)
-
-    if request.method == "POST":
-        form = CandidateListForm(request.POST, session=session)
-        if form.is_valid():
-            mode = form.cleaned_data["print_mode"]
-            url = reverse("documents:print_candidate_list", kwargs={"session_pk": session_pk})
-            return redirect(f"{url}?mode={mode}")
-    else:
-        form = CandidateListForm(session=session)
-
-    return render(
-        request,
-        "documents/candidate_list_form.html",
-        {"form": form, "session": session},
-    )
+    # Spec — a blank/manual version can always be printed, even before
+    # candidates are registered, for on-site completion by hand.
+    blank_mode = request.GET.get("mode") == "blank"
+    if not blank_mode:
+        errors = check_document_requirements(session, "candidate_list")
+        if errors:
+            messages.error(request, f"Impossible de générer: {'; '.join(errors)}")
+            return redirect("documents:dashboard", session_pk=session.pk)
+    url = reverse("documents:print_candidate_list", kwargs={"session_pk": session.pk})
+    if blank_mode:
+        url += "?mode=blank"
+    return redirect(url)
 
 
 @login_required
@@ -126,6 +119,15 @@ def generate_attendance_sheet_view(request, session_pk):
     session = get_object_or_404(Session, pk=session_pk)
     if not request.user.profile.can_generate_documents():
         raise PermissionDenied()
+
+    # Spec — a blank/manual version (all days can share one blank sheet)
+    # skips the day-picker and participant requirement entirely.
+    if request.GET.get("mode") == "blank":
+        url = reverse(
+            "documents:print_attendance_sheet", kwargs={"session_pk": session_pk}
+        )
+        day_number = request.GET.get("day", 1)
+        return redirect(f"{url}?day={day_number}&mode=blank")
 
     if request.method == "POST":
         form = AttendanceSheetForm(request.POST, session=session)
@@ -135,11 +137,10 @@ def generate_attendance_sheet_view(request, session_pk):
             if errors:
                 messages.error(request, f"Impossible de générer: {'; '.join(errors)}")
                 return redirect("documents:dashboard", session_pk=session.pk)
-            print_mode = form.cleaned_data["print_mode"]
             url = reverse(
                 "documents:print_attendance_sheet", kwargs={"session_pk": session_pk}
             )
-            return redirect(f"{url}?day={day_number}&mode={print_mode}")
+            return redirect(f"{url}?day={day_number}")
     else:
         form = AttendanceSheetForm(session=session)
 
@@ -204,6 +205,7 @@ def generate_deliberation_report_view(request, session_pk):
         return redirect("documents:dashboard", session_pk=session.pk)
 
     notify_pv_generated(session, generated_by=request.user, request=request)
+
     return redirect("documents:print_deliberation_report", session_pk=session.pk)
 
 
@@ -213,25 +215,40 @@ def set_committee_view(request, session_pk):
     if not request.user.profile.can_manage_sessions():
         raise PermissionDenied()
 
+    from core.models import PVDefaultSignatory
+
     if request.method == "POST":
         form = CommitteeForm(request.POST, session=session)
         if form.is_valid():
-            # Save a snapshot: settings changes later must not alter an already prepared PV.
             session.committee_members = form.cleaned_data["committee_members"]
-            session.save(update_fields=["committee_members", "updated_at"])
-            messages.success(request, "Composition du comité du PV mise à jour.")
+            session.save(update_fields=["committee_members"])
+            messages.success(request, "Membres du comité mis à jour.")
             return redirect("documents:dashboard", session_pk=session.pk)
     else:
         form = CommitteeForm(session=session)
 
+    # Build the initial rows shown in the dynamic table:
+    # 1) existing committee members already saved on this session (if any)
+    # 2) otherwise: default signatories from Settings (e.g. directors) +
+    #    the trainer pulled live from the session (never from Settings) +
+    #    one blank row for the client's company representative (always
+    #    typed fresh on each PV, never stored as a default).
+    if session.committee_members:
+        initial_rows = session.committee_members
+    else:
+        initial_rows = [
+            {"name": s.full_name, "role": s.role}
+            for s in PVDefaultSignatory.objects.filter(is_active=True)
+        ]
+        initial_rows.append(
+            {"name": session.trainer.full_name, "role": "أستاذ"}
+        )
+        initial_rows.append({"name": "", "role": "ممثل الشركة المتعاقد معها"})
+
     return render(
         request,
         "documents/committee_form.html",
-        {
-            "form": form,
-            "session": session,
-            "default_members": form.default_members,
-        },
+        {"form": form, "session": session, "initial_rows": initial_rows},
     )
 
 

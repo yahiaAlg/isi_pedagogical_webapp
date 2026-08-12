@@ -128,6 +128,12 @@ def build_certificate_data(participant, *, issuance_date: date | None = None) ->
         # created before the Branch/Specialty link existed.
         "CIP_NUM": f"{specialty.code if specialty else session.specialty_code}-"
         f"{num_serie}/{mois_serie}/{annee}",
+        # Spec — dual-mode identity block: FR/latin and AR name pairs are
+        # each independently optional (Participant.clean() already
+        # enforces that at least one full pair exists). The print
+        # template shows only the block(s) whose flag is True.
+        "HAS_FR": participant.has_fr_name,
+        "HAS_AR": participant.has_ar_name,
         "PRENOM_FR": participant.first_name.upper(),
         "NOM_FR": participant.last_name.upper(),
         "PRENOM_AR": participant.first_name_ar,

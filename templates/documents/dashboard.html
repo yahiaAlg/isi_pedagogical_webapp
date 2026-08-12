@@ -125,6 +125,10 @@
               <i class="bi bi-file-earmark-arrow-down-fill"></i> {% if doc %}Regénérer{% else %}Générer{% endif %}
             </a>
             {% endif %}
+            <a href="{% url 'documents:generate_candidate_list' session_pk=session.pk %}?mode=blank"
+               class="btn btn-ghost btn-sm" title="Fiche vierge à remplir à la main">
+              <i class="bi bi-file-earmark"></i> Vierge
+            </a>
           </div>
         </div>
         {% endwith %}
@@ -163,6 +167,10 @@
               <i class="bi bi-file-earmark-arrow-down-fill"></i> {% if doc %}Regénérer{% else %}Générer{% endif %}
             </a>
             {% endif %}
+            <a href="{% url 'documents:generate_attendance_sheet' session_pk=session.pk %}?day={{ day_num }}&mode=blank"
+               class="btn btn-ghost btn-sm" title="Feuille vierge à remplir à la main">
+              <i class="bi bi-file-earmark"></i> Vierge
+            </a>
           </div>
         </div>
         {% endwith %}{% endwith %}{% endwith %}
@@ -184,6 +192,10 @@
               <i class="bi bi-file-earmark-arrow-down-fill"></i> Générer
             </a>
             {% endif %}
+            <a href="{% url 'documents:generate_attendance_sheet' session_pk=session.pk %}?mode=blank"
+               class="btn btn-ghost btn-sm" title="Feuille vierge à remplir à la main">
+              <i class="bi bi-file-earmark"></i> Vierge
+            </a>
           </div>
         </div>
         {% endwith %}

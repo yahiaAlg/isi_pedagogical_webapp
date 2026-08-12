@@ -14,9 +14,14 @@ urlpatterns = [
     path("", include("core.urls")),
 ]
 
-# Media files (institute logo, etc.) must be served regardless of DEBUG:
-# this project has no separate media host / nginx alias for MEDIA_ROOT, so
-# without this the uploaded logo 404s in production and never shows up on
-# the printed documents (PV, attestations, ...), even though the upload
-# itself succeeds and InstituteInfo.logo.url is correct.
+# NOTE: media (uploaded institute logo, generated documents, …) must be
+# served in every environment, not just when DEBUG=True. WhiteNoise
+# (configured for STATIC_URL) only serves files collected under
+# STATIC_ROOT — it never serves MEDIA_ROOT — so without this, anything
+# uploaded through Settings (e.g. the institute logo) 404s in production
+# and silently fails to render on every print page that references
+# `institute.logo.url`. This project is a small single-instance
+# deployment, so serving media straight from Django is an acceptable
+# trade-off; for very high traffic, front it with a dedicated
+# static/media host or CDN instead.
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

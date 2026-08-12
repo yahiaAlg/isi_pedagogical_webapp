@@ -1,42 +1,6 @@
 from django.db import models
 from django.core.exceptions import ValidationError
 
-
-class CommitteeMember(models.Model):
-    """
-    Default PV (محضر مداولات) committee members configured once in
-    Settings — typically the institute director(s) and any other
-    permanent members who sit on every deliberation committee, each
-    with their fixed الصفة (role).
-
-    The trainer (الأستاذ المكون) and the client company's representative
-    (ممثل الشركة المتعاقد معها) are NOT stored here: they change with
-    every session and are entered directly on the PV form instead
-    (see documents.forms / documents.views set_committee_view).
-    """
-
-    full_name = models.CharField(max_length=200, verbose_name="الاسم و اللقب")
-    role = models.CharField(
-        max_length=150,
-        verbose_name="الصفة",
-        help_text="مثال : مدير المؤسسة، مدير الدراسات و العلاقات العامة",
-    )
-    order = models.PositiveIntegerField(default=0, verbose_name="الترتيب")
-    is_active = models.BooleanField(
-        default=True,
-        verbose_name="نشط",
-        help_text="الأعضاء غير النشطين لا يظهرون تلقائياً في محاضر المداولات الجديدة.",
-    )
-
-    class Meta:
-        ordering = ["order", "id"]
-        verbose_name = "عضو افتراضي في اللجنة"
-        verbose_name_plural = "الأعضاء الافتراضيون في اللجنة (محضر المداولات)"
-
-    def __str__(self):
-        return f"{self.full_name} — {self.role}"
-
-
 class InstituteInfo(models.Model):
     """Singleton model for institute configuration"""
     name_fr = models.CharField(max_length=200, verbose_name="Nom de l'institut (FR)")
@@ -101,3 +65,32 @@ class InstituteInfo(models.Model):
                 seen.add(email.lower())
                 recipients.append(email)
         return recipients
+
+
+class PVDefaultSignatory(models.Model):
+    """
+    Default committee member ("membre du comité de délibération") suggested
+    on every محضر مداولات (PV) — e.g. the institute's director(s).
+
+    These are configured once in Settings and re-used as pre-filled,
+    editable rows every time a PV committee is built. The trainer (pulled
+    live from the session) and the client's company representative are
+    intentionally NOT stored here — they are entered fresh on each PV.
+    """
+
+    full_name = models.CharField(max_length=150, verbose_name="الاسم و اللقب")
+    role = models.CharField(max_length=150, verbose_name="الصفة")
+    order = models.PositiveIntegerField(default=0, verbose_name="Ordre")
+    is_active = models.BooleanField(
+        default=True,
+        verbose_name="Actif",
+        help_text="Décochez pour retirer ce membre des propositions par défaut sans le supprimer.",
+    )
+
+    class Meta:
+        verbose_name = "Membre par défaut du PV"
+        verbose_name_plural = "Membres par défaut du PV"
+        ordering = ["order", "id"]
+
+    def __str__(self):
+        return f"{self.full_name} — {self.role}"

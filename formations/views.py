@@ -17,10 +17,16 @@ from .forms import (
     ParticipantForm,
     SessionStatusForm,
     AttendanceForm,
-    FinalEvaluationForm,
+    ScoreForm,
+    ExamScoreForm,
     ParticipantImportForm,
 )
-from .utils import validate_session_transition, import_participants_from_file
+from .utils import (
+    validate_session_transition,
+    import_participants_from_file,
+    check_scheduling_conflicts,
+    has_scheduling_conflicts,
+)
 
 
 # ===========================================================================
@@ -500,9 +506,34 @@ def session_create(request):
     if not request.user.profile.can_manage_sessions():
         messages.error(request, "Vous n'avez pas les permissions nécessaires.")
         return redirect("formations:session_list")
+    conflicts = None
     if request.method == "POST":
         form = SessionForm(request.POST)
         if form.is_valid():
+            confirmed = request.POST.get("confirm_conflicts") == "1"
+            conflicts = check_scheduling_conflicts(
+                room=form.cleaned_data.get("room"),
+                trainer=form.cleaned_data.get("trainer"),
+                equipment_qs=form.cleaned_data.get("equipment"),
+                date_start=form.cleaned_data.get("date_start"),
+                date_end=form.cleaned_data.get("date_end"),
+            )
+            if has_scheduling_conflicts(conflicts) and not confirmed:
+                # Spec — soft warning only: don't block, let the user
+                # confirm-and-save anyway, or fix the conflict via the
+                # quick actions (add another room/trainer) offered below.
+                return render(
+                    request,
+                    "formations/session_form.html",
+                    {
+                        "form": form,
+                        "title": "Nouvelle session",
+                        "conflicts": conflicts,
+                        "selected_equipment_ids": [
+                            e.pk for e in form.cleaned_data.get("equipment") or []
+                        ],
+                    },
+                )
             session = form.save()
             messages.success(
                 request,
@@ -539,7 +570,11 @@ def session_create(request):
     return render(
         request,
         "formations/session_form.html",
-        {"form": form, "title": "Nouvelle session"},
+        {
+            "form": form,
+            "title": "Nouvelle session",
+            "selected_equipment_ids": [],
+        },
     )
 
 
@@ -558,6 +593,29 @@ def session_edit(request, pk):
     if request.method == "POST":
         form = SessionForm(request.POST, instance=session)
         if form.is_valid():
+            confirmed = request.POST.get("confirm_conflicts") == "1"
+            conflicts = check_scheduling_conflicts(
+                room=form.cleaned_data.get("room"),
+                trainer=form.cleaned_data.get("trainer"),
+                equipment_qs=form.cleaned_data.get("equipment"),
+                date_start=form.cleaned_data.get("date_start"),
+                date_end=form.cleaned_data.get("date_end"),
+                exclude_pk=session.pk,
+            )
+            if has_scheduling_conflicts(conflicts) and not confirmed:
+                return render(
+                    request,
+                    "formations/session_form.html",
+                    {
+                        "form": form,
+                        "session": session,
+                        "title": "Modifier session",
+                        "conflicts": conflicts,
+                        "selected_equipment_ids": [
+                            e.pk for e in form.cleaned_data.get("equipment") or []
+                        ],
+                    },
+                )
             session = form.save()
             messages.success(request, f'Session "{session.reference}" modifiée.')
             return redirect("formations:session_detail", pk=session.pk)
@@ -566,7 +624,14 @@ def session_edit(request, pk):
     return render(
         request,
         "formations/session_form.html",
-        {"form": form, "session": session, "title": "Modifier session"},
+        {
+            "form": form,
+            "session": session,
+            "title": "Modifier session",
+            "selected_equipment_ids": list(
+                session.equipment.values_list("pk", flat=True)
+            ),
+        },
     )
 
 
@@ -643,71 +708,83 @@ def session_attendance(request, pk):
 
 @login_required
 def session_scores(request, pk):
-    """Legacy endpoint: final evaluation is entered only once on the primary session after completion."""
-    return redirect("formations:session_exam_scores", pk=pk)
+    session = get_object_or_404(Session, pk=pk)
+    if not request.user.profile.can_edit_scores():
+        messages.error(request, "Vous n'avez pas les permissions nécessaires.")
+        return redirect("formations:session_detail", pk=pk)
+    # Spec — theory/practice marks are entered once for the whole formation,
+    # after it finishes, not once per day/session. They live on the
+    # primary-session participants only (same rule as the final exam score).
+    if not session.is_primary:
+        messages.info(
+            request,
+            "Les notes théorique/pratique se saisissent une seule fois, "
+            "sur la session principale, après la fin de la formation.",
+        )
+        target = session.parent_session or session
+        return redirect("formations:session_scores", pk=target.pk)
+    if request.method == "POST":
+        form = ScoreForm(request.POST, session=session)
+        if form.is_valid():
+            eval_type = session.formation.evaluation_type
+            for participant in session.participant_set.all():
+                changed = []
+                if eval_type in ["theory_only", "both"]:
+                    participant.score_theory = form.cleaned_data.get(
+                        f"theory_{participant.id}"
+                    )
+                    changed.append("score_theory")
+                if eval_type in ["practice_only", "both"]:
+                    participant.score_practice = form.cleaned_data.get(
+                        f"practice_{participant.id}"
+                    )
+                    changed.append("score_practice")
+                if changed:
+                    participant.save(update_fields=changed)
+            messages.success(request, "Notes enregistrées.")
+            return redirect("formations:session_detail", pk=pk)
+    else:
+        form = ScoreForm(session=session)
+    return render(
+        request, "formations/session_scores.html", {"form": form, "session": session}
+    )
 
 
 @login_required
 def session_exam_scores(request, pk):
-    """Final evaluation and exam mark entry — one time after the whole formation is completed."""
+    """
+    Spec §new — Enter/edit final exam scores for primary-session participants.
+    Accessible only on primary sessions.
+    """
     session = get_object_or_404(Session, pk=pk)
     if not session.is_primary:
-        messages.error(request, "Les notes finales se saisissent uniquement sur la session principale.")
-        return redirect("formations:session_detail", pk=pk)
-    if session.status != "completed":
-        messages.error(request, "Les notes théorique et pratique finales se saisissent après la fin de la formation, lorsque la session est terminée.")
+        messages.error(
+            request,
+            "Les notes d'examen se saisissent uniquement sur la session principale.",
+        )
         return redirect("formations:session_detail", pk=pk)
     if not request.user.profile.can_edit_scores():
         messages.error(request, "Vous n'avez pas les permissions nécessaires.")
         return redirect("formations:session_detail", pk=pk)
 
     if request.method == "POST":
-        form = FinalEvaluationForm(request.POST, session=session)
+        form = ExamScoreForm(request.POST, session=session)
         if form.is_valid():
-            eval_type = session.formation.evaluation_type
-            for participant in session.participant_set.filter(source_participant__isnull=True):
-                previous_exam = participant.exam_score
-                previous_exam_manual = participant.exam_score_manual
-                if eval_type in ["theory_only", "both"]:
-                    participant.score_theory = form.cleaned_data.get(f"theory_{participant.id}")
-                if eval_type in ["practice_only", "both"]:
-                    participant.score_practice = form.cleaned_data.get(f"practice_{participant.id}")
-                computed = participant.computed_exam_score
-                posted_exam = form.cleaned_data.get(f"exam_{participant.id}")
-                # Preserve an explicit manual override. Otherwise, when the previous
-                # value was auto-generated (or left blank), use the newly computed score.
-                if not previous_exam_manual and (posted_exam is None or posted_exam == previous_exam):
-                    participant.exam_score = computed
-                    participant.exam_score_manual = False
-                else:
-                    participant.exam_score = posted_exam
-                    participant.exam_score_manual = computed is not None and posted_exam != computed
-                participant.save(update_fields=["score_theory", "score_practice", "exam_score", "exam_score_manual"])
-            session.participant_set.filter(source_participant__isnull=False).update(
-                score_theory=None, score_practice=None, exam_score=None, exam_score_manual=False
-            )
-            messages.success(request, "Évaluation finale et notes d'examen enregistrées. La moyenne théorique/pratique a été utilisée par défaut et peut être modifiée.")
+            for participant in session.participant_set.filter(attended=True):
+                val = form.cleaned_data.get(f"exam_{participant.id}")
+                participant.exam_score = val
+                participant.save(update_fields=["exam_score"])
+            # Also clear exam score for absent participants
+            session.participant_set.filter(attended=False).update(exam_score=None)
+            messages.success(request, "Notes d'examen enregistrées.")
             return redirect("formations:session_detail", pk=pk)
     else:
-        form = FinalEvaluationForm(session=session)
+        form = ExamScoreForm(session=session)
 
     return render(
         request,
         "formations/session_exam_scores.html",
-        {
-            "form": form,
-            "session": session,
-            "final_evaluation": True,
-            "evaluation_rows": [
-                {
-                    "participant": p,
-                    "theory": form[f"theory_{p.id}"] if f"theory_{p.id}" in form.fields else None,
-                    "practice": form[f"practice_{p.id}"] if f"practice_{p.id}" in form.fields else None,
-                    "exam": form[f"exam_{p.id}"],
-                }
-                for p in session.participant_set.filter(source_participant__isnull=True).order_by("last_name", "first_name")
-            ],
-        },
+        {"form": form, "session": session},
     )
 
 
@@ -742,7 +819,7 @@ def generate_session_group(request, pk):
             request,
             f"{len(created)} session(s) générée(s) (jours 2–{n}) avec "
             f"{session.participant_count} participant(s) chacune. "
-            f"Les notes d'évaluation seront saisies une seule fois après la fin de la formation.",
+            f"Notes d'examen pré-remplies à {session.formation.max_score / 2:g} / {session.formation.max_score:g}.",
         )
     else:
         messages.info(
@@ -927,11 +1004,34 @@ def toggle_attendance(request, pk):
 @require_POST
 def update_score(request, pk):
     participant = get_object_or_404(Participant, pk=pk)
-    if not participant.session.is_primary:
-        return JsonResponse({"error": "Les notes finales ne se saisissent qu'une seule fois sur la session principale après la fin de la formation."}, status=400)
     if not request.user.profile.can_edit_scores():
         return JsonResponse({"error": "Permission refusée"}, status=403)
-    return JsonResponse({"error": "Les notes finales se saisissent depuis la page Évaluation finale, après la fin de la formation."}, status=400)
+    eval_type = participant.session.formation.evaluation_type
+    changed = []
+    if eval_type in ["theory_only", "both"] and "score_theory" in request.POST:
+        try:
+            val = request.POST["score_theory"]
+            participant.score_theory = float(val) if val else None
+            changed.append("score_theory")
+        except ValueError:
+            return JsonResponse({"error": "Note théorique invalide"}, status=400)
+    if eval_type in ["practice_only", "both"] and "score_practice" in request.POST:
+        try:
+            val = request.POST["score_practice"]
+            participant.score_practice = float(val) if val else None
+            changed.append("score_practice")
+        except ValueError:
+            return JsonResponse({"error": "Note pratique invalide"}, status=400)
+    if changed:
+        participant.save(update_fields=changed)
+    return JsonResponse(
+        {
+            "participant_id": participant.pk,
+            "score_theory": str(participant.score_theory or ""),
+            "score_practice": str(participant.score_practice or ""),
+            "result": participant.result,
+        }
+    )
 
 
 # ===========================================================================

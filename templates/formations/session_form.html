@@ -33,7 +33,7 @@
     <div>
       Après avoir créé la session et ajouté les participants, cliquez sur
       <strong>« Générer les sessions suivantes »</strong> pour auto-créer les jours 2–N
-      avec les mêmes participants. Les notes d'évaluation seront saisies une seule fois après la fin de la formation.
+      avec les mêmes participants et les notes pré-remplies à la moitié de la note maximale.
     </div>
   </div>
   {% endif %}
@@ -54,6 +54,51 @@
             <div class="alert alert-danger mb-4">
               <i class="bi bi-exclamation-circle-fill"></i>
               <div>{% for e in form.non_field_errors %}<div>{{ e }}</div>{% endfor %}</div>
+            </div>
+            {% endif %}
+
+            {% if conflicts %}
+            <div class="alert" style="background:#fffbeb;border:1px solid #fbbf24;color:#78350f;margin-bottom:20px;">
+              <i class="bi bi-exclamation-triangle-fill" style="color:#d97706;"></i>
+              <div style="flex:1;">
+                <strong>Conflit de réservation détecté</strong> — cette session chevauche une ou plusieurs
+                sessions déjà planifiées sur les mêmes dates. Vous pouvez tout de même l'enregistrer,
+                ou ajuster la ressource concernée.
+                <ul style="margin:10px 0 12px;padding-right:0;padding-left:18px;font-size:13px;">
+                  {% if conflicts.room %}
+                  <li>
+                    <strong>Salle</strong> déjà réservée par :
+                    {% for s in conflicts.room %}<a href="{% url 'formations:session_detail' s.pk %}">{{ s.reference }}</a> ({{ s.date_start|date:"d/m/Y" }}–{{ s.date_end|date:"d/m/Y" }}){% if not forloop.last %}, {% endif %}{% endfor %}
+                    — <a href="{% url 'resources:room_create' %}" target="_blank" rel="noopener">
+                        <i class="bi bi-plus-circle"></i> Créer une nouvelle salle
+                      </a>
+                  </li>
+                  {% endif %}
+                  {% if conflicts.trainer %}
+                  <li>
+                    <strong>Formateur</strong> déjà affecté à :
+                    {% for s in conflicts.trainer %}<a href="{% url 'formations:session_detail' s.pk %}">{{ s.reference }}</a> ({{ s.date_start|date:"d/m/Y" }}–{{ s.date_end|date:"d/m/Y" }}){% if not forloop.last %}, {% endif %}{% endfor %}
+                    — <a href="{% url 'resources:trainer_create' %}" target="_blank" rel="noopener">
+                        <i class="bi bi-plus-circle"></i> Ajouter un autre formateur
+                      </a>
+                  </li>
+                  {% endif %}
+                  {% if conflicts.equipment %}
+                  <li>
+                    <strong>Équipement</strong> déjà réservé :
+                    {% for item, sessions in conflicts.equipment.items %}
+                      {{ item.name }} ({% for s in sessions %}<a href="{% url 'formations:session_detail' s.pk %}">{{ s.reference }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}){% if not forloop.last %}; {% endif %}
+                    {% endfor %}
+                    — <a href="{% url 'resources:equipment_create' %}" target="_blank" rel="noopener">
+                        <i class="bi bi-plus-circle"></i> Ajouter un autre équipement
+                      </a>
+                  </li>
+                  {% endif %}
+                </ul>
+                <button type="submit" name="confirm_conflicts" value="1" class="btn btn-sm" style="background:#d97706;color:#fff;border:none;">
+                  <i class="bi bi-check-lg"></i> Enregistrer quand même
+                </button>
+              </div>
             </div>
             {% endif %}
 
@@ -171,6 +216,24 @@
                   placeholder="Adresse ou description du site client" />
                 {% if form.external_location.errors %}<div class="invalid-feedback d-block">{{ form.external_location.errors|join:", " }}</div>{% endif %}
               </div>
+            </div>
+
+            <!-- ── Équipements ──────────────────────────────── -->
+            <div class="section-divider"></div>
+            <div class="form-section-title">Équipements réservés <span style="font-size:12px;font-weight:400;color:var(--text-muted);">(optionnel)</span></div>
+            <div class="row g-2 mb-3">
+              {% for eq in form.fields.equipment.queryset %}
+              <div class="col-sm-6">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" name="{{ form.equipment.html_name }}" value="{{ eq.pk }}"
+                    id="equip-{{ eq.pk }}"
+                    {% if eq.pk in selected_equipment_ids %}checked{% endif %} />
+                  <label class="form-check-label" for="equip-{{ eq.pk }}">{{ eq.name }}{% if eq.inventory_code %} ({{ eq.inventory_code }}){% endif %}</label>
+                </div>
+              </div>
+              {% empty %}
+              <div class="col-12" style="font-size:12.5px;color:var(--text-muted);">Aucun équipement disponible.</div>
+              {% endfor %}
             </div>
 
             <!-- ── Références internes ─────────────────────── -->

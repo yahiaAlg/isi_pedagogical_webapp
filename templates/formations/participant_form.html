@@ -52,19 +52,26 @@
 
             <!-- ── Identité ────────────────────────────────── -->
             <div class="form-section-title">Identité</div>
+            <div class="alert alert-info mb-3" style="font-size:12.5px;">
+              <i class="bi bi-info-circle-fill"></i>
+              Au moins un nom complet est requis — soit <strong>Prénom + Nom (français/latin)</strong>,
+              soit <strong dir="rtl">الاسم و اللقب (بالعربية)</strong>. Les deux sont optionnels
+              individuellement, mais au moins l'un des deux doit être entièrement renseigné.
+              L'attestation affichera automatiquement la (ou les) section(s) correspondant aux noms fournis.
+            </div>
             <div class="row g-3 mb-3">
               <div class="col-sm-6">
-                <label class="form-label" for="{{ form.first_name.id_for_label }}">Prénom <span style="color:var(--danger);">*</span></label>
+                <label class="form-label" for="{{ form.first_name.id_for_label }}">Prénom</label>
                 <input type="text" id="{{ form.first_name.id_for_label }}" name="{{ form.first_name.html_name }}"
                   value="{{ form.first_name.value|default_if_none:'' }}"
-                  class="form-control {% if form.first_name.errors %}is-invalid{% endif %}" required />
+                  class="form-control {% if form.first_name.errors %}is-invalid{% endif %}" />
                 {% if form.first_name.errors %}<div class="invalid-feedback d-block">{{ form.first_name.errors|join:", " }}</div>{% endif %}
               </div>
               <div class="col-sm-6">
-                <label class="form-label" for="{{ form.last_name.id_for_label }}">Nom <span style="color:var(--danger);">*</span></label>
+                <label class="form-label" for="{{ form.last_name.id_for_label }}">Nom</label>
                 <input type="text" id="{{ form.last_name.id_for_label }}" name="{{ form.last_name.html_name }}"
                   value="{{ form.last_name.value|default_if_none:'' }}"
-                  class="form-control {% if form.last_name.errors %}is-invalid{% endif %}" required />
+                  class="form-control {% if form.last_name.errors %}is-invalid{% endif %}" />
                 {% if form.last_name.errors %}<div class="invalid-feedback d-block">{{ form.last_name.errors|join:", " }}</div>{% endif %}
               </div>
             </div>
@@ -80,6 +87,20 @@
                 <input type="text" id="{{ form.last_name_ar.id_for_label }}" name="{{ form.last_name_ar.html_name }}"
                   value="{{ form.last_name_ar.value|default_if_none:'' }}"
                   class="form-control" placeholder="اللقب" dir="rtl" />
+              </div>
+            </div>
+            <div class="row g-3 mb-3">
+              <div class="col-sm-4">
+                <label class="form-label" for="{{ form.gender.id_for_label }}">Genre</label>
+                <select id="{{ form.gender.id_for_label }}" name="{{ form.gender.html_name }}" class="form-select">
+                  <option value="" {% if not form.gender.value %}selected{% endif %}>—</option>
+                  {% for value, label in form.fields.gender.choices %}
+                    {% if value %}
+                    <option value="{{ value }}" {% if form.gender.value == value %}selected{% endif %}>{{ label }}</option>
+                    {% endif %}
+                  {% endfor %}
+                </select>
+                <div style="font-size:11.5px;color:var(--text-muted);margin-top:5px;">Utilisé pour « منهم بنات » sur le محضر مداولات</div>
               </div>
             </div>
             <div class="row g-3">

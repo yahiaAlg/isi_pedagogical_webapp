@@ -7,14 +7,24 @@ urlpatterns = [
     path("", views.dashboard, name="dashboard"),
     path("settings/", views.settings_view, name="settings"),
     path(
-        "settings/committee-members/save/",
-        views.committee_member_add,
-        name="committee_member_add",
+        "settings/pv-signatories/",
+        views.pv_signatory_list,
+        name="pv_signatory_list",
     ),
     path(
-        "settings/committee-members/<int:pk>/delete/",
-        views.committee_member_delete,
-        name="committee_member_delete",
+        "settings/pv-signatories/add/",
+        views.pv_signatory_form,
+        name="pv_signatory_add",
+    ),
+    path(
+        "settings/pv-signatories/<int:pk>/edit/",
+        views.pv_signatory_form,
+        name="pv_signatory_edit",
+    ),
+    path(
+        "settings/pv-signatories/<int:pk>/delete/",
+        views.pv_signatory_delete,
+        name="pv_signatory_delete",
     ),
     # Spec §11.6 — public QR verification landing page (no login required)
     path("verify/<int:token>/", views.verify_attestation, name="verify_attestation"),

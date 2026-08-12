@@ -1,184 +1,112 @@
-{% extends "documents/print/base_print.html" %}
-
-{% block doc_title %}الجدول الاسمي النهائي — {{ session.reference }}{% endblock %}
-
-{% block doc_body %}
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<title>جدول اسمي نهائي — {{ session.reference }}</title>
 <style>
-  body:has(.nominal-print) .letterhead,
-  body:has(.nominal-print) .doc-footer { display: none !important; }
-  body:has(.nominal-print) .doc-page { border: none; padding-top: 12px; }
-  .nominal-print { direction: rtl; font-family: "Arial", "Tahoma", sans-serif; color: #111; }
-  .nominal-print .official-header {
-    position: relative;
-    min-height: 112px;
-    margin-bottom: 5px;
-  }
-  .nominal-print .official-logo {
-    position: absolute;
-    right: 0;
-    top: 0;
-    width: 78px;
-    height: 78px;
-    object-fit: contain;
-  }
-  .nominal-print .official-text {
-    text-align: center;
-    line-height: 1.45;
-    font-weight: 700;
-    font-size: 14px;
-    padding: 2px 78px 0 78px;
-  }
-  .nominal-print .official-text .small { font-size: 12px; }
-  .nominal-print .official-text .tiny { font-size: 11px; }
-  .nominal-print .ref-box {
-    position: absolute;
-    right: 0;
-    top: 82px;
-    font-size: 11px;
-    font-weight: 700;
-  }
-  .nominal-print .service {
-    text-align: center;
-    font-size: 14px;
-    font-weight: 700;
-    margin-top: 1px;
-  }
-  .nominal-print .meta-wrap {
-    display: grid;
-    grid-template-columns: 1fr 1.45fr;
-    gap: 18px;
-    direction: ltr;
-    margin-top: 13px;
-    margin-bottom: 8px;
-    font-size: 11.5px;
-    line-height: 1.55;
-  }
-  .nominal-print .meta-left,
-  .nominal-print .meta-right {
-    direction: rtl;
-  }
-  .nominal-print .meta-left { text-align: left; }
-  .nominal-print .meta-right { text-align: right; }
-  .nominal-print .meta-line { margin: 1px 0; }
-  .nominal-print .doc-heading {
-    text-align: center;
-    font-size: 16px;
-    font-weight: 800;
-    margin: 11px 0 8px;
-  }
-  .nominal-print .sub-heading {
-    text-align: right;
-    font-size: 11.5px;
-    font-weight: 700;
-    margin-bottom: 5px;
-  }
-  .nominal-print table.nominal-table {
-    width: 100%;
-    border-collapse: collapse;
-    table-layout: fixed;
-    direction: rtl;
-    margin: 0;
-  }
-  .nominal-print .nominal-table th,
-  .nominal-print .nominal-table td {
-    background: #fff !important;
-    color: #111 !important;
-    border: 1px solid #222 !important;
-    vertical-align: middle;
-    text-align: center;
-    padding: 5px 4px;
-    font-size: 10.5px;
-    line-height: 1.25;
-  }
-  .nominal-print .nominal-table th { font-weight: 700; }
-  .nominal-print .nominal-table td.ar { font-size: 10.7px; }
-  .nominal-print .nominal-table td.fr { direction: ltr; }
-  .nominal-print .nominal-table td.birth { direction: ltr; }
-  .nominal-print .nominal-table col.num { width: 7%; }
-  .nominal-print .nominal-table col.ar { width: 20%; }
-  .nominal-print .nominal-table col.fr { width: 23%; }
-  .nominal-print .nominal-table col.birth { width: 25%; }
-  .nominal-print .nominal-table col.score { width: 12%; }
-  .nominal-print .nominal-table col.note { width: 13%; }
-  .nominal-print .signature-line {
-    margin-top: 18px;
-    font-size: 11px;
-    font-weight: 700;
-    text-align: left;
-  }
-  .nominal-print .signature-line span {
-    display: inline-block;
-    min-width: 180px;
-    border-bottom: 1px solid #222;
-    margin-right: 10px;
-  }
-  .nominal-print .nominal-footer {
-    text-align: center;
-    font-size: 9.5px;
-    line-height: 1.5;
-    margin-top: 24px;
-    padding-top: 6px;
-    border-top: 1px solid #222;
-  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, sans-serif; font-size: 12px; direction: rtl; background: #fff; color: #000; }
+  .print-btn-bar { text-align: center; padding: 16px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; margin-bottom: 24px; }
+  .print-btn { background: #f59e0b; color: #0f172a; border: none; padding: 10px 28px; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer; margin-left: 10px; }
+  .back-btn { background: none; border: 1px solid #e2e8f0; padding: 10px 20px; border-radius: 8px; font-size: 14px; cursor: pointer; color: #64748b; text-decoration: none; }
+  .page-wrapper { max-width: 900px; margin: 0 auto; padding: 20px; }
+  .doc-page { background: #fff; padding: 30px 35px; border: 1px solid #e2e8f0; min-height: 1050px; display: flex; flex-direction: column; }
+  .doc-body-wrap { flex: 1 0 auto; }
+
+  .ar-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; border-bottom: 2px solid #1e3a5f; padding-bottom: 10px; }
+  .ar-header-text { flex: 1; text-align: center; line-height: 1.7; font-size: 11px; }
+  .ar-header-text .bold { font-weight: bold; font-size: 12px; }
+  .ar-logo { width: 80px; }
+  .ar-logo img { width: 100%; }
+  .ar-logo-ph { width: 80px; height: 80px; border: 1px solid #ccc; display:flex; align-items:center; justify-content:center; font-size:9px; color:#999; }
+  .ar-ref { text-align: left; font-size: 10px; min-width: 80px; }
+
+  .service-title { text-align: center; font-size: 13px; margin: 12px 0 8px; }
+  .doc-main-title { text-align: center; font-size: 16px; font-weight: bold; margin: 10px 0 16px; }
+
+  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 30px; margin-bottom: 16px; font-size: 12px; }
+  .info-row { display: flex; gap: 6px; }
+  .info-row.full { grid-column: 1 / -1; }
+  .info-label { font-weight: bold; white-space: nowrap; }
+
+  table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+  th { background: #1e3a5f; color: #fff; padding: 6px 6px; font-size: 10.5px; text-align: center; border: 1px solid #555; }
+  td { padding: 6px 6px; border: 1px solid #555; font-size: 11px; text-align: center; }
+
+  .doc-footer { text-align: center; font-size: 10px; color: #555; border-top: 1px solid #ccc; padding-top: 8px; margin-top: 30px; direction: rtl; }
+  .sig-row { display: flex; justify-content: space-between; margin-top: 20px; font-size: 12px; font-weight: bold; }
+
   @media print {
-    .nominal-print .official-header { min-height: 104px; }
+    .print-btn-bar { display: none !important; }
+    .page-wrapper { max-width: 100%; margin: 0; padding: 0; }
+    .doc-page { border: none; padding: 15mm 18mm; min-height: 297mm; }
+    @page { size: A4; margin: 0; }
   }
 </style>
+</head>
+<body>
 
-<div class="nominal-print">
-  <div class="official-header">
-    {% if institute and institute.logo %}
-      <img class="official-logo" src="{{ institute.logo.url }}" alt="شعار المؤسسة">
-    {% endif %}
+<div class="print-btn-bar">
+  <button class="print-btn" onclick="window.print()">🖨 طباعة</button>
+  <a class="back-btn" href="javascript:history.back()">← رجوع</a>
+</div>
 
-    <div class="official-text">
-      <div>الجمهورية الجزائرية الديمقراطية الشعبية</div>
-      <div>وزارة التكوين و التعليم المهنيين</div>
-      <div>مؤسسة خاصة للتكوين المهني</div>
-      <div>التميز للإدارة و السلامة - سطيف -</div>
-      <div class="small">اعتماد رقم {{ institute.accreditation_number|default:"003/2022" }}</div>
+<div class="page-wrapper">
+<div class="doc-page">
+
+  <!-- Header -->
+  <div class="ar-header">
+    <div class="ar-logo">
+      {% if institute and institute.logo %}
+        <img src="{{ institute.logo.url }}" alt="Logo" />
+      {% else %}
+        <div class="ar-logo-ph">LOGO</div>
+      {% endif %}
     </div>
-
-    <div class="ref-box">
-      رقم مرجع: {{ session.reference }}
+    <div class="ar-header-text">
+      الجمهورية الجزائرية الديمقراطية الشعبية<br>
+      وزارة التكوين و التعليم المهنيين<br>
+      <span class="bold">
+        مؤسسة خاصة لتكوين المهني<br>
+        {% if institute %}{{ institute.name_ar }}{% endif %}
+      </span><br>
+      {% if institute %}
+      إعتماد رقم {{ institute.accreditation_number }} المؤرخ {{ institute.accreditation_date|date:"Y/m/d" }}
+      {% endif %}
     </div>
+    <div class="ar-ref" dir="ltr">{% if institute %}{{ institute.if_number }}{% endif %} — {{ session.reference }}</div>
   </div>
 
-  <div class="service">المصلحة البيداغوجية</div>
+  <div class="doc-body-wrap">
+  <div class="service-title">المصلحة البيداغوجية</div>
+  <div class="doc-main-title">جدول اسمي نهائي للمتربصين المسجلين في التكوين التأهيلي حسب الطلب</div>
 
-  <div class="doc-heading">جدول اسمي نهائي للمتربصين المسجلين في التكوين التأهيلي حسب الطلب</div>
+  <!-- Info grid -->
+  <div class="info-grid">
+    <div class="info-row"><span class="info-label">مجال التكوين :</span><span>تأهيلي حسب الطلب</span></div>
+    <div class="info-row"><span class="info-label">الاختصاص :</span><span dir="ltr">{{ session.formation.title }}</span></div>
 
-  <div class="meta-wrap">
-    <div class="meta-left">
-      <div class="meta-line">التاريخ: {{ session.date_end|date:"Y/m/d" }}</div>
-    </div>
+    <div class="info-row"><span class="info-label">الزبون :</span><span dir="ltr">{{ session.client.name }}</span></div>
+    <div class="info-row"><span class="info-label">مدة التكوين :</span><span>
+      {% if session.duration_days == 1 %}يوم واحد
+      {% elif session.duration_days == 2 %}يومين
+      {% else %}{{ session.duration_days }} أيام
+      {% endif %}
+    </span></div>
 
-    <div class="meta-right">
-      <div class="meta-line">مجال التكوين: تأهيلي حسب الطلب</div>
-      <div class="meta-line">الاختصاص: {% if session.formation.specialty %}{{ session.formation.specialty.title|upper }}{% else %}{{ session.formation.title|upper }}{% endif %}</div>
-      <div class="meta-line">الزبون: {{ session.client.name|upper }}</div>
-      <div class="meta-line">مدة التكوين: {{ duration_label_ar }}</div>
-      <div class="meta-line">تاريخ بداية التكوين الحضوري: {{ session.date_start|date:"Y/m/d" }}</div>
-      <div class="meta-line">التاريخ التقريبي لنهاية التكوين الحضوري مع التربص: {{ session.date_end|date:"Y/m/d" }}</div>
-      <div class="meta-line">اسم و لقب الأستاذ المكون: {{ trainer_name_ar|default:session.trainer.full_name }}</div>
-    </div>
+    <div class="info-row"><span class="info-label">تاريخ بداية التكوين الحضوري :</span><span>{{ session.date_start|date:"Y/m/d" }}</span></div>
+    <div class="info-row"><span class="info-label">تاريخ التقريبي لنهاية التكوين الحضوري مع التربص :</span><span>{{ session.date_end|date:"Y/m/d" }}</span></div>
+
+    <div class="info-row full"><span class="info-label">اسم ولقب الاستاذ المكون :</span><span>{% if session.trainer.full_name_ar %}{{ session.trainer.full_name_ar }}{% else %}{{ session.trainer.full_name }}{% endif %}</span></div>
   </div>
 
-  <table class="nominal-table">
-    <colgroup>
-      <col class="num">
-      <col class="ar">
-      <col class="fr">
-      <col class="birth">
-      <col class="score">
-      <col class="note">
-    </colgroup>
+  <table>
     <thead>
       <tr>
-        <th>رقم</th>
-        <th>اسم و لقب المتربص<br>باللغة العربية (1)</th>
-        <th>اسم و لقب المتربص<br>باللغة الفرنسية (2)</th>
-        <th>تاريخ الميلاد<br>ومكان الميلاد (3)</th>
+        <th style="width:34px;">م</th>
+        <th>اسم ولقب المتربص باللغة العربية (1)</th>
+        <th>اسم ولقب المتربص باللغة الفرنسية (2)</th>
+        <th>تاريخ الميلاد ومكان الميلاد (3)</th>
         <th>علامة الامتحان</th>
         <th>ملاحظة</th>
       </tr>
@@ -187,30 +115,50 @@
       {% for p in participants %}
       <tr>
         <td>{{ forloop.counter|stringformat:"02d" }}</td>
-        <td class="ar">{{ p.full_name_ar|default:"" }}</td>
-        <td class="fr">{{ p.full_name|upper }}</td>
-        <td class="birth">
-          {% if p.date_of_birth %}{{ p.date_of_birth|date:"d/m/Y" }}{% endif %}
-          {% if p.place_of_birth %}<br>{{ p.place_of_birth }}{% endif %}
-        </td>
+        <td>{{ p.last_name_ar }} {{ p.first_name_ar }}</td>
+        <td dir="ltr">{{ p.last_name|upper }} {{ p.first_name|upper }}</td>
         <td>
-          {% if p.exam_score is not None %}{{ p.exam_score }}{% endif %}
+          {% if p.date_of_birth %}{{ p.date_of_birth|date:"d/m/Y" }}{% endif %}
+          {% if p.place_of_birth %} {{ p.place_of_birth }}{% endif %}
         </td>
-        <td>{{ p.notes|default:"" }}</td>
+        <td>{% if p.exam_score is not None %}{{ p.exam_score }}{% else %}—{% endif %}</td>
+        <td>
+          {% if p.result == 'passed' %}ناجح
+          {% elif p.result == 'failed' %}راسب
+          {% elif p.result == 'absent' %}غائب
+          {% else %}—{% endif %}
+        </td>
       </tr>
       {% endfor %}
+      {% with count=participants|length %}
+      {% if count < 12 %}
+        {% for i in "123456789012"|make_list %}
+          {% if forloop.counter > count %}
+          <tr>
+            <td>{{ forloop.counter|stringformat:"02d" }}</td>
+            <td>&nbsp;</td><td></td><td></td><td></td><td></td>
+          </tr>
+          {% endif %}
+        {% endfor %}
+      {% endif %}
+      {% endwith %}
     </tbody>
   </table>
 
-  <div class="signature-line">
-    المؤسسة : <span></span>
+  <div class="sig-row">
+    <div>الأستاذ المكون : <strong>{% if session.trainer.full_name_ar %}{{ session.trainer.full_name_ar }}{% else %}{{ session.trainer.full_name }}{% endif %}</strong></div>
+    <div>المصلحة البيداغوجية</div>
+  </div>
   </div>
 
-  <div class="nominal-footer">
-    {{ institute.name_ar|default:institute.name_fr }}<br>
-    {% if institute.address %}{{ institute.address }}{% endif %}
-    {% if institute.phone %} — الهاتف: {{ institute.phone }}{% endif %}
-    {% if institute.email %} — {{ institute.email }}{% endif %}
+  <!-- Footer -->
+  <div class="doc-footer">
+    {% if institute %}
+      {{ institute.address }} | الهاتف : {{ institute.phone }} | {{ institute.email }}
+    {% endif %}
   </div>
+
 </div>
-{% endblock %}
+</div>
+</body>
+</html>

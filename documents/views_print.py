@@ -23,18 +23,25 @@ def print_candidate_list(request, session_pk):
     session = get_object_or_404(Session, pk=session_pk)
     if not request.user.profile.can_generate_documents():
         raise PermissionDenied()
-    mode = request.GET.get("mode", "filled").lower()
-    if mode not in {"filled", "empty"}:
-        mode = "filled"
-    participants = session.participant_set.order_by("last_name", "first_name") if mode == "filled" else []
+    # Spec — this list can be printed either auto-filled with the
+    # registered candidates' data, or fully blank for on-site manual
+    # completion by the trainer/candidates (?mode=blank).
+    blank_mode = request.GET.get("mode") == "blank"
+    if blank_mode:
+        participants = []
+        blank_rows = max(session.capacity or 0, 12)
+    else:
+        participants = session.participant_set.order_by("last_name", "first_name")
+        blank_rows = 12
     return render(
         request,
         "documents/print/candidate_list.html",
         {
             "session": session,
             "participants": participants,
-            "print_mode": mode,
             "institute": _get_institute(),
+            "blank_mode": blank_mode,
+            "blank_rows": blank_rows,
         },
     )
 
@@ -54,20 +61,26 @@ def print_attendance_sheet(request, session_pk):
 
     day_date = session.date_start + timedelta(days=day_number - 1)
 
-    mode = request.GET.get("mode", "filled").lower()
-    if mode not in {"filled", "empty"}:
-        mode = "filled"
-    participants = session.participant_set.order_by("last_name", "first_name") if mode == "filled" else []
+    # Spec — same blank/auto-filled toggle as the candidate list, so the
+    # presence sheet can be handed out empty and filled in by hand.
+    blank_mode = request.GET.get("mode") == "blank"
+    if blank_mode:
+        participants = []
+        blank_rows = max(session.capacity or 0, 12)
+    else:
+        participants = session.participant_set.order_by("last_name", "first_name")
+        blank_rows = 12
     return render(
         request,
         "documents/print/attendance_sheet.html",
         {
             "session": session,
             "participants": participants,
-            "print_mode": mode,
             "day_number": day_number,
             "day_date": day_date,
             "institute": _get_institute(),
+            "blank_mode": blank_mode,
+            "blank_rows": blank_rows,
         },
     )
 
@@ -80,18 +93,6 @@ def print_nominal_list(request, session_pk):
     if not request.user.profile.can_generate_documents():
         raise PermissionDenied()
     participants = session.participant_set.order_by("last_name", "first_name")
-
-    # Arabic labels used by the official supervisory nominal-list layout.
-    duration_days = session.formation.duration_days
-    if duration_days == 1:
-        duration_label_ar = "يوم واحد"
-    elif duration_days == 2:
-        duration_label_ar = "يومين"
-    else:
-        duration_label_ar = f"{duration_days} أيام"
-
-    trainer_name_ar = getattr(session.trainer, "full_name_ar", "") or session.trainer.full_name
-
     return render(
         request,
         "documents/print/nominal_list.html",
@@ -99,8 +100,6 @@ def print_nominal_list(request, session_pk):
             "session": session,
             "participants": participants,
             "institute": _get_institute(),
-            "duration_label_ar": duration_label_ar,
-            "trainer_name_ar": trainer_name_ar,
         },
     )
 
@@ -142,35 +141,11 @@ def print_deliberation_report(request, session_pk):
     session = get_object_or_404(Session, pk=session_pk)
     if not request.user.profile.can_generate_documents():
         raise PermissionDenied()
-
-    participants = list(session.participant_set.order_by("last_name", "first_name"))
-    committee_members = []
-    for raw in (session.committee_members or []):
-        if isinstance(raw, dict):
-            name = str(raw.get("name", "")).strip()
-            role = str(raw.get("role", "")).strip()
-            member_type = raw.get("type", "default")
-        else:
-            name = str(raw).strip()
-            role = ""
-            member_type = "default"
-        if name:
-            committee_members.append({"name": name, "role": role, "type": member_type})
-
-    passed_count = sum(1 for p in participants if p.result == "passed")
-    present_count = sum(1 for p in participants if p.attended)
-    absent_count = len(participants) - present_count
-
     return render(
         request,
         "documents/print/deliberation_report.html",
         {
             "session": session,
-            "participants": participants,
-            "committee_members": committee_members,
-            "passed_count": passed_count,
-            "present_count": present_count,
-            "absent_count": absent_count,
             "institute": _get_institute(),
         },
     )

@@ -85,7 +85,7 @@
       <strong>Sessions suivantes non générées.</strong>
       Cette formation dure <strong>{{ session.formation.duration_days }} jours</strong>.
       Après avoir ajouté les participants, générez automatiquement les jours 2–{{ session.formation.duration_days }}
-      avec les mêmes participants. Les notes d'évaluation seront saisies une seule fois après la fin de la formation.
+      avec les mêmes participants et les notes pré-remplies.
     </div>
     {% if session.participant_count > 0 %}
     <form method="post" action="{% url 'formations:generate_session_group' session.pk %}" style="flex-shrink:0;">
@@ -210,9 +210,9 @@
             <a href="{% url 'formations:session_status' session.pk %}" class="btn btn-amber" style="justify-content:center;">
               <i class="bi bi-arrow-repeat"></i> Changer le statut
             </a>
-            {% if session.is_primary and session.status == 'completed' and request.user.profile.can_edit_scores %}
+            {% if session.is_primary and request.user.profile.can_edit_scores %}
             <a href="{% url 'formations:session_exam_scores' session.pk %}" class="btn btn-ghost" style="justify-content:center;color:var(--success);">
-              <i class="bi bi-clipboard2-data-fill"></i> Évaluation finale
+              <i class="bi bi-clipboard2-data-fill"></i> Notes d'examen
             </a>
             {% endif %}
             {% if session.can_edit %}
@@ -238,9 +238,10 @@
           <div class="ms-auto d-flex gap-2">
             {% if request.user.profile.can_edit_scores and session.status in 'planned,in_progress' %}
             <a href="{% url 'formations:session_attendance' session.pk %}" class="btn btn-ghost btn-sm"><i class="bi bi-person-check-fill"></i> Présences</a>
+            <a href="{% url 'formations:session_scores' session.pk %}" class="btn btn-ghost btn-sm"><i class="bi bi-clipboard2-check-fill"></i> Notes journée</a>
             {% endif %}
-            {% if session.is_primary and session.status == 'completed' and request.user.profile.can_edit_scores %}
-            <a href="{% url 'formations:session_exam_scores' session.pk %}" class="btn btn-ghost btn-sm" style="color:var(--success);"><i class="bi bi-clipboard2-data-fill"></i> Évaluation finale</a>
+            {% if session.is_primary and request.user.profile.can_edit_scores %}
+            <a href="{% url 'formations:session_exam_scores' session.pk %}" class="btn btn-ghost btn-sm" style="color:var(--success);"><i class="bi bi-clipboard2-data-fill"></i> Examen</a>
             {% endif %}
             {% if request.user.profile.can_manage_sessions and session.can_add_participants %}
             <a href="{% url 'formations:participant_import' session.pk %}" class="btn btn-ghost btn-sm"><i class="bi bi-upload"></i> Importer</a>
@@ -259,10 +260,11 @@
                 <th>Fonction / Employeur</th>
                 <th>Présence</th>
                 {% if session.is_primary %}
-                <th style="text-align:center;">Note d'examen</th>
+                <th style="text-align:center;">Note examen</th>
                 <th style="text-align:center;">Jours</th>
                 {% else %}
-                <th style="text-align:center;">Évaluation finale</th>
+                {% if session.formation.evaluation_type in 'theory_only,both' %}<th style="text-align:center;">Note théo.</th>{% endif %}
+                {% if session.formation.evaluation_type in 'practice_only,both' %}<th style="text-align:center;">Note prat.</th>{% endif %}
                 {% endif %}
                 <th>Résultat</th>
                 <th style="text-align:right;">Actions</th>
@@ -305,9 +307,29 @@
                   <span style="font-size:11px;color:var(--text-muted);"> / {{ p.total_group_sessions }}</span>
                 </td>
                 {% else %}
+                <!-- Daily score columns (child sessions) -->
+                {% if session.formation.evaluation_type in 'theory_only,both' %}
                 <td style="text-align:center;">
-                  <span class="isi-badge gray">Saisie après formation</span>
+                  {% if request.user.profile.can_edit_scores and session.status in 'in_progress,completed' %}
+                  <input type="number" min="0" max="{{ session.formation.max_score }}" step="0.25"
+                    class="form-control score-input"
+                    data-pid="{{ p.pk }}" data-score-type="score_theory"
+                    value="{{ p.score_theory|default_if_none:'' }}"
+                    style="width:72px;text-align:center;padding:6px 10px;display:inline-block;" />
+                  {% else %}{{ p.score_theory|default_if_none:"—" }}{% endif %}
                 </td>
+                {% endif %}
+                {% if session.formation.evaluation_type in 'practice_only,both' %}
+                <td style="text-align:center;">
+                  {% if request.user.profile.can_edit_scores and session.status in 'in_progress,completed' %}
+                  <input type="number" min="0" max="{{ session.formation.max_score }}" step="0.25"
+                    class="form-control score-input"
+                    data-pid="{{ p.pk }}" data-score-type="score_practice"
+                    value="{{ p.score_practice|default_if_none:'' }}"
+                    style="width:72px;text-align:center;padding:6px 10px;display:inline-block;" />
+                  {% else %}{{ p.score_practice|default_if_none:"—" }}{% endif %}
+                </td>
+                {% endif %}
                 {% endif %}
                 <td>
                   {% if session.is_primary %}

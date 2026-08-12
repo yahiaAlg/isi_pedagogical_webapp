@@ -29,7 +29,7 @@
     {% for p in participants %}
     <tr>
       <td>{{ forloop.counter|stringformat:"02d" }}</td>
-      <td class="left">{{ p.last_name|upper }} {{ p.first_name }}</td>
+      <td class="left">{% if p.has_fr_name %}{{ p.last_name|upper }} {{ p.first_name }}{% else %}{{ p.full_name }}{% endif %}</td>
       {% if session.formation.evaluation_type == 'theory_only' or session.formation.evaluation_type == 'both' %}
       <td>{% if p.score_theory %}{{ p.score_theory }}{% endif %}</td>
       {% endif %}

@@ -1,9 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.models import User
-from import_export.admin import ImportExportModelAdmin
 from .models import UserProfile
-from .resources import UserProfileResource
 
 class UserProfileInline(admin.StackedInline):
     model = UserProfile
@@ -26,8 +24,7 @@ admin.site.unregister(User)
 admin.site.register(User, CustomUserAdmin)
 
 @admin.register(UserProfile)
-class UserProfileAdmin(ImportExportModelAdmin):
-    resource_classes = [UserProfileResource]
+class UserProfileAdmin(admin.ModelAdmin):
     list_display = ['user', 'role', 'phone']
     list_filter = ['role']
     search_fields = ['user__username', 'user__first_name', 'user__last_name']

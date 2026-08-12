@@ -1,8 +1,7 @@
-from decimal import Decimal
 from django import forms
 from django.core.exceptions import ValidationError
 from .models import Formation, Category, Branch, Specialty, Session, Participant
-from resources.models import Trainer, Room
+from resources.models import Trainer, Room, Equipment
 from clients.models import Client
 
 
@@ -210,6 +209,7 @@ class SessionForm(forms.ModelForm):
             "location_type",
             "room",
             "external_location",
+            "equipment",
             "capacity",
             "specialty_code",
             "session_number",
@@ -228,6 +228,7 @@ class SessionForm(forms.ModelForm):
             "location_type": forms.Select(attrs={"class": "form-select"}),
             "room": forms.Select(attrs={"class": "form-select"}),
             "external_location": forms.TextInput(attrs={"class": "form-control"}),
+            "equipment": forms.CheckboxSelectMultiple(),
             "capacity": forms.NumberInput(attrs={"class": "form-control", "min": "1"}),
             "specialty_code": forms.TextInput(attrs={"class": "form-control"}),
             "session_number": forms.TextInput(attrs={"class": "form-control"}),
@@ -241,6 +242,10 @@ class SessionForm(forms.ModelForm):
         self.fields["room"].queryset = Room.objects.filter(is_active=True)
         self.fields["room"].required = False
         self.fields["external_location"].required = False
+        self.fields["equipment"].queryset = Equipment.objects.filter(
+            status="available"
+        )
+        self.fields["equipment"].required = False
         # committee_members not shown in form; managed separately
         self.fields.pop("committee_members", None)
 
@@ -275,6 +280,7 @@ class ParticipantForm(forms.ModelForm):
             "last_name",
             "first_name_ar",
             "last_name_ar",
+            "gender",
             "date_of_birth",
             "place_of_birth",
             "place_of_birth_ar",
@@ -326,7 +332,18 @@ class ParticipantForm(forms.ModelForm):
         cleaned_data = super().clean()
         first_name = cleaned_data.get("first_name")
         last_name = cleaned_data.get("last_name")
-        if self.session and first_name and last_name:
+        first_name_ar = cleaned_data.get("first_name_ar")
+        last_name_ar = cleaned_data.get("last_name_ar")
+
+        has_fr = bool(first_name and last_name)
+        has_ar = bool(first_name_ar and last_name_ar)
+        # Spec — français/latin and arabe are each fully optional, but at
+        # least one COMPLETE pair must be given; neither language is
+        # obligatory on its own. (Also enforced in Participant.clean() as
+        # defense-in-depth for non-form paths — checked once here so the
+        # message doesn't appear twice on this form.)
+
+        if self.session and has_fr:
             existing = Participant.objects.filter(
                 session=self.session,
                 first_name=first_name,
@@ -336,11 +353,27 @@ class ParticipantForm(forms.ModelForm):
                 raise ValidationError(
                     "Un participant avec ce nom existe déjà dans cette session."
                 )
+        if self.session and has_ar:
+            existing_ar = Participant.objects.filter(
+                session=self.session,
+                first_name_ar=first_name_ar,
+                last_name_ar=last_name_ar,
+            ).exclude(pk=self.instance.pk)
+            if existing_ar.exists():
+                raise ValidationError(
+                    "Un participant avec ce nom (arabe) existe déjà dans cette session."
+                )
         return cleaned_data
 
 
 class ExamScoreForm(forms.Form):
-    """Bulk exam score entry form for all primary-session participants."""
+    """Bulk exam score entry form for all primary-session participants.
+
+    Spec — the final exam mark defaults to the average of the theory and
+    practice marks (themselves entered once, after the formation ends —
+    see `ScoreForm`/`session_scores`), but stays fully editable: the
+    trainer/admin can override it before saving.
+    """
 
     def __init__(self, *args, **kwargs):
         self.session = kwargs.pop("session", None)
@@ -350,6 +383,20 @@ class ExamScoreForm(forms.Form):
             for participant in self.session.participant_set.filter(
                 attended=True
             ).order_by("last_name", "first_name"):
+                if participant.exam_score is not None:
+                    default_score = participant.exam_score
+                elif (
+                    participant.score_theory is not None
+                    and participant.score_practice is not None
+                ):
+                    default_score = round(
+                        (participant.score_theory + participant.score_practice) / 2,
+                        2,
+                    )
+                else:
+                    default_score = (
+                        participant.score_theory or participant.score_practice
+                    )
                 self.fields[f"exam_{participant.id}"] = forms.DecimalField(
                     label=participant.full_name,
                     max_digits=5,
@@ -357,7 +404,7 @@ class ExamScoreForm(forms.Form):
                     min_value=0,
                     max_value=max_score,
                     required=False,
-                    initial=participant.exam_score,
+                    initial=default_score,
                     widget=forms.NumberInput(
                         attrs={
                             "class": "form-control score-input",
@@ -414,79 +461,40 @@ class AttendanceForm(forms.Form):
                 )
 
 
-class FinalEvaluationForm(forms.Form):
-    """Final theoretical/practical evaluation entered once after the formation.
-
-    The exam mark is pre-populated from the component marks: for a formation with
-    both components it is their arithmetic mean; for a single component it equals
-    that component. The operator may override the computed value.
-    """
-
+class ScoreForm(forms.Form):
     def __init__(self, *args, **kwargs):
         self.session = kwargs.pop("session", None)
         super().__init__(*args, **kwargs)
-        if not self.session:
-            return
-        eval_type = self.session.formation.evaluation_type
-        max_score = float(self.session.formation.max_score)
-        for participant in self.session.participant_set.filter(source_participant__isnull=True).order_by("last_name", "first_name"):
-            if eval_type in ["theory_only", "both"]:
-                self.fields[f"theory_{participant.id}"] = forms.DecimalField(
-                    label=f"{participant.full_name} - Théorique",
-                    max_digits=5, decimal_places=2, min_value=0, max_value=max_score,
-                    required=False, initial=participant.score_theory,
-                    widget=forms.NumberInput(attrs={"class": "form-control", "step": "0.25"}),
-                )
-            if eval_type in ["practice_only", "both"]:
-                self.fields[f"practice_{participant.id}"] = forms.DecimalField(
-                    label=f"{participant.full_name} - Pratique",
-                    max_digits=5, decimal_places=2, min_value=0, max_value=max_score,
-                    required=False, initial=participant.score_practice,
-                    widget=forms.NumberInput(attrs={"class": "form-control", "step": "0.25"}),
-                )
-            computed = participant.computed_exam_score
-            initial_exam = participant.exam_score if participant.exam_score_manual else computed
-            self.fields[f"exam_{participant.id}"] = forms.DecimalField(
-                label=f"{participant.full_name} - Note d'examen",
-                max_digits=5, decimal_places=2, min_value=0, max_value=max_score,
-                required=False, initial=initial_exam,
-                widget=forms.NumberInput(attrs={"class": "form-control exam-score-input", "step": "0.25"}),
-            )
-
-    def clean(self):
-        cleaned = super().clean()
-        if not self.session:
-            return cleaned
-        eval_type = self.session.formation.evaluation_type
-        for participant in self.session.participant_set.filter(source_participant__isnull=True):
-            theory = cleaned.get(f"theory_{participant.id}") if eval_type in ["theory_only", "both"] else None
-            practice = cleaned.get(f"practice_{participant.id}") if eval_type in ["practice_only", "both"] else None
-            exam = cleaned.get(f"exam_{participant.id}")
-            if eval_type == "both" and (theory is None or practice is None):
-                if participant.attended:
-                    if theory is None:
-                        self.add_error(f"theory_{participant.id}", "La note théorique finale est requise.")
-                    if practice is None:
-                        self.add_error(f"practice_{participant.id}", "La note pratique finale est requise.")
-            elif eval_type == "theory_only" and theory is None and participant.attended:
-                self.add_error(f"theory_{participant.id}", "La note théorique finale est requise.")
-            elif eval_type == "practice_only" and practice is None and participant.attended:
-                self.add_error(f"practice_{participant.id}", "La note pratique finale est requise.")
-            if exam is None:
-                if eval_type == "both" and theory is not None and practice is not None:
-                    cleaned[f"exam_{participant.id}"] = ((theory + practice) / Decimal("2")).quantize(Decimal("0.01"))
-                elif eval_type == "theory_only" and theory is not None:
-                    cleaned[f"exam_{participant.id}"] = theory
-                elif eval_type == "practice_only" and practice is not None:
-                    cleaned[f"exam_{participant.id}"] = practice
-                elif participant.attended:
-                    self.add_error(f"exam_{participant.id}", "La note d'examen est requise ou doit être calculée automatiquement.")
-        return cleaned
-
-
-# Backward-compatible name for code that still imports ScoreForm.
-ScoreForm = FinalEvaluationForm
-ExamScoreForm = FinalEvaluationForm
+        if self.session:
+            eval_type = self.session.formation.evaluation_type
+            max_score = float(self.session.formation.max_score)
+            for participant in self.session.participant_set.all():
+                if eval_type in ["theory_only", "both"]:
+                    self.fields[f"theory_{participant.id}"] = forms.DecimalField(
+                        label=f"{participant.full_name} - Théorique",
+                        max_digits=5,
+                        decimal_places=2,
+                        min_value=0,
+                        max_value=max_score,
+                        required=False,
+                        initial=participant.score_theory,
+                        widget=forms.NumberInput(
+                            attrs={"class": "form-control", "step": "0.25"}
+                        ),
+                    )
+                if eval_type in ["practice_only", "both"]:
+                    self.fields[f"practice_{participant.id}"] = forms.DecimalField(
+                        label=f"{participant.full_name} - Pratique",
+                        max_digits=5,
+                        decimal_places=2,
+                        min_value=0,
+                        max_value=max_score,
+                        required=False,
+                        initial=participant.score_practice,
+                        widget=forms.NumberInput(
+                            attrs={"class": "form-control", "step": "0.25"}
+                        ),
+                    )
 
 
 class ParticipantImportForm(forms.Form):
