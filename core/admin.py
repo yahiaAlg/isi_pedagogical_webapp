@@ -1,8 +1,11 @@
 from django.contrib import admin
+from import_export.admin import ImportExportModelAdmin
 from .models import InstituteInfo, PVDefaultSignatory
+from .resources import InstituteInfoResource, PVDefaultSignatoryResource
 
 @admin.register(InstituteInfo)
-class InstituteInfoAdmin(admin.ModelAdmin):
+class InstituteInfoAdmin(ImportExportModelAdmin, admin.ModelAdmin):
+    resource_classes = [InstituteInfoResource]
     fieldsets = (
         ('Informations générales', {
             'fields': ('name_fr', 'name_ar', 'logo', 'address', 'phone', 'email')
@@ -29,7 +32,8 @@ class InstituteInfoAdmin(admin.ModelAdmin):
 
 
 @admin.register(PVDefaultSignatory)
-class PVDefaultSignatoryAdmin(admin.ModelAdmin):
+class PVDefaultSignatoryAdmin(ImportExportModelAdmin, admin.ModelAdmin):
+    resource_classes = [PVDefaultSignatoryResource]
     list_display = ("full_name", "role", "order", "is_active")
     list_editable = ("order", "is_active")
     ordering = ("order", "id")

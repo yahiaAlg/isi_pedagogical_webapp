@@ -41,12 +41,17 @@ class Command(BaseCommand):
 
         with transaction.atomic():
             self._seed_institute()
+            self._seed_pv_signatories()
             users = self._seed_users()
             clients = self._seed_clients()
             rooms = self._seed_rooms()
+            locals_ = self._seed_locals()
+            self._seed_equipment(rooms, locals_)
             trainers = self._seed_trainers()
+            branches = self._seed_branches()
+            specialties = self._seed_specialties(branches)
             cats = self._seed_categories()
-            formations = self._seed_formations(cats)
+            formations = self._seed_formations(cats, specialties)
             self._seed_trainer_qualifications(trainers, formations)
             sessions = self._seed_sessions(formations, clients, trainers, rooms)
             self._seed_participants(sessions)
@@ -70,6 +75,16 @@ class Command(BaseCommand):
         InstituteInfo.objects.all().delete()
         # Remove non-superuser users
         User.objects.filter(is_superuser=False).delete()
+
+        from resources.models import Equipment, Local
+        from formations.models import Branch, Specialty
+        from core.models import PVDefaultSignatory
+
+        Equipment.objects.all().delete()
+        Local.objects.all().delete()
+        Specialty.objects.all().delete()
+        Branch.objects.all().delete()
+        PVDefaultSignatory.objects.all().delete()
         self.stdout.write("  done.\n")
 
     # ------------------------------------------------------------------
@@ -97,8 +112,94 @@ class Command(BaseCommand):
             if_number="000000000",
             footer_fr="Institut de Sécurité Industrielle — Accrédité DEFP 003",
             footer_ar="معهد الأمن الصناعي — معتمد لدى DEFP 003",
+            pv_notification_recipients="direction@isi-setif.dz",
         )
         self._ok("InstituteInfo")
+
+    # ------------------------------------------------------------------
+    # PV default signatories
+    # ------------------------------------------------------------------
+    def _seed_pv_signatories(self):
+        from core.models import PVDefaultSignatory
+
+        data = [
+            dict(full_name="Karim Bensalem", role="المدير", order=1),
+            dict(full_name="Nadia Hamidi", role="مسؤولة الشؤون البيداغوجية", order=2),
+        ]
+        for d in data:
+            obj, new = PVDefaultSignatory.objects.get_or_create(
+                full_name=d["full_name"], defaults=d
+            )
+            if new:
+                self._ok(f"PVDefaultSignatory {obj.full_name}")
+
+    # ------------------------------------------------------------------
+    # Locals (premises)
+    # ------------------------------------------------------------------
+    def _seed_locals(self):
+        from resources.models import Local
+
+        data = [
+            dict(
+                name="Atelier Pratique",
+                local_type="atelier",
+                description="Atelier pour exercices pratiques HSE et manipulation d'engins.",
+            ),
+            dict(
+                name="Entrepôt Matériel",
+                local_type="entrepot",
+                description="Stockage du matériel pédagogique et de protection.",
+            ),
+        ]
+        objs = {}
+        for d in data:
+            obj, new = Local.objects.get_or_create(name=d["name"], defaults=d)
+            if new:
+                self._ok(f"Local {obj.name}")
+            objs[obj.name] = obj
+        return objs
+
+    # ------------------------------------------------------------------
+    # Equipment
+    # ------------------------------------------------------------------
+    def _seed_equipment(self, rooms, locals_):
+        from resources.models import Equipment
+
+        data = [
+            dict(
+                name="Vidéoprojecteur Epson",
+                category="machine",
+                inventory_code="EQ-001",
+                quantity=3,
+                status="available",
+                room=rooms.get("Salle A"),
+            ),
+            dict(
+                name="Extincteurs CO2 (lot)",
+                category="safety_gear",
+                inventory_code="EQ-002",
+                quantity=10,
+                status="available",
+                local=locals_.get("Entrepôt Matériel"),
+            ),
+            dict(
+                name="Chariot élévateur d'entraînement",
+                category="machine",
+                inventory_code="EQ-003",
+                quantity=1,
+                status="available",
+                local=locals_.get("Atelier Pratique"),
+            ),
+        ]
+        objs = {}
+        for d in data:
+            obj, new = Equipment.objects.get_or_create(
+                inventory_code=d["inventory_code"], defaults=d
+            )
+            if new:
+                self._ok(f"Equipment {obj.name}")
+            objs[obj.name] = obj
+        return objs
 
     # ------------------------------------------------------------------
     # Users  (admin + staff + 2 trainers + viewer)
@@ -346,11 +447,73 @@ class Command(BaseCommand):
         return objs
 
     # ------------------------------------------------------------------
+    # Branches & Specialties (spec §2.0)
+    # ------------------------------------------------------------------
+    def _seed_branches(self):
+        from formations.models import Branch
+
+        data = [
+            dict(
+                abbreviation="CIP",
+                name="Conduite d'Installations et Prévention",
+                name_ar="قيادة المنشآت والوقاية",
+                curriculum_type="qualifiante",
+                curriculum_min_months=1,
+                curriculum_max_months=6,
+            ),
+            dict(
+                abbreviation="HSE",
+                name="Hygiène, Sécurité et Environnement",
+                name_ar="النظافة والسلامة والبيئة",
+                curriculum_type="diplomante",
+                curriculum_min_months=6,
+                curriculum_max_months=24,
+            ),
+        ]
+        objs = {}
+        for d in data:
+            obj, new = Branch.objects.get_or_create(
+                abbreviation=d["abbreviation"], defaults=d
+            )
+            if new:
+                self._ok(f"Branch {obj.abbreviation}")
+            objs[obj.abbreviation] = obj
+        return objs
+
+    def _seed_specialties(self, branches):
+        from formations.models import Specialty
+
+        data = [
+            dict(
+                branch=branches["CIP"],
+                code="1202",
+                title="Conduite d'engins de chantier",
+                title_ar="قيادة آليات الورشات",
+            ),
+            dict(
+                branch=branches["HSE"],
+                code="0301",
+                title="Technicien HSE",
+                title_ar="تقني في النظافة والسلامة والبيئة",
+            ),
+        ]
+        objs = {}
+        for d in data:
+            obj, new = Specialty.objects.get_or_create(
+                branch=d["branch"], code=d["code"], defaults=d
+            )
+            if new:
+                self._ok(f"Specialty {obj.reference_root}")
+            objs[obj.reference_root] = obj
+        return objs
+
+    # ------------------------------------------------------------------
     # Formations
     # ------------------------------------------------------------------
-    def _seed_formations(self, cats):
+    def _seed_formations(self, cats, specialties=None):
         from formations.models import Formation
 
+        specialties = specialties or {}
         data = [
             dict(
                 title="Commission Paritaire d'Hygiène et Sécurité",
@@ -408,6 +571,7 @@ class Command(BaseCommand):
                 title_ar="القيادة الآمنة لآليات ورشات البناء",
                 code="CSEC",
                 category=cats["Engins & Conduite"],
+                specialty=specialties.get("CIP1202"),
                 description="Règles de sécurité pour la conduite des chariots élévateurs et engins de chantier.",
                 duration_days=5,
                 duration_hours=35,
@@ -440,7 +604,16 @@ class Command(BaseCommand):
         ]
         objs = {}
         for d in data:
-            obj, new = Formation.objects.get_or_create(code=d["code"], defaults=d)
+            # Specialty-linked formations auto-derive `code` from the
+            # specialty's reference_root on save() (see Formation.save()),
+            # so the natural lookup key must be the specialty itself, not
+            # the placeholder `code` given in `data`.
+            lookup = (
+                {"specialty": d["specialty"]}
+                if d.get("specialty")
+                else {"code": d["code"]}
+            )
+            obj, new = Formation.objects.get_or_create(defaults=d, **lookup)
             if new:
                 self._ok(f"Formation {obj.code}")
             objs[obj.code] = obj
@@ -453,7 +626,7 @@ class Command(BaseCommand):
         mapping = {
             "Youcef Meziane": ["CPHS", "SHE1", "PLCI"],
             "Amira Khelifi": ["PLCI", "PSE"],
-            "Rachid Boukhalfa": ["CSEC"],
+            "Rachid Boukhalfa": ["CIP1202"],
             "Samira Hadj Ahmed": ["CPHS", "SHE1"],
         }
         for trainer_name, codes in mapping.items():
@@ -544,7 +717,7 @@ class Command(BaseCommand):
             ),
             # --- archived
             dict(
-                formation=formations["CSEC"],
+                formation=formations["CIP1202"],
                 client=clients["ALGERIAN CEMENT COMPANY"],
                 trainer=trainers["Rachid Boukhalfa"],
                 date_start=dt(-90),
@@ -553,7 +726,7 @@ class Command(BaseCommand):
                 external_location="ACC Aïn El Kebira — Zone industrielle",
                 capacity=8,
                 status="archived",
-                specialty_code="CSEC",
+                specialty_code="CIP1202",
                 session_number="005/2024",
                 committee_members=[
                     "M. Karim Bensalem — Directeur ISI",

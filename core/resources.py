@@ -2,14 +2,14 @@
 
 from import_export import resources
 
-from .models import CommitteeMember, InstituteInfo
+from .models import InstituteInfo, PVDefaultSignatory
 
 
-class CommitteeMemberResource(resources.ModelResource):
-    """Import/export the default PV committee configuration."""
+class PVDefaultSignatoryResource(resources.ModelResource):
+    """Import/export the default PV committee signatories configuration."""
 
     class Meta:
-        model = CommitteeMember
+        model = PVDefaultSignatory
         fields = ("id", "full_name", "role", "order", "is_active")
         export_order = fields
         import_id_fields = ("id",)

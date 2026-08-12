@@ -1,10 +1,13 @@
 from django.contrib import admin
 from django.urls import reverse
 from django.utils.html import format_html
+from import_export.admin import ExportMixin
 from .models import GeneratedDocument
+from .resources import GeneratedDocumentResource
 
 @admin.register(GeneratedDocument)
-class GeneratedDocumentAdmin(admin.ModelAdmin):
+class GeneratedDocumentAdmin(ExportMixin, admin.ModelAdmin):
+    resource_classes = [GeneratedDocumentResource]
     list_display = [
         'doc_type_display', 'session_reference', 'participant_name', 
         'day_number', 'generated_at', 'generated_by', 'is_latest', 'download_link'

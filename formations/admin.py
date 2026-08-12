@@ -1,17 +1,28 @@
 from django.contrib import admin
 from django.urls import reverse
 from django.utils.html import format_html
+from import_export.admin import ImportExportModelAdmin
 from .models import Category, Branch, Specialty, Formation, Session, Participant
+from .resources import (
+    BranchResource,
+    CategoryResource,
+    FormationResource,
+    ParticipantResource,
+    SessionResource,
+    SpecialtyResource,
+)
 
 
 @admin.register(Category)
-class CategoryAdmin(admin.ModelAdmin):
+class CategoryAdmin(ImportExportModelAdmin, admin.ModelAdmin):
+    resource_classes = [CategoryResource]
     list_display = ["name", "description", "color"]
     search_fields = ["name"]
 
 
 @admin.register(Branch)
-class BranchAdmin(admin.ModelAdmin):
+class BranchAdmin(ImportExportModelAdmin, admin.ModelAdmin):
+    resource_classes = [BranchResource]
     list_display = [
         "abbreviation",
         "name",
@@ -25,14 +36,16 @@ class BranchAdmin(admin.ModelAdmin):
 
 
 @admin.register(Specialty)
-class SpecialtyAdmin(admin.ModelAdmin):
+class SpecialtyAdmin(ImportExportModelAdmin, admin.ModelAdmin):
+    resource_classes = [SpecialtyResource]
     list_display = ["reference_root", "branch", "code", "title", "title_ar"]
     list_filter = ["branch"]
     search_fields = ["code", "title", "title_ar"]
 
 
 @admin.register(Formation)
-class FormationAdmin(admin.ModelAdmin):
+class FormationAdmin(ImportExportModelAdmin, admin.ModelAdmin):
+    resource_classes = [FormationResource]
     list_display = [
         "code",
         "title",
@@ -44,6 +57,8 @@ class FormationAdmin(admin.ModelAdmin):
         "duration_hours",
         "max_participants",
         "evaluation_type",
+        "passing_score",
+        "max_score",
         "is_active",
     ]
     list_filter = [
@@ -82,6 +97,8 @@ class FormationAdmin(admin.ModelAdmin):
                     "base_price",
                     "evaluation_type",
                     "passing_score",
+                    "max_score",
+                    "min_attendance_days",
                     "produces_certificate",
                 )
             },
@@ -134,7 +151,8 @@ class ParticipantInline(admin.TabularInline):
 
 
 @admin.register(Session)
-class SessionAdmin(admin.ModelAdmin):
+class SessionAdmin(ImportExportModelAdmin, admin.ModelAdmin):
+    resource_classes = [SessionResource]
     list_display = [
         "reference",
         "formation",
@@ -142,11 +160,12 @@ class SessionAdmin(admin.ModelAdmin):
         "trainer",
         "date_start",
         "date_end",
+        "is_primary",
         "get_participant_count",
         "get_fill_rate",
         "status",
     ]
-    list_filter = ["status", "formation", "date_start", "location_type"]
+    list_filter = ["status", "formation", "date_start", "location_type", "is_primary"]
     search_fields = [
         "reference",
         "formation__title",
@@ -171,6 +190,10 @@ class SessionAdmin(admin.ModelAdmin):
         (
             "Planification",
             {"fields": ("date_start", "date_end", "client", "trainer", "capacity")},
+        ),
+        (
+            "Groupe de sessions",
+            {"fields": ("is_primary", "parent_session"), "classes": ("collapse",)},
         ),
         ("Lieu", {"fields": ("location_type", "room", "external_location")}),
         ("Statut", {"fields": ("status", "cancellation_reason")}),
@@ -216,7 +239,8 @@ class SessionAdmin(admin.ModelAdmin):
 
 
 @admin.register(Participant)
-class ParticipantAdmin(admin.ModelAdmin):
+class ParticipantAdmin(ImportExportModelAdmin, admin.ModelAdmin):
+    resource_classes = [ParticipantResource]
     list_display = [
         "full_name",
         "full_name_ar",
@@ -225,6 +249,7 @@ class ParticipantAdmin(admin.ModelAdmin):
         "attended",
         "score_theory",
         "score_practice",
+        "exam_score",
         "get_result",
         "certificate_issued",
     ]
@@ -246,6 +271,7 @@ class ParticipantAdmin(admin.ModelAdmin):
     readonly_fields = [
         "certificate_number",
         "certificate_issued",
+        "source_participant",
         "get_result",
         "created_at",
         "updated_at",
@@ -257,6 +283,7 @@ class ParticipantAdmin(admin.ModelAdmin):
             {
                 "fields": (
                     "session",
+                    "source_participant",
                     "first_name",
                     "last_name",
                     "first_name_ar",
@@ -282,6 +309,7 @@ class ParticipantAdmin(admin.ModelAdmin):
                     "attendance_per_day",
                     "score_theory",
                     "score_practice",
+                    "exam_score",
                     "get_result",
                 )
             },

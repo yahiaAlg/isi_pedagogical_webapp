@@ -1,30 +1,36 @@
 from django.contrib import admin
+from import_export.admin import ImportExportModelAdmin
 from .models import Room, Trainer, Local, Equipment
+from .resources import EquipmentResource, LocalResource, RoomResource, TrainerResource
 
 
 @admin.register(Room)
-class RoomAdmin(admin.ModelAdmin):
+class RoomAdmin(ImportExportModelAdmin, admin.ModelAdmin):
+    resource_classes = [RoomResource]
     list_display = ["name", "capacity", "is_active"]
     list_filter = ["is_active"]
     search_fields = ["name"]
 
 
 @admin.register(Local)
-class LocalAdmin(admin.ModelAdmin):
+class LocalAdmin(ImportExportModelAdmin, admin.ModelAdmin):
+    resource_classes = [LocalResource]
     list_display = ["name", "local_type", "is_active"]
     list_filter = ["local_type", "is_active"]
     search_fields = ["name", "address"]
 
 
 @admin.register(Equipment)
-class EquipmentAdmin(admin.ModelAdmin):
+class EquipmentAdmin(ImportExportModelAdmin, admin.ModelAdmin):
+    resource_classes = [EquipmentResource]
     list_display = ["name", "category", "status", "quantity", "room", "local"]
     list_filter = ["category", "status"]
     search_fields = ["name", "inventory_code"]
 
 
 @admin.register(Trainer)
-class TrainerAdmin(admin.ModelAdmin):
+class TrainerAdmin(ImportExportModelAdmin, admin.ModelAdmin):
+    resource_classes = [TrainerResource]
     list_display = ["full_name", "specialty", "employment_type", "phone", "is_active"]
     list_filter = ["employment_type", "is_active"]
     search_fields = [
