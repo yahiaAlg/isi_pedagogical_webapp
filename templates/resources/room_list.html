@@ -99,9 +99,9 @@
           {% for room in rooms %}
           <tr>
             <td>
-              <span class="table-primary-link" style="cursor:default;">
+              <a href="{% url 'resources:room_detail' room.pk %}" class="table-primary-link">
                 <i class="bi bi-door-open-fill" style="margin-right:6px;color:var(--accent);"></i>{{ room.name }}
-              </span>
+              </a>
             </td>
             <td style="text-align:center;">
               <span style="font-weight:600;">{{ room.capacity }}</span>

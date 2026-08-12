@@ -1,4 +1,5 @@
 from django import forms
+from django.db import models
 from .models import Trainer, Room, Local, Equipment
 
 
@@ -51,6 +52,19 @@ class TrainerForm(forms.ModelForm):
 
 
 class RoomForm(forms.ModelForm):
+    # Spec §new — equipment homed in this room, as a multi-select
+    # (replaces relying on free-text `equipment_notes` for movable gear).
+    # Backed by the reverse FK `Equipment.room`, applied manually in the view.
+    equipment = forms.ModelMultipleChoiceField(
+        queryset=Equipment.objects.all(),
+        required=False,
+        widget=forms.CheckboxSelectMultiple(),
+        label="Équipements disponibles dans la salle",
+        help_text="Équipements homologués à cette salle. Un équipement déjà "
+        "alloué activement ailleurs (session en cours) ne peut pas être "
+        "réaffecté tant qu'il n'est pas libéré.",
+    )
+
     class Meta:
         model = Room
         fields = ["name", "capacity", "equipment_notes", "is_active"]
@@ -62,6 +76,23 @@ class RoomForm(forms.ModelForm):
             ),
             "is_active": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Only equipment already homed here or currently unassigned to a
+        # room/local can be picked — an item homed in another room must be
+        # released from there first (edited from that room, or from the
+        # equipment page).
+        qs = Equipment.objects.filter(
+            models.Q(room=self.instance) | models.Q(room__isnull=True, local__isnull=True)
+        ) if self.instance and self.instance.pk else Equipment.objects.filter(
+            room__isnull=True, local__isnull=True
+        )
+        self.fields["equipment"].queryset = qs.distinct()
+        if self.instance and self.instance.pk:
+            self.fields["equipment"].initial = Equipment.objects.filter(
+                room=self.instance
+            )
 
 
 class LocalForm(forms.ModelForm):

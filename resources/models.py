@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 
 
@@ -6,7 +7,12 @@ class Room(models.Model):
     capacity = models.IntegerField(verbose_name="Capacité")
     # Spec §5.7 / §2.6a — renamed from `equipment`: free-text description of
     # fixed equipment permanently installed in the room (projector, whiteboard...)
-    equipment_notes = models.TextField(blank=True, verbose_name="Équipements fixes")
+    # Kept only for legacy/fixed built-in fittings (electrical outlets, AC...).
+    # Movable/trackable equipment now lives in the `Equipment` model below and
+    # is linked here via `Equipment.room` (spec §new — room ↔ equipment M2M).
+    equipment_notes = models.TextField(
+        blank=True, verbose_name="Équipements fixes (notes libres)"
+    )
     is_active = models.BooleanField(default=True, verbose_name="Active")
 
     class Meta:
@@ -16,6 +22,13 @@ class Room(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.capacity} places)"
+
+    # ------------------------------------------------------------- equipment
+    @property
+    def available_equipment(self):
+        """Spec §new — equipment permanently homed in this room (relational,
+        multi-select, replaces free-text description)."""
+        return self.equipment_set.filter(status="available")
 
 
 class Local(models.Model):
@@ -122,6 +135,100 @@ class Equipment(models.Model):
             raise ValidationError(
                 "Un équipement ne peut être assigné qu'à une salle OU un local, pas les deux."
             )
+
+    # ------------------------------------------------------- allocation guardrails
+    def active_allocation(self):
+        """Spec §new — the active *session-based* checkout currently
+        holding this equipment, if any. Guardrail: an equipment item can't
+        be put to use in another session while it still has one of these
+        (unreleased), until it's released there. A plain home-room
+        assignment (no session) doesn't lock the item — it's exactly what
+        makes it available/idle for other rooms to borrow."""
+        return self.allocations.filter(
+            released_at__isnull=True, session__isnull=False
+        ).first()
+
+    def is_locked_elsewhere(self, room=None, session=None):
+        """True if this equipment has an active session checkout other
+        than the given session (or no session given at all)."""
+        alloc = self.active_allocation()
+        if not alloc:
+            return False
+        if session is not None and alloc.session_id == session.pk:
+            return False
+        return True
+
+
+class EquipmentAllocation(models.Model):
+    """Spec §new — history/audit log of equipment allocation to rooms and
+    sessions, with release tracking. Guardrail: an equipment item cannot be
+    put to use in another room/session while it still has an active
+    (unreleased) allocation elsewhere — see `Equipment.is_locked_elsewhere`.
+    """
+
+    equipment = models.ForeignKey(
+        Equipment,
+        on_delete=models.CASCADE,
+        related_name="allocations",
+        verbose_name="Équipement",
+    )
+    room = models.ForeignKey(
+        Room,
+        on_delete=models.CASCADE,
+        related_name="equipment_allocations",
+        verbose_name="Salle",
+    )
+    session = models.ForeignKey(
+        "formations.Session",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="equipment_allocations",
+        verbose_name="Session",
+        help_text="Vide = affectation permanente à la salle (hors session).",
+    )
+    allocated_at = models.DateTimeField(auto_now_add=True, verbose_name="Alloué le")
+    allocated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+        verbose_name="Alloué par",
+    )
+    released_at = models.DateTimeField(
+        null=True, blank=True, verbose_name="Libéré le"
+    )
+    released_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+        verbose_name="Libéré par",
+    )
+
+    class Meta:
+        verbose_name = "Allocation d'équipement"
+        verbose_name_plural = "Historique d'allocation des équipements"
+        ordering = ["-allocated_at"]
+
+    def __str__(self):
+        state = "actif" if self.is_active else "libéré"
+        return f"{self.equipment.name} → {self.room.name} ({state})"
+
+    @property
+    def is_active(self):
+        return self.released_at is None
+
+    def release(self, by=None):
+        from django.utils import timezone
+
+        if self.released_at:
+            return
+        self.released_at = timezone.now()
+        self.released_by = by
+        self.save(update_fields=["released_at", "released_by"])
 
 
 class Trainer(models.Model):

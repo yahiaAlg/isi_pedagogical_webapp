@@ -347,6 +347,30 @@
 })();
 </script>
 <script>
+// ── Room → equipment auto-import (spec §new) ───────────────────────────────
+// When a room is picked, equipment homed in that room is inherently
+// pre-checked. The user can still uncheck/check freely before saving.
+(function () {
+  const ROOM_EQUIP_API = "{% url 'formations:room_equipment_api' pk=0 %}".replace('/0/', '/');
+  const roomSel = document.getElementById("{{ form.room.id_for_label }}");
+  if (!roomSel) return;
+
+  roomSel.addEventListener("change", function () {
+    const pk = this.value;
+    if (!pk) return;
+    fetch(ROOM_EQUIP_API + pk + "/")
+      .then(r => r.json())
+      .then(data => {
+        (data.equipment_ids || []).forEach(function (id) {
+          const cb = document.getElementById("equip-" + id);
+          if (cb) cb.checked = true;
+        });
+      })
+      .catch(() => {});
+  });
+})();
+</script>
+<script>
 window.FORMATION_MAX_PARTICIPANTS = {
   {% for f in form.fields.formation.queryset %}"{{ f.pk }}": {{ f.max_participants }}{% if not forloop.last %},{% endif %}{% endfor %}
 };

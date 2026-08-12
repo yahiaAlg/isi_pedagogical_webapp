@@ -1,7 +1,14 @@
 from django.contrib import admin
 from import_export.admin import ImportExportModelAdmin
-from .models import Room, Trainer, Local, Equipment
+from .models import Room, Trainer, Local, Equipment, EquipmentAllocation
 from .resources import EquipmentResource, LocalResource, RoomResource, TrainerResource
+
+
+@admin.register(EquipmentAllocation)
+class EquipmentAllocationAdmin(admin.ModelAdmin):
+    list_display = ["equipment", "room", "session", "allocated_at", "released_at"]
+    list_filter = ["room"]
+    search_fields = ["equipment__name", "room__name"]
 
 
 @admin.register(Room)

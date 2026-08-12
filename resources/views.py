@@ -4,7 +4,7 @@ from django.contrib import messages
 from django.core.paginator import Paginator
 from django.db.models import Count, Q
 
-from .models import Trainer, Room, Local, Equipment
+from .models import Trainer, Room, Local, Equipment, EquipmentAllocation
 from .forms import TrainerForm, RoomForm, LocalForm, EquipmentForm
 
 # 'sessions_total' avoids clash with @property session_count on Trainer model
@@ -173,6 +173,50 @@ def room_list(request):
     )
 
 
+def _apply_room_equipment(room, selected_qs, user):
+    """Spec §new — sync `Equipment.room` from the RoomForm multi-select and
+    log the change in `EquipmentAllocation` (home-room assignment, no
+    session attached). Guardrail: an item actively allocated to a session
+    elsewhere is skipped and reported back."""
+    selected_ids = set(e.pk for e in selected_qs)
+    currently_here = set(Equipment.objects.filter(room=room).values_list("pk", flat=True))
+
+    skipped = []
+    for eq in Equipment.objects.filter(pk__in=(selected_ids - currently_here)):
+        if eq.is_locked_elsewhere(room=room):
+            skipped.append(eq.name)
+            continue
+        eq.room = room
+        eq.local = None
+        eq.save(update_fields=["room", "local"])
+        EquipmentAllocation.objects.create(equipment=eq, room=room, allocated_by=user)
+
+    for eq in Equipment.objects.filter(pk__in=(currently_here - selected_ids)):
+        eq.room = None
+        eq.save(update_fields=["room"])
+        alloc = EquipmentAllocation.objects.filter(
+            equipment=eq, room=room, session__isnull=True, released_at__isnull=True
+        ).first()
+        if alloc:
+            alloc.release(by=user)
+    return skipped
+
+
+@login_required
+def room_detail(request, pk):
+    room = get_object_or_404(Room, pk=pk)
+    equipment = room.equipment_set.all().order_by("name")
+    history = (
+        EquipmentAllocation.objects.filter(room=room)
+        .select_related("equipment", "session", "allocated_by", "released_by")[:50]
+    )
+    return render(
+        request,
+        "resources/room_detail.html",
+        {"room": room, "equipment": equipment, "history": history},
+    )
+
+
 @login_required
 def room_create(request):
     if not request.user.profile.is_admin():
@@ -182,12 +226,30 @@ def room_create(request):
         form = RoomForm(request.POST)
         if form.is_valid():
             room = form.save()
+            skipped = _apply_room_equipment(
+                room, form.cleaned_data["equipment"], request.user
+            )
             messages.success(request, f'Salle "{room.name}" créée avec succès.')
+            if skipped:
+                messages.warning(
+                    request,
+                    "Non ajoutés (alloués activement ailleurs) : " + ", ".join(skipped),
+                )
             return redirect("resources:room_list")
+        selected_equipment_ids = {
+            e.pk for e in form.cleaned_data.get("equipment") or []
+        }
     else:
         form = RoomForm()
+        selected_equipment_ids = set()
     return render(
-        request, "resources/room_form.html", {"form": form, "title": "Nouvelle salle"}
+        request,
+        "resources/room_form.html",
+        {
+            "form": form,
+            "title": "Nouvelle salle",
+            "selected_equipment_ids": selected_equipment_ids,
+        },
     )
 
 
@@ -201,14 +263,33 @@ def room_edit(request, pk):
         form = RoomForm(request.POST, instance=room)
         if form.is_valid():
             room = form.save()
+            skipped = _apply_room_equipment(
+                room, form.cleaned_data["equipment"], request.user
+            )
             messages.success(request, f'Salle "{room.name}" modifiée avec succès.')
+            if skipped:
+                messages.warning(
+                    request,
+                    "Non ajoutés (alloués activement ailleurs) : " + ", ".join(skipped),
+                )
             return redirect("resources:room_list")
+        selected_equipment_ids = {
+            e.pk for e in form.cleaned_data.get("equipment") or []
+        }
     else:
         form = RoomForm(instance=room)
+        selected_equipment_ids = set(
+            Equipment.objects.filter(room=room).values_list("pk", flat=True)
+        )
     return render(
         request,
         "resources/room_form.html",
-        {"form": form, "room": room, "title": "Modifier salle"},
+        {
+            "form": form,
+            "room": room,
+            "title": "Modifier salle",
+            "selected_equipment_ids": selected_equipment_ids,
+        },
     )
 
 

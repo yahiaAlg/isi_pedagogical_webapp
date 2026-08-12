@@ -162,6 +162,38 @@ Triggered via `?mode=blank`; a "Vierge" button was added next to the existing "G
 
 ---
 
+## 12. Room ↔ equipment relationship, allocation history & guardrails
+
+Room equipment was previously just free-text (`equipment_notes`). It's now a relational multi-select backed by the existing `Equipment.room` FK, with a full allocation history and cross-room usage guardrails.
+
+- **New model:** `resources.EquipmentAllocation` — audit log of every time an equipment item is assigned to a room (home assignment, `session=None`) or checked into a session (`session=<Session>`), with `allocated_at`/`allocated_by` and `released_at`/`released_by`. `Equipment.active_allocation()` returns the current active **session-based** checkout (if any); a plain home-room assignment never counts as a lock — it's exactly what makes an item eligible to be borrowed elsewhere.
+- **Guardrail:** `Equipment.is_locked_elsewhere()` / `formations.utils.equipment_is_blocked()` block attaching an equipment item to a session (or reassigning its home room) while it still has an *active, unreleased session checkout* elsewhere. It must be released (unchecked from that session, or that session archived/cancelled) first.
+- **Room ↔ equipment multi-select:** `RoomForm.equipment` (checkbox multi-select) replaces relying on free-text for movable/trackable gear; `equipment_notes` is kept only for untracked fixed fittings (AC, outlets…). Saving a room applies the diff to `Equipment.room` and logs it to `EquipmentAllocation`; equipment already homed in another room isn't offered as a choice (must be released there first).
+- **New page:** `resources:room_detail` — room's homed equipment + its allocation history table (session or home-room reassignment, allocated/released timestamps).
+- **Auto-import on session creation:** picking a room now inherently pre-checks that room's homed equipment on the session form (AJAX `formations:room_equipment_api`, plus server-side prefill when a formation's last session is reused).
+- **Session detail — check/uncheck usage:** new "Équipements" card lets managers toggle which of the room's equipment is actually used in that session (`formations:session_equipment_update`), and shows a soft-warning suggestion list of equipment **idle** in other rooms on the session's dates (i.e. not in any other active, overlapping session and not actively checked out) that could be added here — guardrail-checked on submit, so a race with another session can't silently steal it.
+
+**New/changed:**
+- `resources/models.py` — `EquipmentAllocation` model; `Room.available_equipment`; `Equipment.active_allocation()` / `is_locked_elsewhere()`
+- `resources/forms.py` — `RoomForm.equipment` multi-select
+- `resources/views.py` — `room_detail`; `room_create`/`room_edit` apply the diff via `_apply_room_equipment()`
+- `resources/urls.py` — `rooms/<pk>/`
+- `resources/admin.py` — `EquipmentAllocationAdmin`
+- `formations/utils.py` — `equipment_is_blocked()`, `get_idle_equipment()`
+- `formations/views.py` — `session_detail` (room/idle equipment context), `session_equipment_update`, `room_equipment_api`, `_log_equipment_allocations()` wired into `session_create`/`session_edit`
+- `formations/urls.py` — `sessions/<pk>/equipment/`, `api/room/<pk>/equipment/`
+- `templates/resources/room_form.html` — equipment multi-select section
+- `templates/resources/room_detail.html` — new template
+- `templates/resources/room_list.html` — room name now links to the detail page
+- `templates/formations/session_form.html` — room→equipment auto-check JS
+- `templates/formations/session_detail.html` — new "Équipements" card (toggle + idle suggestions)
+- `core/management/commands/seed_db.py` — more equipment spread across rooms (idle-equipment demo data), seeded allocation history, one seeded session with reserved equipment
+- **Migration:** `resources/migrations/0002_equipment_allocation.py`
+
+*Verified end-to-end (Django test client, live DB): idle-equipment detection correctly excludes locally-assigned (non-room) equipment and equipment already booked/actively checked out elsewhere; the guardrail blocks adding an actively-checked-out item to a second overlapping session both from the session-detail toggle and from the room form, and releasing the original allocation makes it selectable/idle again; room equipment reassignment correctly releases the old allocation and logs the new one.*
+
+---
+
 ## Migrations added this session
 
 ```
@@ -169,6 +201,7 @@ core/migrations/0003_pvdefaultsignatory.py
 formations/migrations/0006_participant_gender.py
 formations/migrations/0007_alter_participant_first_name_and_more.py
 formations/migrations/0008_session_equipment.py
+resources/migrations/0002_equipment_allocation.py
 ```
 
 Run `python manage.py migrate` after deploying this version.
@@ -181,3 +214,6 @@ Run `python manage.py migrate` after deploying this version.
   - Session create/edit conflict-warning flow (warning shown → blocked → confirm → saved)
   - `ParticipantForm` validation (no name / Arabic-only / French-only)
   - Attestation dual-mode rendering (Arabic-only data → French block absent, Arabic block present)
+  - Room ↔ equipment multi-select save, home-room reassignment, and allocation-history logging
+  - Cross-room equipment guardrail (block/skip while actively checked out elsewhere; allowed again once released)
+  - Idle-equipment suggestions on the session detail page

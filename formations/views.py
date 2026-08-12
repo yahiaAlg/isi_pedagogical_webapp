@@ -28,7 +28,33 @@ from .utils import (
     import_participants_from_file,
     check_scheduling_conflicts,
     has_scheduling_conflicts,
+    equipment_is_blocked,
+    get_idle_equipment,
 )
+
+
+def _log_equipment_allocations(session, user):
+    """Spec §new — keep the allocation history in sync whenever a session's
+    equipment M2M is saved from the session form (create/edit), not just
+    from the session-detail check/uncheck toggle."""
+    from resources.models import EquipmentAllocation
+
+    current_ids = set(session.equipment.values_list("pk", flat=True))
+    open_allocs = EquipmentAllocation.objects.filter(
+        session=session, released_at__isnull=True
+    )
+    already_logged_ids = set(open_allocs.values_list("equipment_id", flat=True))
+
+    if not session.room_id:
+        # No room (on-site session) — nothing to log an allocation against.
+        return
+
+    for eq in session.equipment.filter(pk__in=(current_ids - already_logged_ids)):
+        EquipmentAllocation.objects.create(
+            equipment=eq, room=session.room, session=session, allocated_by=user
+        )
+    for alloc in open_allocs.exclude(equipment_id__in=current_ids):
+        alloc.release(by=user)
 
 
 # ===========================================================================
@@ -643,6 +669,20 @@ def session_detail(request, pk):
                 "date_start"
             )
         )
+
+    # Spec §new — equipment homed in this room (inherently importable /
+    # checkable for use in this session) + idle equipment from other rooms
+    # (soft-warning suggestions, guarded by equipment_is_blocked).
+    selected_ids = set(session.equipment.values_list("pk", flat=True))
+    room_equipment = []
+    idle_equipment = []
+    if session.room_id:
+        room_equipment = list(session.room.available_equipment)
+        for item in room_equipment:
+            item.checked = item.pk in selected_ids
+        if session.status not in ["cancelled", "archived"]:
+            idle_equipment = get_idle_equipment(session)
+
     return render(
         request,
         "formations/session_detail.html",
@@ -650,8 +690,89 @@ def session_detail(request, pk):
             "session": session,
             "participants": participants,
             "child_sessions": child_sessions,
+            "room_equipment": room_equipment,
+            "idle_equipment": idle_equipment,
+            "selected_equipment_ids": selected_ids,
         },
     )
+
+
+@login_required
+@require_POST
+def session_equipment_update(request, pk):
+    """Spec §new — check/uncheck equipment used in this session from the
+    session detail page. Adding equipment homed elsewhere is hard-blocked
+    (guardrail) if it's still actively allocated to another room/session;
+    otherwise it's allocated (logged) and released when unchecked."""
+    from resources.models import Equipment, EquipmentAllocation
+
+    session = get_object_or_404(Session, pk=pk)
+    if not request.user.profile.can_manage_sessions():
+        messages.error(request, "Vous n'avez pas les permissions nécessaires.")
+        return redirect("formations:session_detail", pk=pk)
+    if not session.can_edit():
+        messages.error(
+            request,
+            "Cette session est archivée ou annulée et ne peut pas être modifiée.",
+        )
+        return redirect("formations:session_detail", pk=pk)
+
+    if not session.room_id:
+        messages.error(request, "Aucune salle n'est associée à cette session.")
+        return redirect("formations:session_detail", pk=pk)
+
+    submitted_ids = {int(i) for i in request.POST.getlist("equipment_ids") if i.isdigit()}
+    current_ids = set(session.equipment.values_list("pk", flat=True))
+
+    added_count, blocked = 0, []
+    for eq in Equipment.objects.filter(pk__in=(submitted_ids - current_ids)):
+        if equipment_is_blocked(
+            eq,
+            room=session.room,
+            date_start=session.date_start,
+            date_end=session.date_end,
+            exclude_pk=session.pk,
+        ):
+            blocked.append(eq.name)
+            continue
+        session.equipment.add(eq)
+        EquipmentAllocation.objects.create(
+            equipment=eq,
+            room=session.room,
+            session=session,
+            allocated_by=request.user,
+        )
+        added_count += 1
+
+    removed_ids = current_ids - submitted_ids
+    for eq in Equipment.objects.filter(pk__in=removed_ids):
+        session.equipment.remove(eq)
+        alloc = EquipmentAllocation.objects.filter(
+            equipment=eq, session=session, released_at__isnull=True
+        ).first()
+        if alloc:
+            alloc.release(by=request.user)
+
+    if added_count or removed_ids:
+        messages.success(request, "Équipements de la session mis à jour.")
+    if blocked:
+        messages.warning(
+            request,
+            "Non ajoutés (déjà alloués ailleurs, à libérer d'abord) : "
+            + ", ".join(blocked),
+        )
+    return redirect("formations:session_detail", pk=pk)
+
+
+@login_required
+def room_equipment_api(request, pk):
+    """AJAX — spec §new — equipment homed in a room, for auto-import when a
+    room is selected on the session form."""
+    from resources.models import Room
+
+    room = get_object_or_404(Room, pk=pk)
+    ids = list(room.available_equipment.values_list("pk", flat=True))
+    return JsonResponse({"equipment_ids": ids})
 
 
 @login_required
@@ -688,6 +809,7 @@ def session_create(request):
                     },
                 )
             session = form.save()
+            _log_equipment_allocations(session, request.user)
             messages.success(
                 request,
                 f'Session "{session.reference}" créée. Ajoutez maintenant les participants.',
@@ -717,6 +839,10 @@ def session_create(request):
                     initial["location_type"] = last.location_type
                     initial["room"] = last.room
                     initial["external_location"] = last.external_location
+                    # Spec §new — equipment homed in the room is inherently
+                    # imported/pre-checked when creating a session there.
+                    if last.room:
+                        initial["equipment"] = list(last.room.available_equipment)
             except Formation.DoesNotExist:
                 pass
         form = SessionForm(initial=initial)
@@ -770,6 +896,7 @@ def session_edit(request, pk):
                     },
                 )
             session = form.save()
+            _log_equipment_allocations(session, request.user)
             messages.success(request, f'Session "{session.reference}" modifiée.')
             return redirect("formations:session_detail", pk=session.pk)
     else:

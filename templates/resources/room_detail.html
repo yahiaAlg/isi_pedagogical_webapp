@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ room.name }} — Salles — ISI Gestion Pédagogique{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'resources/css/resources.css' %}" />
+{% endblock %}
+
+{% block breadcrumb %}
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="#">Ressources</a>
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="{% url 'resources:room_list' %}">Salles</a>
+<i class="bi bi-chevron-right bc-sep"></i>
+{% endblock %}
+{% block breadcrumb_active %}<span class="bc-active">{{ room.name }}</span>{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% url 'resources:room_list' %}" class="topbar-btn">
+  <i class="bi bi-arrow-left"></i> Retour
+</a>
+{% if request.user.profile.is_admin %}
+<a href="{% url 'resources:room_edit' room.pk %}" class="topbar-btn primary">
+  <i class="bi bi-pencil-fill"></i> Modifier
+</a>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="fade-up">
+
+  <div class="page-header">
+    <div class="page-header-left">
+      <h1>{{ room.name }}</h1>
+      <p class="page-subtitle">
+        {{ room.capacity }} place{{ room.capacity|pluralize }}
+        {% if room.is_active %} &bull; <span class="isi-badge green">Active</span>{% else %} &bull; <span class="isi-badge gray">Inactive</span>{% endif %}
+      </p>
+    </div>
+  </div>
+
+  <div class="row">
+    <!-- Equipment homed in this room -->
+    <div class="col-lg-5">
+      <div class="isi-card mb-4">
+        <div class="isi-card-header">
+          <div class="card-icon amber"><i class="bi bi-tools"></i></div>
+          <h3>Équipements de la salle</h3>
+        </div>
+        <div class="isi-card-body">
+          {% if room.equipment_notes %}
+          <div style="font-size:12.5px;color:var(--text-muted);margin-bottom:14px;">
+            <i class="bi bi-sticky-fill"></i> {{ room.equipment_notes }}
+          </div>
+          <div class="section-divider" style="margin-bottom:14px;"></div>
+          {% endif %}
+          <ul class="detail-meta" style="font-size:13.5px;">
+            {% for eq in equipment %}
+            <li>
+              <span class="meta-label">{{ eq.name }}{% if eq.inventory_code %} <span style="color:var(--text-muted);">({{ eq.inventory_code }})</span>{% endif %}</span>
+              <span class="meta-value">
+                {% if eq.status == 'available' %}<span class="isi-badge green">Disponible</span>
+                {% elif eq.status == 'under_maintenance' %}<span class="isi-badge amber">Maintenance</span>
+                {% else %}<span class="isi-badge red">Hors service</span>{% endif %}
+              </span>
+            </li>
+            {% empty %}
+            <li style="color:var(--text-muted);">Aucun équipement homologué à cette salle.</li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Allocation history -->
+    <div class="col-lg-7">
+      <div class="isi-card mb-4">
+        <div class="isi-card-header">
+          <div class="card-icon blue"><i class="bi bi-clock-history"></i></div>
+          <h3>Historique d'allocation</h3>
+        </div>
+        <div class="table-responsive">
+          <table class="isi-table">
+            <thead>
+              <tr>
+                <th>Équipement</th>
+                <th>Session</th>
+                <th>Alloué</th>
+                <th>Libéré</th>
+                <th>Statut</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for alloc in history %}
+              <tr>
+                <td>{{ alloc.equipment.name }}</td>
+                <td>
+                  {% if alloc.session %}
+                  <a href="{% url 'formations:session_detail' alloc.session.pk %}" style="color:var(--accent);">{{ alloc.session.reference }}</a>
+                  {% else %}<span style="color:var(--text-muted);">Affectation salle</span>{% endif %}
+                </td>
+                <td style="font-size:12.5px;color:var(--text-muted);">{{ alloc.allocated_at|date:"d/m/Y H:i" }}</td>
+                <td style="font-size:12.5px;color:var(--text-muted);">{% if alloc.released_at %}{{ alloc.released_at|date:"d/m/Y H:i" }}{% else %}—{% endif %}</td>
+                <td>
+                  {% if alloc.is_active %}<span class="isi-badge green">Actif</span>{% else %}<span class="isi-badge gray">Libéré</span>{% endif %}
+                </td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:24px;">Aucune allocation enregistrée.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

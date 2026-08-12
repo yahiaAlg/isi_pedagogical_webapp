@@ -43,6 +43,16 @@ urlpatterns = [
     path("sessions/create/", views.session_create, name="session_create"),
     path("sessions/<int:pk>/", views.session_detail, name="session_detail"),
     path("sessions/<int:pk>/edit/", views.session_edit, name="session_edit"),
+    path(
+        "sessions/<int:pk>/equipment/",
+        views.session_equipment_update,
+        name="session_equipment_update",
+    ),
+    path(
+        "api/room/<int:pk>/equipment/",
+        views.room_equipment_api,
+        name="room_equipment_api",
+    ),
     path("sessions/<int:pk>/status/", views.session_status, name="session_status"),
     path(
         "sessions/<int:pk>/attendance/",

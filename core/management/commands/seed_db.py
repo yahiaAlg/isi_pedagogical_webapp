@@ -46,14 +46,15 @@ class Command(BaseCommand):
             clients = self._seed_clients()
             rooms = self._seed_rooms()
             locals_ = self._seed_locals()
-            self._seed_equipment(rooms, locals_)
+            equipment = self._seed_equipment(rooms, locals_)
+            self._seed_equipment_allocations(equipment, rooms, users)
             trainers = self._seed_trainers()
             branches = self._seed_branches()
             specialties = self._seed_specialties(branches)
             cats = self._seed_categories()
             formations = self._seed_formations(cats, specialties)
             self._seed_trainer_qualifications(trainers, formations)
-            sessions = self._seed_sessions(formations, clients, trainers, rooms)
+            sessions = self._seed_sessions(formations, clients, trainers, rooms, equipment)
             self._seed_participants(sessions)
 
         self.stdout.write(self.style.SUCCESS("\n✓ Database seeded successfully."))
@@ -190,6 +191,42 @@ class Command(BaseCommand):
                 status="available",
                 local=locals_.get("Atelier Pratique"),
             ),
+            # Spec §new — room ↔ equipment multi-select + idle-equipment
+            # suggestions: a few more items spread across rooms so Salle B
+            # and Salle C each have their own homed equipment, and some
+            # stay unused so they show up as "idle" candidates elsewhere.
+            dict(
+                name="Écran tactile interactif",
+                category="machine",
+                inventory_code="EQ-004",
+                quantity=1,
+                status="available",
+                room=rooms.get("Salle B"),
+            ),
+            dict(
+                name="Système de sonorisation",
+                category="tool",
+                inventory_code="EQ-005",
+                quantity=1,
+                status="available",
+                room=rooms.get("Salle C"),
+            ),
+            dict(
+                name="Casques anti-bruit (lot de 15)",
+                category="safety_gear",
+                inventory_code="EQ-006",
+                quantity=15,
+                status="available",
+                room=rooms.get("Atelier 1"),
+            ),
+            dict(
+                name="Ordinateur portable formateur",
+                category="machine",
+                inventory_code="EQ-007",
+                quantity=2,
+                status="available",
+                room=rooms.get("Salle B"),
+            ),
         ]
         objs = {}
         for d in data:
@@ -202,7 +239,30 @@ class Command(BaseCommand):
         return objs
 
     # ------------------------------------------------------------------
-    # Users  (admin + staff + 2 trainers + viewer)
+    # Equipment allocation history (spec §new)
+    # ------------------------------------------------------------------
+    def _seed_equipment_allocations(self, equipment, rooms, users):
+        """Log the initial home-room assignment for every room-based
+        equipment item, so the room detail page has allocation history to
+        show out of the box."""
+        from resources.models import EquipmentAllocation
+
+        admin_user = users.get("admin")
+        created = 0
+        for obj in equipment.values():
+            if not obj.room_id:
+                continue
+            if EquipmentAllocation.objects.filter(
+                equipment=obj, room=obj.room, session__isnull=True
+            ).exists():
+                continue
+            EquipmentAllocation.objects.create(
+                equipment=obj, room=obj.room, allocated_by=admin_user
+            )
+            created += 1
+        if created:
+            self._ok(f"EquipmentAllocation history ({created} entries)")
+
     # ------------------------------------------------------------------
     def _seed_users(self):
         from accounts.models import UserProfile
@@ -642,9 +702,10 @@ class Command(BaseCommand):
     # ------------------------------------------------------------------
     # Sessions
     # ------------------------------------------------------------------
-    def _seed_sessions(self, formations, clients, trainers, rooms):
+    def _seed_sessions(self, formations, clients, trainers, rooms, equipment=None):
         from formations.models import Session
 
+        equipment = equipment or {}
         today = datetime.date.today()
 
         # Helper
@@ -666,6 +727,7 @@ class Command(BaseCommand):
                 specialty_code="CPHS",
                 session_number="001/2025",
                 committee_members=[],
+                equipment=["Vidéoprojecteur Epson"],
             ),
             dict(
                 formation=formations["SHE1"],
@@ -714,6 +776,7 @@ class Command(BaseCommand):
                     "Mme Nadia Hamidi — Responsable pédagogique",
                     "M. Youcef Meziane — Formateur",
                 ],
+                equipment=["Écran tactile interactif"],
             ),
             # --- archived
             dict(
@@ -753,6 +816,7 @@ class Command(BaseCommand):
 
         objs = []
         for d in data:
+            equipment_names = d.pop("equipment", None)
             # Use specialty_code + date_start as natural key
             existing = Session.objects.filter(
                 specialty_code=d["specialty_code"],
@@ -765,6 +829,18 @@ class Command(BaseCommand):
             session = Session(**d)
             session.save()
             self._ok(f"Session {session.reference}")
+            if equipment_names and session.room_id:
+                from resources.models import EquipmentAllocation
+
+                items = [equipment[n] for n in equipment_names if n in equipment]
+                session.equipment.set(items)
+                for item in items:
+                    EquipmentAllocation.objects.get_or_create(
+                        equipment=item,
+                        room=session.room,
+                        session=session,
+                        defaults={"released_at": None},
+                    )
             objs.append(session)
         return objs
 

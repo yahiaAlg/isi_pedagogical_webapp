@@ -433,3 +433,56 @@ def has_scheduling_conflicts(conflicts):
     return bool(
         conflicts.get("room") or conflicts.get("trainer") or conflicts.get("equipment")
     )
+
+
+# ---------------------------------------------------------------------------
+# Spec — room ↔ equipment allocation guardrails.
+# An equipment item is normally "homed" in one room (Equipment.room). It can
+# be used in a session held in another room only if it isn't already
+# actively allocated (checked out, unreleased) elsewhere, and isn't already
+# booked on an overlapping session — this is the hard guardrail. Equipment
+# genuinely unused anywhere on the session's dates is surfaced as "idle" and
+# offered as a soft-warning suggestion.
+# ---------------------------------------------------------------------------
+def equipment_is_blocked(equipment, *, room=None, date_start, date_end, exclude_pk=None):
+    """True if `equipment` cannot be attached to a session in `room` for the
+    given date range: either it has an active allocation elsewhere, or it's
+    already booked on an overlapping, non-cancelled/archived session."""
+    if equipment.is_locked_elsewhere(room=room):
+        return True
+    conflicts = check_scheduling_conflicts(
+        equipment_qs=[equipment],
+        date_start=date_start,
+        date_end=date_end,
+        exclude_pk=exclude_pk,
+    )
+    return bool(conflicts["equipment"])
+
+
+def get_idle_equipment(session):
+    """Equipment homed in a room *other* than the session's room, not
+    already used in this session, and not booked (or actively allocated) on
+    any other overlapping session for these dates — i.e. sitting idle and
+    safe to soft-suggest adding to this session."""
+    from resources.models import Equipment
+
+    if not session.room_id or not session.date_start or not session.date_end:
+        return []
+
+    already_selected = set(session.equipment.values_list("pk", flat=True))
+    candidates = Equipment.objects.filter(
+        status="available", room__isnull=False
+    ).exclude(room=session.room).exclude(pk__in=already_selected).select_related("room")
+
+    idle = []
+    for item in candidates:
+        if equipment_is_blocked(
+            item,
+            room=session.room,
+            date_start=session.date_start,
+            date_end=session.date_end,
+            exclude_pk=session.pk,
+        ):
+            continue
+        idle.append(item)
+    return idle
