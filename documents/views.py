@@ -9,7 +9,7 @@ from django.core.exceptions import PermissionDenied
 
 from formations.models import Session, Participant
 from .models import GeneratedDocument
-from .forms import AttendanceSheetForm, AttestationGenerationForm, CommitteeForm
+from .forms import AttendanceSheetForm, CandidateListForm, AttestationGenerationForm, CommitteeForm
 from .utils import check_document_requirements
 from .notifications import notify_pv_generated
 
@@ -104,7 +104,21 @@ def generate_candidate_list_view(request, session_pk):
     if errors:
         messages.error(request, f"Impossible de générer: {'; '.join(errors)}")
         return redirect("documents:dashboard", session_pk=session.pk)
-    return redirect("documents:print_candidate_list", session_pk=session.pk)
+
+    if request.method == "POST":
+        form = CandidateListForm(request.POST, session=session)
+        if form.is_valid():
+            mode = form.cleaned_data["print_mode"]
+            url = reverse("documents:print_candidate_list", kwargs={"session_pk": session_pk})
+            return redirect(f"{url}?mode={mode}")
+    else:
+        form = CandidateListForm(session=session)
+
+    return render(
+        request,
+        "documents/candidate_list_form.html",
+        {"form": form, "session": session},
+    )
 
 
 @login_required
@@ -121,10 +135,11 @@ def generate_attendance_sheet_view(request, session_pk):
             if errors:
                 messages.error(request, f"Impossible de générer: {'; '.join(errors)}")
                 return redirect("documents:dashboard", session_pk=session.pk)
+            print_mode = form.cleaned_data["print_mode"]
             url = reverse(
                 "documents:print_attendance_sheet", kwargs={"session_pk": session_pk}
             )
-            return redirect(f"{url}?day={day_number}")
+            return redirect(f"{url}?day={day_number}&mode={print_mode}")
     else:
         form = AttendanceSheetForm(session=session)
 
@@ -189,7 +204,6 @@ def generate_deliberation_report_view(request, session_pk):
         return redirect("documents:dashboard", session_pk=session.pk)
 
     notify_pv_generated(session, generated_by=request.user, request=request)
-
     return redirect("documents:print_deliberation_report", session_pk=session.pk)
 
 
@@ -198,17 +212,26 @@ def set_committee_view(request, session_pk):
     session = get_object_or_404(Session, pk=session_pk)
     if not request.user.profile.can_manage_sessions():
         raise PermissionDenied()
+
     if request.method == "POST":
         form = CommitteeForm(request.POST, session=session)
         if form.is_valid():
+            # Save a snapshot: settings changes later must not alter an already prepared PV.
             session.committee_members = form.cleaned_data["committee_members"]
-            session.save(update_fields=["committee_members"])
-            messages.success(request, "Membres du comité mis à jour.")
+            session.save(update_fields=["committee_members", "updated_at"])
+            messages.success(request, "Composition du comité du PV mise à jour.")
             return redirect("documents:dashboard", session_pk=session.pk)
     else:
         form = CommitteeForm(session=session)
+
     return render(
-        request, "documents/committee_form.html", {"form": form, "session": session}
+        request,
+        "documents/committee_form.html",
+        {
+            "form": form,
+            "session": session,
+            "default_members": form.default_members,
+        },
     )
 
 

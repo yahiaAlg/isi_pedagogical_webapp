@@ -507,22 +507,33 @@ class Participant(models.Model):
         default=dict, blank=True, verbose_name="Présence par jour"
     )
 
+    # Final evaluation marks, entered once after the full formation is completed.
+    # They intentionally live on the primary-session participant only.
     score_theory = models.DecimalField(
         max_digits=5,
         decimal_places=2,
         null=True,
         blank=True,
-        verbose_name="Note théorique (journée)",
+        verbose_name="Note théorique finale",
     )
     score_practice = models.DecimalField(
         max_digits=5,
         decimal_places=2,
         null=True,
         blank=True,
-        verbose_name="Note pratique (journée)",
+        verbose_name="Note pratique finale",
     )
 
-    # Spec §new — final exam score; only meaningful for primary-session participants
+    exam_score_manual = models.BooleanField(
+        default=False,
+        verbose_name="Note d'examen modifiée manuellement",
+        help_text=(
+            "Lorsque faux, la note d'examen est calculée automatiquement à partir "
+            "des notes théorique et pratique finales."
+        ),
+    )
+
+    # Final exam score; only meaningful for primary-session participants.
     exam_score = models.DecimalField(
         max_digits=5,
         decimal_places=2,
@@ -640,6 +651,25 @@ class Participant(models.Model):
         return self.session.group_sessions_count
 
     @property
+    def computed_exam_score(self):
+        """Default final exam mark derived from the final evaluation marks."""
+        eval_type = self.session.formation.evaluation_type
+        if eval_type == "both":
+            if self.score_theory is None or self.score_practice is None:
+                return None
+            return ((self.score_theory + self.score_practice) / Decimal("2")).quantize(Decimal("0.01"))
+        if eval_type == "theory_only":
+            return self.score_theory
+        if eval_type == "practice_only":
+            return self.score_practice
+        return self.exam_score
+
+    @property
+    def exam_score_effective(self):
+        """Final score used for results/certificates, preferring manual override."""
+        return self.exam_score if self.exam_score_manual else self.computed_exam_score
+
+    @property
     def result(self):
         """
         Spec §new — result logic updated:
@@ -657,11 +687,12 @@ class Participant(models.Model):
         if self.days_attended < min_days:
             return "absent"
 
-        # Check exam score
-        if self.exam_score is None:
+        # Check final exam score (automatic average by default, manual override allowed).
+        effective_exam_score = self.exam_score_effective
+        if effective_exam_score is None:
             return "pending"
 
-        if self.exam_score >= formation.passing_score:
+        if effective_exam_score >= formation.passing_score:
             return "passed"
         return "failed"
 

@@ -56,6 +56,19 @@
             {% endif %}
 
             <div class="mb-4">
+              <label class="form-label">{{ form.print_mode.label }}</label>
+              <div style="display:grid;gap:10px;margin-top:10px;">
+                {% for radio in form.print_mode %}
+                <label style="display:flex;align-items:flex-start;gap:10px;padding:13px 14px;border:1px solid var(--card-border);border-radius:8px;cursor:pointer;">
+                  {{ radio.tag }}
+                  <span style="font-size:13.5px;line-height:1.45;">{{ radio.choice_label }}</span>
+                </label>
+                {% endfor %}
+              </div>
+              {% if form.print_mode.errors %}<div class="invalid-feedback d-block">{{ form.print_mode.errors|join:", " }}</div>{% endif %}
+            </div>
+
+            <div class="mb-4">
               <label class="form-label" for="{{ form.day_number.id_for_label }}">
                 Numéro du jour <span style="color:var(--danger);">*</span>
               </label>

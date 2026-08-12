@@ -1,74 +1,216 @@
 {% extends "documents/print/base_print.html" %}
 
-{% block doc_title %}Liste nominale finale — {{ session.reference }}{% endblock %}
+{% block doc_title %}الجدول الاسمي النهائي — {{ session.reference }}{% endblock %}
 
 {% block doc_body %}
+<style>
+  body:has(.nominal-print) .letterhead,
+  body:has(.nominal-print) .doc-footer { display: none !important; }
+  body:has(.nominal-print) .doc-page { border: none; padding-top: 12px; }
+  .nominal-print { direction: rtl; font-family: "Arial", "Tahoma", sans-serif; color: #111; }
+  .nominal-print .official-header {
+    position: relative;
+    min-height: 112px;
+    margin-bottom: 5px;
+  }
+  .nominal-print .official-logo {
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: 78px;
+    height: 78px;
+    object-fit: contain;
+  }
+  .nominal-print .official-text {
+    text-align: center;
+    line-height: 1.45;
+    font-weight: 700;
+    font-size: 14px;
+    padding: 2px 78px 0 78px;
+  }
+  .nominal-print .official-text .small { font-size: 12px; }
+  .nominal-print .official-text .tiny { font-size: 11px; }
+  .nominal-print .ref-box {
+    position: absolute;
+    right: 0;
+    top: 82px;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .nominal-print .service {
+    text-align: center;
+    font-size: 14px;
+    font-weight: 700;
+    margin-top: 1px;
+  }
+  .nominal-print .meta-wrap {
+    display: grid;
+    grid-template-columns: 1fr 1.45fr;
+    gap: 18px;
+    direction: ltr;
+    margin-top: 13px;
+    margin-bottom: 8px;
+    font-size: 11.5px;
+    line-height: 1.55;
+  }
+  .nominal-print .meta-left,
+  .nominal-print .meta-right {
+    direction: rtl;
+  }
+  .nominal-print .meta-left { text-align: left; }
+  .nominal-print .meta-right { text-align: right; }
+  .nominal-print .meta-line { margin: 1px 0; }
+  .nominal-print .doc-heading {
+    text-align: center;
+    font-size: 16px;
+    font-weight: 800;
+    margin: 11px 0 8px;
+  }
+  .nominal-print .sub-heading {
+    text-align: right;
+    font-size: 11.5px;
+    font-weight: 700;
+    margin-bottom: 5px;
+  }
+  .nominal-print table.nominal-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    direction: rtl;
+    margin: 0;
+  }
+  .nominal-print .nominal-table th,
+  .nominal-print .nominal-table td {
+    background: #fff !important;
+    color: #111 !important;
+    border: 1px solid #222 !important;
+    vertical-align: middle;
+    text-align: center;
+    padding: 5px 4px;
+    font-size: 10.5px;
+    line-height: 1.25;
+  }
+  .nominal-print .nominal-table th { font-weight: 700; }
+  .nominal-print .nominal-table td.ar { font-size: 10.7px; }
+  .nominal-print .nominal-table td.fr { direction: ltr; }
+  .nominal-print .nominal-table td.birth { direction: ltr; }
+  .nominal-print .nominal-table col.num { width: 7%; }
+  .nominal-print .nominal-table col.ar { width: 20%; }
+  .nominal-print .nominal-table col.fr { width: 23%; }
+  .nominal-print .nominal-table col.birth { width: 25%; }
+  .nominal-print .nominal-table col.score { width: 12%; }
+  .nominal-print .nominal-table col.note { width: 13%; }
+  .nominal-print .signature-line {
+    margin-top: 18px;
+    font-size: 11px;
+    font-weight: 700;
+    text-align: left;
+  }
+  .nominal-print .signature-line span {
+    display: inline-block;
+    min-width: 180px;
+    border-bottom: 1px solid #222;
+    margin-right: 10px;
+  }
+  .nominal-print .nominal-footer {
+    text-align: center;
+    font-size: 9.5px;
+    line-height: 1.5;
+    margin-top: 24px;
+    padding-top: 6px;
+    border-top: 1px solid #222;
+  }
+  @media print {
+    .nominal-print .official-header { min-height: 104px; }
+  }
+</style>
 
-<div class="doc-title">جدول اسمي نهائي للمتربصين — Liste Nominale Finale des Candidats</div>
-
-<div class="doc-subtitle">
-  <strong>Titre de formation : {{ session.formation.code }}</strong>
-  &nbsp;&nbsp;&nbsp;
-  <strong>Client : {{ session.client.name }}</strong>
-</div>
-
-<div class="doc-date">
-  <strong>Formateur : </strong> {{ session.trainer.full_name|upper }}
-  &nbsp;&nbsp;&nbsp;
-  <strong>Période : </strong> {{ session.date_start|date:"d/m/Y" }} au {{ session.date_end|date:"d/m/Y" }}
-</div>
-
-<table>
-  <thead>
-    <tr>
-      <th style="width:36px;">N°</th>
-      <th>Nom</th>
-      <th>Prénom</th>
-      <th>اللقب</th>
-      <th>الاسم</th>
-      <th>تاريخ و مكان الميلاد</th>
-      <th>Note</th>
-      <th>Résultat</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for p in participants %}
-    <tr>
-      <td>{{ forloop.counter|stringformat:"02d" }}</td>
-      <td class="left">{{ p.last_name|upper }}</td>
-      <td class="left">{{ p.first_name|upper }}</td>
-      <td dir="rtl" style="text-align:right;">{{ p.last_name_ar }}</td>
-      <td dir="rtl" style="text-align:right;">{{ p.first_name_ar }}</td>
-      <td class="left">
-        {% if p.date_of_birth %}{{ p.date_of_birth|date:"d/m/Y" }}{% endif %}
-        {% if p.place_of_birth %} — {{ p.place_of_birth }}{% endif %}
-      </td>
-      <td>{% if p.exam_score is not None %}{{ p.exam_score }}{% else %}—{% endif %}</td>
-      <td>
-        {% if p.result == 'passed' %}Reçu
-        {% elif p.result == 'failed' %}Ajourné
-        {% elif p.result == 'absent' %}Absent
-        {% else %}—{% endif %}
-      </td>
-    </tr>
-    {% endfor %}
-    {% with count=participants|length %}
-    {% if count < 12 %}
-      {% for i in "123456789012"|make_list %}
-        {% if forloop.counter > count %}
-        <tr>
-          <td>{{ forloop.counter|stringformat:"02d" }}</td>
-          <td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td><td></td>
-        </tr>
-        {% endif %}
-      {% endfor %}
+<div class="nominal-print">
+  <div class="official-header">
+    {% if institute and institute.logo %}
+      <img class="official-logo" src="{{ institute.logo.url }}" alt="شعار المؤسسة">
     {% endif %}
-    {% endwith %}
-  </tbody>
-</table>
 
-<div class="sig-row">
-  <div>Le formateur : <strong>{{ session.trainer.full_name|upper }}</strong></div>
-  <div>Le directeur</div>
+    <div class="official-text">
+      <div>الجمهورية الجزائرية الديمقراطية الشعبية</div>
+      <div>وزارة التكوين و التعليم المهنيين</div>
+      <div>مؤسسة خاصة للتكوين المهني</div>
+      <div>التميز للإدارة و السلامة - سطيف -</div>
+      <div class="small">اعتماد رقم {{ institute.accreditation_number|default:"003/2022" }}</div>
+    </div>
+
+    <div class="ref-box">
+      رقم مرجع: {{ session.reference }}
+    </div>
+  </div>
+
+  <div class="service">المصلحة البيداغوجية</div>
+
+  <div class="doc-heading">جدول اسمي نهائي للمتربصين المسجلين في التكوين التأهيلي حسب الطلب</div>
+
+  <div class="meta-wrap">
+    <div class="meta-left">
+      <div class="meta-line">التاريخ: {{ session.date_end|date:"Y/m/d" }}</div>
+    </div>
+
+    <div class="meta-right">
+      <div class="meta-line">مجال التكوين: تأهيلي حسب الطلب</div>
+      <div class="meta-line">الاختصاص: {% if session.formation.specialty %}{{ session.formation.specialty.title|upper }}{% else %}{{ session.formation.title|upper }}{% endif %}</div>
+      <div class="meta-line">الزبون: {{ session.client.name|upper }}</div>
+      <div class="meta-line">مدة التكوين: {{ duration_label_ar }}</div>
+      <div class="meta-line">تاريخ بداية التكوين الحضوري: {{ session.date_start|date:"Y/m/d" }}</div>
+      <div class="meta-line">التاريخ التقريبي لنهاية التكوين الحضوري مع التربص: {{ session.date_end|date:"Y/m/d" }}</div>
+      <div class="meta-line">اسم و لقب الأستاذ المكون: {{ trainer_name_ar|default:session.trainer.full_name }}</div>
+    </div>
+  </div>
+
+  <table class="nominal-table">
+    <colgroup>
+      <col class="num">
+      <col class="ar">
+      <col class="fr">
+      <col class="birth">
+      <col class="score">
+      <col class="note">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>رقم</th>
+        <th>اسم و لقب المتربص<br>باللغة العربية (1)</th>
+        <th>اسم و لقب المتربص<br>باللغة الفرنسية (2)</th>
+        <th>تاريخ الميلاد<br>ومكان الميلاد (3)</th>
+        <th>علامة الامتحان</th>
+        <th>ملاحظة</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in participants %}
+      <tr>
+        <td>{{ forloop.counter|stringformat:"02d" }}</td>
+        <td class="ar">{{ p.full_name_ar|default:"" }}</td>
+        <td class="fr">{{ p.full_name|upper }}</td>
+        <td class="birth">
+          {% if p.date_of_birth %}{{ p.date_of_birth|date:"d/m/Y" }}{% endif %}
+          {% if p.place_of_birth %}<br>{{ p.place_of_birth }}{% endif %}
+        </td>
+        <td>
+          {% if p.exam_score is not None %}{{ p.exam_score }}{% endif %}
+        </td>
+        <td>{{ p.notes|default:"" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="signature-line">
+    المؤسسة : <span></span>
+  </div>
+
+  <div class="nominal-footer">
+    {{ institute.name_ar|default:institute.name_fr }}<br>
+    {% if institute.address %}{{ institute.address }}{% endif %}
+    {% if institute.phone %} — الهاتف: {{ institute.phone }}{% endif %}
+    {% if institute.email %} — {{ institute.email }}{% endif %}
+  </div>
 </div>
 {% endblock %}

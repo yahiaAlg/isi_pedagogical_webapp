@@ -281,6 +281,8 @@ class ParticipantAdmin(admin.ModelAdmin):
                     "attendance_per_day",
                     "score_theory",
                     "score_practice",
+                    "exam_score",
+                    "exam_score_manual",
                     "get_result",
                 )
             },
@@ -326,6 +328,8 @@ class ParticipantAdmin(admin.ModelAdmin):
                     "attended",
                     "score_theory",
                     "score_practice",
+                    "exam_score",
+                    "exam_score_manual",
                 ]
             )
         return readonly

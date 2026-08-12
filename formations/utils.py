@@ -122,33 +122,6 @@ def validate_session_transition(session, new_status):
                     f"Utilisez « Régénérer » depuis la fiche session."
                 )
 
-        eval_type = session.formation.evaluation_type
-        present = session.participant_set.filter(attended=True)
-
-        if eval_type in ["theory_only", "both"]:
-            missing = present.filter(score_theory__isnull=True)
-            if missing.exists():
-                errors.append(
-                    f"Notes théoriques manquantes pour {missing.count()} participant(s)"
-                )
-
-        if eval_type in ["practice_only", "both"]:
-            missing = present.filter(score_practice__isnull=True)
-            if missing.exists():
-                errors.append(
-                    f"Notes pratiques manquantes pour {missing.count()} participant(s)"
-                )
-
-        # For primary sessions, warn if exam scores are missing
-        if session.is_primary:
-            missing_exam = session.participant_set.filter(
-                attended=True, exam_score__isnull=True
-            )
-            if missing_exam.exists():
-                errors.append(
-                    f"Notes d'examen manquantes pour {missing_exam.count()} participant(s) "
-                    f"— saisissez-les via « Notes d'examen »"
-                )
 
     return errors
 
@@ -161,8 +134,8 @@ def generate_child_sessions(primary_session):
     - Number of children = formation.duration_days - 1
     - Each child is exactly 1 day: date_start = date_end = primary.date_start + offset
     - All primary participants are copied with attended=True
-    - Daily scores (score_theory / score_practice) pre-filled at max_score / 2
-    - Primary participants' exam_score pre-filled at max_score / 2 (if not already set)
+    - No theoretical/practical/exam marks are pre-filled on daily sessions.
+    - Final evaluation is entered once on the primary session after completion.
     - Existing child sessions are deleted and regenerated (idempotent)
 
     Returns a list of the created Session objects.
@@ -175,9 +148,6 @@ def generate_child_sessions(primary_session):
 
     # Idempotent: wipe existing children
     primary_session.child_sessions.all().delete()
-
-    half_score = (formation.max_score / Decimal("2")).quantize(Decimal("0.01"))
-    eval_type = formation.evaluation_type
 
     created = []
     for day_offset in range(1, total_days):
@@ -201,7 +171,7 @@ def generate_child_sessions(primary_session):
             parent_session=primary_session,
         )
 
-        # Copy participants with pre-filled scores
+        # Copy participants for attendance only; evaluation remains on the primary session.
         for p in primary_session.participant_set.order_by("pk"):
             Participant.objects.create(
                 session=child,
@@ -219,35 +189,14 @@ def generate_child_sessions(primary_session):
                 email=p.email,
                 notes=p.notes,
                 attended=True,
-                score_theory=(
-                    half_score if eval_type in ["theory_only", "both"] else None
-                ),
-                score_practice=(
-                    half_score if eval_type in ["practice_only", "both"] else None
-                ),
+                score_theory=None,
+                score_practice=None,
+                exam_score=None,
+                exam_score_manual=False,
                 source_participant=p,
             )
 
         created.append(child)
-
-    # Pre-fill exam + daily scores on primary participants (only those not already set)
-    for p in primary_session.participant_set.all():
-        update_fields = []
-
-        if p.exam_score is None:
-            p.exam_score = half_score
-            update_fields.append("exam_score")
-
-        if eval_type in ["theory_only", "both"] and p.score_theory is None:
-            p.score_theory = half_score
-            update_fields.append("score_theory")
-
-        if eval_type in ["practice_only", "both"] and p.score_practice is None:
-            p.score_practice = half_score
-            update_fields.append("score_practice")
-
-        if update_fields:
-            p.save(update_fields=update_fields)
 
     return created
 
