@@ -2,49 +2,53 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8" />
-<title>محضر مداولات — {{ session.reference }}</title>
+<title>محضر مداولات نهاية التكوين — {{ session.reference }}</title>
 <style>
   * { box-sizing: border-box; }
-  body { margin:0; font-family: Arial, Tahoma, sans-serif; font-size:12px; color:#000; background:#fff; direction:rtl; }
+  body { margin:0; font-family: Arial, Tahoma, sans-serif; font-size:13px; color:#000; background:#fff; direction:rtl; }
   .print-btn-bar { text-align:center; padding:16px; background:#f8fafc; border-bottom:1px solid #e2e8f0; margin-bottom:24px; }
   .print-btn,.back-btn { border-radius:8px; padding:10px 22px; font-size:14px; font-weight:700; text-decoration:none; cursor:pointer; }
   .print-btn { background:#f59e0b; color:#0f172a; border:0; margin-left:8px; }
   .back-btn { display:inline-block; background:#fff; border:1px solid #cbd5e1; color:#475569; }
-  .page-wrapper { max-width:800px; margin:0 auto; padding:20px; }
-  .doc-page { background:#fff; min-height:1050px; padding:28px 34px; border:1px solid #e2e8f0; display:flex; flex-direction:column; }
-  .header { display:grid; grid-template-columns:82px 1fr 105px; align-items:start; gap:10px; border-bottom:1.5px solid #000; padding-bottom:9px; }
-  .logo { width:78px; height:78px; display:flex; align-items:center; justify-content:center; }
+  .page-wrapper { max-width:820px; margin:0 auto; padding:20px; }
+  .doc-page { background:#fff; min-height:1050px; padding:26px 40px; border:1px solid #e2e8f0; display:flex; flex-direction:column; }
+
+  .header { display:grid; grid-template-columns:1fr 82px; align-items:start; gap:10px; }
+  .header-center { text-align:center; line-height:1.75; }
+  .header-center .line-main { font-weight:700; font-size:13px; }
+  .header-center .line-small { font-size:12px; }
+  .header-center .line-accred { font-size:11.5px; font-weight:700; margin-top:2px; }
+  .logo { width:78px; height:78px; display:flex; align-items:center; justify-content:center; justify-self:end; }
   .logo img { max-width:100%; max-height:100%; object-fit:contain; }
   .logo-ph { width:78px; height:78px; border:1px solid #aaa; display:flex; align-items:center; justify-content:center; font-size:10px; color:#777; }
-  .header-center { text-align:center; line-height:1.6; }
-  .header-center .line-main { font-weight:700; font-size:12px; }
-  .header-center .line-small { font-size:11px; }
-  .header-right { direction:ltr; text-align:left; font-size:10px; line-height:1.7; }
-  .service-title { text-align:center; font-weight:700; margin-top:12px; font-size:12px; }
-  .main-title { text-align:center; font-size:18px; font-weight:700; text-decoration:underline; margin:8px 0 14px; }
-  .intro { line-height:1.8; margin-bottom:8px; text-align:justify; }
-  .info-table { width:100%; border-collapse:collapse; margin-bottom:12px; }
-  .info-table td { border:1px solid #555; padding:5px 7px; vertical-align:middle; }
-  .info-label { font-weight:700; width:19%; background:#f5f5f5; }
-  .info-value { width:31%; }
-  table.main { width:100%; border-collapse:collapse; margin-top:8px; }
-  table.main th, table.main td { border:1px solid #555; padding:6px 5px; text-align:center; }
-  table.main th { font-size:11px; background:#f1f1f1; font-weight:700; }
-  table.main td { height:29px; }
-  .number { width:34px; }
-  .score { width:72px; }
-  .result { width:73px; }
-  .committee { margin-top:14px; }
-  .committee-title { font-weight:700; margin-bottom:6px; }
-  .signature-space { height:34px; }
-  .closing { margin-top:14px; line-height:1.9; text-align:justify; }
-  .signatures { margin-top:20px; display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; text-align:center; font-weight:700; }
-  .sig-line { height:52px; }
-  .footer { margin-top:auto; border-top:1px solid #aaa; padding-top:7px; text-align:center; font-size:9px; color:#555; }
+
+  .service-title { text-align:center; font-weight:700; margin-top:20px; font-size:13px; }
+  .main-title { text-align:center; font-size:19px; font-weight:700; margin:10px 0 22px; }
+
+  .info-block { display:grid; grid-template-columns:1fr 1fr; gap:0 24px; margin-bottom:6px; }
+  .info-left { text-align:right; line-height:2.1; }
+  .info-right { text-align:right; line-height:2.1; }
+  .ref-box { border:1px solid #000; display:inline-block; padding:2px 14px; font-weight:700; border-radius:4px; }
+  .label { font-weight:700; }
+
+  .supervisor-line { margin-top:14px; margin-bottom:20px; font-weight:700; }
+
+  table.committee-table { width:100%; border-collapse:collapse; margin-top:4px; }
+  table.committee-table th, table.committee-table td { border:1px solid #555; padding:9px 8px; text-align:center; }
+  table.committee-table th { font-size:12.5px; background:#f1f1f1; font-weight:700; }
+  table.committee-table td.name-cell { text-align:right; padding-right:12px; }
+  .sig-cell { height:46px; }
+
+  .institution-block { margin-top:auto; padding-top:36px; }
+  .institution-title { font-weight:700; margin-bottom:40px; }
+  .institution-sig-area { min-height:70px; }
+
+  .footer { margin-top:22px; border-top:1px solid #aaa; padding-top:7px; text-align:center; font-size:10px; color:#555; }
+
   @media print {
     .print-btn-bar { display:none !important; }
     .page-wrapper { max-width:none; margin:0; padding:0; }
-    .doc-page { border:0; min-height:297mm; padding:12mm 15mm; }
+    .doc-page { border:0; min-height:297mm; padding:14mm 18mm; }
     @page { size:A4; margin:0; }
   }
 </style>
@@ -58,109 +62,69 @@
 <div class="page-wrapper">
   <div class="doc-page">
     <div class="header">
-      <div class="logo">
-        {% if institute and institute.logo %}<img src="{{ institute.logo.url }}" alt="Logo" />{% else %}<div class="logo-ph">LOGO</div>{% endif %}
-      </div>
       <div class="header-center">
         <div class="line-main">الجمهورية الجزائرية الديمقراطية الشعبية</div>
         <div class="line-main">وزارة التكوين والتعليم المهنيين</div>
-        <div class="line-small">مؤسسة خاصة للتكوين المهني</div>
         {% if institute %}
+        <div class="line-small">مؤسسة خاصة للتكوين المهني</div>
         <div class="line-main">{{ institute.name_ar }}</div>
-        <div class="line-small">رقم الاعتماد: {{ institute.accreditation_number }} — تاريخ: {{ institute.accreditation_date|date:"d/m/Y" }}</div>
+        <div class="line-accred">إعتماد رقم {{ institute.accreditation_number }} المؤرخ {{ institute.accreditation_date|date:"Y/m/d" }}</div>
         {% endif %}
       </div>
-      <div class="header-right">
-        <div><strong>IF:</strong> {% if institute %}{{ institute.if_number }}{% endif %}</div>
-        <div><strong>RC:</strong> {% if institute %}{{ institute.rc }}{% endif %}</div>
-        <div><strong>NIS:</strong> {% if institute %}{{ institute.nis }}{% endif %}</div>
-        <div><strong>Art. Imp.:</strong> {% if institute %}{{ institute.article_imposition }}{% endif %}</div>
+      <div class="logo">
+        {% if institute and institute.logo %}<img src="{{ institute.logo.url }}" alt="Logo" />{% else %}<div class="logo-ph">LOGO</div>{% endif %}
       </div>
     </div>
 
     <div class="service-title">المصلحة البيداغوجية</div>
     <div class="main-title">محضر مداولات نهاية التكوين</div>
 
-    <div class="intro">
-      إنه في تاريخ <strong>{{ session.date_end|date:"d/m/Y" }}</strong> اجتمعت لجنة المداولات بمقر المؤسسة للنظر في نتائج نهاية التكوين الخاص بالدورة المبينة أدناه، وبعد الاطلاع على نتائج التقييم والمداولات تقرر اعتماد النتائج المسجلة في هذا المحضر.
+    <div class="info-block">
+      <div class="info-left">
+        <div><span class="label">تاريخ:</span> {{ session.date_end|date:"Y-m-d" }}</div>
+        <div><span class="label">تاريخ نهاية التكوين:</span> {{ session.date_end|date:"Y-m-d" }}</div>
+      </div>
+      <div class="info-right">
+        <div><span class="label">رقم:</span> <span class="ref-box">{{ session.reference }}</span></div>
+        <div><span class="label">الاختصاص:</span> {{ session.formation.title }}</div>
+        <div><span class="label">الزبون:</span> {{ session.client.name }}</div>
+        <div><span class="label">رمز التخصص:</span> {{ session.formation.code }}</div>
+        <div><span class="label">تاريخ بداية التكوين:</span> {{ session.date_start|date:"Y-m-d" }}</div>
+        <div><span class="label">عدد المتربصين:</span> {{ participants|length }}</div>
+        <div><span class="label">عدد الحضور:</span> {{ present_count }} &nbsp;&nbsp; <span class="label">عدد الغياب:</span> {{ absent_count }}</div>
+      </div>
     </div>
 
-    <table class="info-table">
-      <tr>
-        <td class="info-label">رقم المحضر</td><td class="info-value">{{ session.reference }}</td>
-        <td class="info-label">تاريخ المحضر</td><td class="info-value">{{ session.date_end|date:"d/m/Y" }}</td>
-      </tr>
-      <tr>
-        <td class="info-label">الزبون</td><td class="info-value">{{ session.client.name }}</td>
-        <td class="info-label">عدد المتربصين</td><td class="info-value">{{ participants|length }}</td>
-      </tr>
-      <tr>
-        <td class="info-label">التخصص</td><td class="info-value">{{ session.formation.title }}</td>
-        <td class="info-label">رمز التخصص</td><td class="info-value">{{ session.formation.code }}</td>
-      </tr>
-      <tr>
-        <td class="info-label">تاريخ بداية التكوين</td><td class="info-value">{{ session.date_start|date:"d/m/Y" }}</td>
-        <td class="info-label">تاريخ نهاية التكوين</td><td class="info-value">{{ session.date_end|date:"d/m/Y" }}</td>
-      </tr>
-      <tr>
-        <td class="info-label">عدد الحضور</td><td class="info-value">{{ present_count }}</td>
-        <td class="info-label">عدد الغيابات</td><td class="info-value">{{ absent_count }}</td>
-      </tr>
-      <tr>
-        <td class="info-label">عدد الناجحين</td><td class="info-value">{{ passed_count }}</td>
-        <td class="info-label">الأستاذ المكون</td><td class="info-value">{% for m in committee_members %}{% if m.type == 'trainer' %}{{ m.name }}{% endif %}{% endfor %}</td>
-      </tr>
-    </table>
+    <div class="supervisor-line">
+      الوصي على التكوين السيد: {{ session.trainer.first_name_ar|default:session.trainer.first_name }} {{ session.trainer.last_name_ar|default:session.trainer.last_name }}
+    </div>
 
-    <table class="main">
+    <table class="committee-table">
       <thead>
         <tr>
-          <th class="number">ر.ت</th>
-          <th>اللقب</th>
-          <th>الاسم</th>
-          <th>تاريخ ومكان الميلاد</th>
-          <th class="score">علامة الامتحان</th>
-          <th class="result">النتيجة</th>
+          <th style="width:34%;">الاسم و اللقب</th>
+          <th style="width:28%;">الصفة</th>
+          <th style="width:18%;">الإمضاء</th>
+          <th>الملاحظات</th>
         </tr>
       </thead>
       <tbody>
-        {% for p in participants %}
+        {% for m in committee_members %}
         <tr>
-          <td>{{ forloop.counter }}</td>
-          <td>{{ p.last_name_ar|default:p.last_name }}</td>
-          <td>{{ p.first_name_ar|default:p.first_name }}</td>
-          <td>{% if p.date_of_birth %}{{ p.date_of_birth|date:"d/m/Y" }}{% endif %}{% if p.place_of_birth %} — {{ p.place_of_birth_ar|default:p.place_of_birth }}{% endif %}</td>
-          <td>{% if p.exam_score is not None %}{{ p.exam_score }}{% else %}—{% endif %}</td>
-          <td>{% if p.result == 'passed' %}ناجح{% elif p.result == 'failed' %}راسب{% elif p.result == 'absent' %}غائب{% else %}—{% endif %}</td>
+          <td class="name-cell">{{ m.name }}</td>
+          <td>{{ m.role }}</td>
+          <td class="sig-cell"></td>
+          <td></td>
         </tr>
+        {% empty %}
+        <tr><td colspan="4">لا توجد بيانات لجنة</td></tr>
         {% endfor %}
       </tbody>
     </table>
 
-    <div class="committee">
-      <div class="committee-title">أعضاء لجنة المداولات:</div>
-      <table class="main">
-        <thead>
-          <tr><th style="width:34%;">الاسم و اللقب</th><th style="width:31%;">الصفة</th><th style="width:18%;">الإمضاء</th><th>ملاحظات</th></tr>
-        </thead>
-        <tbody>
-          {% for m in committee_members %}
-          <tr><td>{{ m.name }}</td><td>{{ m.role }}</td><td class="signature-space"></td><td></td></tr>
-          {% empty %}
-          <tr><td colspan="4">لا توجد بيانات لجنة</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-
-    <div class="closing">
-      وبعد المداولة، صادقت اللجنة على النتائج أعلاه، ويُحرر هذا المحضر لإثبات نتائج نهاية التكوين والعمل بمقتضاه حسب الإجراءات المعمول بها.
-    </div>
-
-    <div class="signatures">
-      <div>رئيس اللجنة<div class="sig-line"></div></div>
-      <div>الأستاذ المكون<div class="sig-line"></div></div>
-      <div>ممثل الشركة<div class="sig-line"></div></div>
+    <div class="institution-block">
+      <div class="institution-title">المؤسسة :</div>
+      <div class="institution-sig-area"></div>
     </div>
 
     <div class="footer">
