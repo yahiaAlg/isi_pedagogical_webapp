@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load static %}
+{% load static qs_tags %}
 
 {% block title %}Sessions — ISI Gestion Pédagogique{% endblock %}
 {% block extra_head %}<link rel="stylesheet" href="{% static 'formations/css/formations.css' %}" /><style>
@@ -35,20 +35,82 @@
 
   <!-- Filter bar -->
   <div class="isi-card mb-4">
-    <div class="isi-card-body" style="padding:16px 24px;">
+    <form method="get" class="isi-card-body" style="padding:16px 24px;">
+      <input type="hidden" name="sort" value="{{ sort }}">
+      <input type="hidden" name="dir" value="{{ dir }}">
       <div class="row g-3 align-items-end">
-        <div class="col-sm-6 col-md-4">
+        <div class="col-sm-6 col-md-3">
           <label class="form-label">Rechercher</label>
           <div class="input-icon-wrap">
             <i class="bi bi-search"></i>
-            <input type="text" id="sessionSearch" class="form-control" placeholder="Référence, formation, client…" />
+            <input type="text" name="q" value="{{ filters.q }}" class="form-control" placeholder="Référence, formation, client, formateur…" />
           </div>
         </div>
+        <div class="col-sm-3 col-md-2">
+          <label class="form-label">Statut</label>
+          <select name="status" class="form-select">
+            <option value="">Tous</option>
+            {% for val, label in status_choices %}
+            <option value="{{ val }}" {% if filters.status == val %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-sm-3 col-md-2">
+          <label class="form-label">Lieu</label>
+          <select name="location_type" class="form-select">
+            <option value="">Tous</option>
+            {% for val, label in location_choices %}
+            <option value="{{ val }}" {% if filters.location_type == val %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
         <div class="col-sm-4 col-md-2">
-          <button type="button" id="clearSearch" class="btn btn-ghost w-100"><i class="bi bi-x-lg"></i> Réinitialiser</button>
+          <label class="form-label">Formation</label>
+          <select name="formation" class="form-select">
+            <option value="">Toutes</option>
+            {% for f in formations %}
+            <option value="{{ f.pk }}" {% if filters.formation == f.pk|stringformat:"s" %}selected{% endif %}>{{ f.title }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-sm-4 col-md-2">
+          <label class="form-label">Client</label>
+          <select name="client" class="form-select">
+            <option value="">Tous</option>
+            {% for c in clients %}
+            <option value="{{ c.pk }}" {% if filters.client == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-sm-4 col-md-2">
+          <label class="form-label">Formateur</label>
+          <select name="trainer" class="form-select">
+            <option value="">Tous</option>
+            {% for t in trainers %}
+            <option value="{{ t.pk }}" {% if filters.trainer == t.pk|stringformat:"s" %}selected{% endif %}>{{ t.last_name }} {{ t.first_name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-sm-6 col-md-3">
+          <label class="form-label">Dates (du – au)</label>
+          <div class="d-flex gap-2">
+            <input type="date" name="date_from" value="{{ filters.date_from }}" class="form-control">
+            <input type="date" name="date_to" value="{{ filters.date_to }}" class="form-control">
+          </div>
+        </div>
+        <div class="col-sm-6 col-md-3">
+          <label class="form-label">Capacité (min–max)</label>
+          <div class="d-flex gap-2">
+            <input type="number" min="0" name="capacity_min" value="{{ filters.capacity_min }}" class="form-control" placeholder="Min">
+            <input type="number" min="0" name="capacity_max" value="{{ filters.capacity_max }}" class="form-control" placeholder="Max">
+          </div>
+        </div>
+        <div class="col-sm-4 col-md-2 d-flex gap-2">
+          <button type="submit" class="btn btn-amber w-100"><i class="bi bi-funnel-fill"></i> Filtrer</button>
+          <a href="{% url 'formations:session_list' %}" class="btn btn-ghost w-100" title="Réinitialiser"><i class="bi bi-x-lg"></i></a>
         </div>
       </div>
-    </div>
+    </form>
   </div>
 
   <!-- Results -->
@@ -67,13 +129,13 @@
       <table class="isi-table">
         <thead>
           <tr>
-            <th><a href="?sort=reference&amp;dir={% if sort == 'reference' and dir == 'asc' %}desc{% else %}asc{% endif %}" class="sort-th {% if sort == 'reference' %}active{% endif %}">Référence <i class="bi bi-arrow-{% if sort == 'reference' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
-            <th><a href="?sort=formation__title&amp;dir={% if sort == 'formation__title' and dir == 'asc' %}desc{% else %}asc{% endif %}" class="sort-th {% if sort == 'formation__title' %}active{% endif %}">Formation <i class="bi bi-arrow-{% if sort == 'formation__title' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
-            <th><a href="?sort=date_start&amp;dir={% if sort == 'date_start' and dir == 'asc' %}desc{% else %}asc{% endif %}" class="sort-th {% if sort == 'date_start' %}active{% endif %}">Dates <i class="bi bi-arrow-{% if sort == 'date_start' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
-            <th><a href="?sort=client__name&amp;dir={% if sort == 'client__name' and dir == 'asc' %}desc{% else %}asc{% endif %}" class="sort-th {% if sort == 'client__name' %}active{% endif %}">Client <i class="bi bi-arrow-{% if sort == 'client__name' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
-            <th><a href="?sort=trainer__last_name&amp;dir={% if sort == 'trainer__last_name' and dir == 'asc' %}desc{% else %}asc{% endif %}" class="sort-th {% if sort == 'trainer__last_name' %}active{% endif %}">Formateur <i class="bi bi-arrow-{% if sort == 'trainer__last_name' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
+            <th><a href="{% if sort == 'reference' and dir == 'asc' %}?{% qs sort="reference" dir="desc" %}{% else %}?{% qs sort="reference" dir="asc" %}{% endif %}" class="sort-th {% if sort == 'reference' %}active{% endif %}">Référence <i class="bi bi-arrow-{% if sort == 'reference' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
+            <th><a href="{% if sort == 'formation__title' and dir == 'asc' %}?{% qs sort="formation__title" dir="desc" %}{% else %}?{% qs sort="formation__title" dir="asc" %}{% endif %}" class="sort-th {% if sort == 'formation__title' %}active{% endif %}">Formation <i class="bi bi-arrow-{% if sort == 'formation__title' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
+            <th><a href="{% if sort == 'date_start' and dir == 'asc' %}?{% qs sort="date_start" dir="desc" %}{% else %}?{% qs sort="date_start" dir="asc" %}{% endif %}" class="sort-th {% if sort == 'date_start' %}active{% endif %}">Dates <i class="bi bi-arrow-{% if sort == 'date_start' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
+            <th><a href="{% if sort == 'client__name' and dir == 'asc' %}?{% qs sort="client__name" dir="desc" %}{% else %}?{% qs sort="client__name" dir="asc" %}{% endif %}" class="sort-th {% if sort == 'client__name' %}active{% endif %}">Client <i class="bi bi-arrow-{% if sort == 'client__name' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
+            <th><a href="{% if sort == 'trainer__last_name' and dir == 'asc' %}?{% qs sort="trainer__last_name" dir="desc" %}{% else %}?{% qs sort="trainer__last_name" dir="asc" %}{% endif %}" class="sort-th {% if sort == 'trainer__last_name' %}active{% endif %}">Formateur <i class="bi bi-arrow-{% if sort == 'trainer__last_name' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
             <th>Remplissage</th>
-            <th><a href="?sort=status&amp;dir={% if sort == 'status' and dir == 'asc' %}desc{% else %}asc{% endif %}" class="sort-th {% if sort == 'status' %}active{% endif %}">Statut <i class="bi bi-arrow-{% if sort == 'status' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
+            <th><a href="{% if sort == 'status' and dir == 'asc' %}?{% qs sort="status" dir="desc" %}{% else %}?{% qs sort="status" dir="asc" %}{% endif %}" class="sort-th {% if sort == 'status' %}active{% endif %}">Statut <i class="bi bi-arrow-{% if sort == 'status' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
             <th style="text-align:right;">Actions</th>
           </tr>
         </thead>
@@ -137,12 +199,12 @@
     <div class="isi-pagination">
       <div class="isi-pagination-info">Page {{ page_obj.number }} sur {{ page_obj.paginator.num_pages }} — {{ page_obj.paginator.count }} session{{ page_obj.paginator.count|pluralize }}</div>
       <div class="isi-pagination-controls">
-        {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}" class="btn btn-ghost btn-sm"><i class="bi bi-chevron-left"></i></a>{% endif %}
+        {% if page_obj.has_previous %}<a href="?{% qs page=page_obj.previous_page_number %}" class="btn btn-ghost btn-sm"><i class="bi bi-chevron-left"></i></a>{% endif %}
         {% for num in page_obj.paginator.page_range %}
           {% if num == page_obj.number %}<button class="btn btn-amber btn-sm" disabled>{{ num }}</button>
-          {% elif num >= page_obj.number|add:"-2" and num <= page_obj.number|add:"2" %}<a href="?page={{ num }}" class="btn btn-ghost btn-sm">{{ num }}</a>{% endif %}
+          {% elif num >= page_obj.number|add:"-2" and num <= page_obj.number|add:"2" %}<a href="?{% qs page=num %}" class="btn btn-ghost btn-sm">{{ num }}</a>{% endif %}
         {% endfor %}
-        {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}" class="btn btn-ghost btn-sm"><i class="bi bi-chevron-right"></i></a>{% endif %}
+        {% if page_obj.has_next %}<a href="?{% qs page=page_obj.next_page_number %}" class="btn btn-ghost btn-sm"><i class="bi bi-chevron-right"></i></a>{% endif %}
       </div>
     </div>
     {% endif %}

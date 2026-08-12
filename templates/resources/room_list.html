@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load static %}
+{% load static qs_tags %}
 
 {% block title %}Salles — ISI Gestion Pédagogique{% endblock %}
 
@@ -42,6 +42,34 @@
     </div>
   </div>
 
+  <!-- Filter bar -->
+  <div class="isi-card mb-4">
+    <form method="get" class="isi-card-body" style="padding:16px 24px;">
+      <input type="hidden" name="sort" value="{{ sort }}">
+      <input type="hidden" name="dir" value="{{ dir }}">
+      <div class="row g-3 align-items-end">
+        <div class="col-sm-6 col-md-5">
+          <label class="form-label">Rechercher</label>
+          <div class="input-icon-wrap">
+            <i class="bi bi-search"></i>
+            <input type="text" name="q" value="{{ filters.q }}" class="form-control" placeholder="Nom, équipements…" />
+          </div>
+        </div>
+        <div class="col-sm-6 col-md-3">
+          <label class="form-label">Capacité (min–max)</label>
+          <div class="d-flex gap-2">
+            <input type="number" min="0" name="capacity_min" value="{{ filters.capacity_min }}" class="form-control" placeholder="Min">
+            <input type="number" min="0" name="capacity_max" value="{{ filters.capacity_max }}" class="form-control" placeholder="Max">
+          </div>
+        </div>
+        <div class="col-sm-6 col-md-2 d-flex gap-2">
+          <button type="submit" class="btn btn-amber w-100"><i class="bi bi-funnel-fill"></i> Filtrer</button>
+          <a href="{% url 'resources:room_list' %}" class="btn btn-ghost w-100" title="Réinitialiser"><i class="bi bi-x-lg"></i></a>
+        </div>
+      </div>
+    </form>
+  </div>
+
   <!-- Results -->
   <div class="isi-card">
     <div class="isi-card-header">
@@ -60,10 +88,10 @@
       <table class="isi-table">
         <thead>
           <tr>
-            <th><a href="?sort=name&amp;dir={% if sort == 'name' and dir == 'asc' %}desc{% else %}asc{% endif %}" class="sort-th {% if sort == 'name' %}active{% endif %}">Nom <i class="bi bi-arrow-{% if sort == 'name' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
-            <th style="text-align:center;"><a href="?sort=capacity&amp;dir={% if sort == 'capacity' and dir == 'asc' %}desc{% else %}asc{% endif %}" class="sort-th {% if sort == 'capacity' %}active{% endif %}">Capacité <i class="bi bi-arrow-{% if sort == 'capacity' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
+            <th><a href="{% if sort == 'name' and dir == 'asc' %}?{% qs sort="name" dir="desc" %}{% else %}?{% qs sort="name" dir="asc" %}{% endif %}" class="sort-th {% if sort == 'name' %}active{% endif %}">Nom <i class="bi bi-arrow-{% if sort == 'name' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
+            <th style="text-align:center;"><a href="{% if sort == 'capacity' and dir == 'asc' %}?{% qs sort="capacity" dir="desc" %}{% else %}?{% qs sort="capacity" dir="asc" %}{% endif %}" class="sort-th {% if sort == 'capacity' %}active{% endif %}">Capacité <i class="bi bi-arrow-{% if sort == 'capacity' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
             <th>Équipements fixes</th>
-            <th><a href="?sort=is_active&amp;dir={% if sort == 'is_active' and dir == 'asc' %}desc{% else %}asc{% endif %}" class="sort-th {% if sort == 'is_active' %}active{% endif %}">Statut <i class="bi bi-arrow-{% if sort == 'is_active' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
+            <th><a href="{% if sort == 'is_active' and dir == 'asc' %}?{% qs sort="is_active" dir="desc" %}{% else %}?{% qs sort="is_active" dir="asc" %}{% endif %}" class="sort-th {% if sort == 'is_active' %}active{% endif %}">Statut <i class="bi bi-arrow-{% if sort == 'is_active' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
             <th style="text-align:right;">Actions</th>
           </tr>
         </thead>

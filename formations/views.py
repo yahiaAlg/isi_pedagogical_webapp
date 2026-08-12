@@ -8,6 +8,8 @@ from django.db.models import Count, Q
 from django.utils import timezone
 
 from .models import Category, Branch, Specialty, Formation, Session, Participant
+from clients.models import Client
+from resources.models import Trainer
 from .forms import (
     CategoryForm,
     BranchForm,
@@ -47,11 +49,14 @@ def category_list(request):
         sort = "name"
     db_field = CATEGORY_SORT_MAP[sort]
     categories = Category.objects.annotate(formations_total=Count("formation"))
+    q = request.GET.get("q", "").strip()
+    if q:
+        categories = categories.filter(Q(name__icontains=q) | Q(description__icontains=q))
     categories = categories.order_by(db_field if dir_ == "asc" else "-" + db_field)
     return render(
         request,
         "formations/category_list.html",
-        {"categories": categories, "sort": sort, "dir": dir_},
+        {"categories": categories, "sort": sort, "dir": dir_, "filters": {"q": q}},
     )
 
 
@@ -120,8 +125,20 @@ def branch_list(request):
         messages.error(request, "Accès réservé aux administrateurs.")
         return redirect("formations:formation_list")
     branches = Branch.objects.annotate(specialties_total=Count("specialties"))
+    q = request.GET.get("q", "").strip()
+    if q:
+        branches = branches.filter(Q(name__icontains=q) | Q(name_ar__icontains=q) | Q(abbreviation__icontains=q))
+    curriculum_type = request.GET.get("curriculum_type", "").strip()
+    if curriculum_type:
+        branches = branches.filter(curriculum_type=curriculum_type)
     return render(
-        request, "formations/branch_list.html", {"branches": branches}
+        request,
+        "formations/branch_list.html",
+        {
+            "branches": branches,
+            "curriculum_choices": Branch.CURRICULUM_CHOICES,
+            "filters": {"q": q, "curriculum_type": curriculum_type},
+        },
     )
 
 
@@ -192,8 +209,22 @@ def specialty_list(request):
     specialties = Specialty.objects.select_related("branch").annotate(
         formations_total=Count("formations")
     )
+    q = request.GET.get("q", "").strip()
+    if q:
+        specialties = specialties.filter(
+            Q(title__icontains=q) | Q(title_ar__icontains=q) | Q(code__icontains=q)
+        )
+    branch = request.GET.get("branch", "").strip()
+    if branch.isdigit():
+        specialties = specialties.filter(branch_id=branch)
     return render(
-        request, "formations/specialty_list.html", {"specialties": specialties}
+        request,
+        "formations/specialty_list.html",
+        {
+            "specialties": specialties,
+            "branches": Branch.objects.order_by("name"),
+            "filters": {"q": q, "branch": branch},
+        },
     )
 
 
@@ -277,15 +308,77 @@ def formation_list(request):
     if sort not in FORMATION_SORT_MAP:
         sort = "title"
     db_field = FORMATION_SORT_MAP[sort]
-    qs = Formation.objects.select_related("category").annotate(
+    qs = Formation.objects.select_related("category", "specialty").annotate(
         sessions_total=Count("session")
     )
+
+    q = request.GET.get("q", "").strip()
+    if q:
+        qs = qs.filter(
+            Q(title__icontains=q)
+            | Q(title_ar__icontains=q)
+            | Q(code__icontains=q)
+            | Q(description__icontains=q)
+        )
+    category = request.GET.get("category", "").strip()
+    if category.isdigit():
+        qs = qs.filter(category_id=category)
+    attestation_type = request.GET.get("attestation_type", "").strip()
+    if attestation_type:
+        qs = qs.filter(attestation_type=attestation_type)
+    evaluation_type = request.GET.get("evaluation_type", "").strip()
+    if evaluation_type:
+        qs = qs.filter(evaluation_type=evaluation_type)
+    is_active = request.GET.get("is_active", "").strip()
+    if is_active == "yes":
+        qs = qs.filter(is_active=True)
+    elif is_active == "no":
+        qs = qs.filter(is_active=False)
+    price_min = request.GET.get("price_min", "").strip()
+    if price_min:
+        qs = qs.filter(base_price__gte=price_min)
+    price_max = request.GET.get("price_max", "").strip()
+    if price_max:
+        qs = qs.filter(base_price__lte=price_max)
+    duration_min = request.GET.get("duration_min", "").strip()
+    if duration_min.isdigit():
+        qs = qs.filter(duration_days__gte=int(duration_min))
+    duration_max = request.GET.get("duration_max", "").strip()
+    if duration_max.isdigit():
+        qs = qs.filter(duration_days__lte=int(duration_max))
+    participants_min = request.GET.get("participants_min", "").strip()
+    if participants_min.isdigit():
+        qs = qs.filter(max_participants__gte=int(participants_min))
+    participants_max = request.GET.get("participants_max", "").strip()
+    if participants_max.isdigit():
+        qs = qs.filter(min_participants__lte=int(participants_max))
+
     qs = qs.order_by(db_field if dir_ == "asc" else "-" + db_field)
     page_obj = Paginator(qs, 20).get_page(request.GET.get("page"))
     return render(
         request,
         "formations/formation_list.html",
-        {"page_obj": page_obj, "sort": sort, "dir": dir_},
+        {
+            "page_obj": page_obj,
+            "sort": sort,
+            "dir": dir_,
+            "categories": Category.objects.order_by("name"),
+            "attestation_choices": Formation.ATTESTATION_TYPE_CHOICES,
+            "evaluation_choices": Formation.EVALUATION_CHOICES,
+            "filters": {
+                "q": q,
+                "category": category,
+                "attestation_type": attestation_type,
+                "evaluation_type": evaluation_type,
+                "is_active": is_active,
+                "price_min": price_min,
+                "price_max": price_max,
+                "duration_min": duration_min,
+                "duration_max": duration_max,
+                "participants_min": participants_min,
+                "participants_max": participants_max,
+            },
+        },
     )
 
 
@@ -470,12 +563,72 @@ def session_list(request):
     qs = Session.objects.filter(is_primary=True).select_related(
         "formation", "client", "trainer"
     )
+
+    q = request.GET.get("q", "").strip()
+    if q:
+        qs = qs.filter(
+            Q(reference__icontains=q)
+            | Q(formation__title__icontains=q)
+            | Q(client__name__icontains=q)
+            | Q(trainer__first_name__icontains=q)
+            | Q(trainer__last_name__icontains=q)
+            | Q(external_location__icontains=q)
+        )
+    status = request.GET.get("status", "").strip()
+    if status:
+        qs = qs.filter(status=status)
+    location_type = request.GET.get("location_type", "").strip()
+    if location_type:
+        qs = qs.filter(location_type=location_type)
+    formation = request.GET.get("formation", "").strip()
+    if formation.isdigit():
+        qs = qs.filter(formation_id=formation)
+    client = request.GET.get("client", "").strip()
+    if client.isdigit():
+        qs = qs.filter(client_id=client)
+    trainer = request.GET.get("trainer", "").strip()
+    if trainer.isdigit():
+        qs = qs.filter(trainer_id=trainer)
+    date_from = request.GET.get("date_from", "").strip()
+    if date_from:
+        qs = qs.filter(date_start__gte=date_from)
+    date_to = request.GET.get("date_to", "").strip()
+    if date_to:
+        qs = qs.filter(date_end__lte=date_to)
+    capacity_min = request.GET.get("capacity_min", "").strip()
+    if capacity_min.isdigit():
+        qs = qs.filter(capacity__gte=int(capacity_min))
+    capacity_max = request.GET.get("capacity_max", "").strip()
+    if capacity_max.isdigit():
+        qs = qs.filter(capacity__lte=int(capacity_max))
+
     qs = qs.order_by(sort if dir_ == "asc" else "-" + sort)
     page_obj = Paginator(qs, 20).get_page(request.GET.get("page"))
     return render(
         request,
         "formations/session_list.html",
-        {"page_obj": page_obj, "sort": sort, "dir": dir_},
+        {
+            "page_obj": page_obj,
+            "sort": sort,
+            "dir": dir_,
+            "status_choices": Session.STATUS_CHOICES,
+            "location_choices": Session.LOCATION_CHOICES,
+            "formations": Formation.objects.order_by("title"),
+            "clients": Client.objects.filter(is_active=True).order_by("name"),
+            "trainers": Trainer.objects.filter(is_active=True).order_by("last_name"),
+            "filters": {
+                "q": q,
+                "status": status,
+                "location_type": location_type,
+                "formation": formation,
+                "client": client,
+                "trainer": trainer,
+                "date_from": date_from,
+                "date_to": date_to,
+                "capacity_min": capacity_min,
+                "capacity_max": capacity_max,
+            },
+        },
     )
 
 
@@ -1104,12 +1257,51 @@ def participant_list(request):
         qs = qs.filter(certificate_issued=True)
     elif cert == "no":
         qs = qs.filter(certificate_issued=False)
+    gender = request.GET.get("gender", "").strip()
+    if gender:
+        qs = qs.filter(gender=gender)
+    attended = request.GET.get("attended", "").strip()
+    if attended == "yes":
+        qs = qs.filter(attended=True)
+    elif attended == "no":
+        qs = qs.filter(attended=False)
+    formation = request.GET.get("formation", "").strip()
+    if formation.isdigit():
+        qs = qs.filter(session__formation_id=formation)
+    session_ref = request.GET.get("session", "").strip()
+    if session_ref:
+        qs = qs.filter(session__reference__icontains=session_ref)
+    dob_from = request.GET.get("dob_from", "").strip()
+    if dob_from:
+        qs = qs.filter(date_of_birth__gte=dob_from)
+    dob_to = request.GET.get("dob_to", "").strip()
+    if dob_to:
+        qs = qs.filter(date_of_birth__lte=dob_to)
+
     result_filter = request.GET.get("result", "")
     if result_filter:
         qs = [p for p in qs if p.result == result_filter]
+
     page_obj = Paginator(qs, 25).get_page(request.GET.get("page"))
     return render(
         request,
         "formations/participant_list.html",
-        {"page_obj": page_obj, "sort": sort, "dir": dir_},
+        {
+            "page_obj": page_obj,
+            "sort": sort,
+            "dir": dir_,
+            "gender_choices": Participant.GENDER_CHOICES,
+            "formations": Formation.objects.order_by("title"),
+            "filters": {
+                "q": q,
+                "cert": cert,
+                "result": result_filter,
+                "gender": gender,
+                "attended": attended,
+                "formation": formation,
+                "session": session_ref,
+                "dob_from": dob_from,
+                "dob_to": dob_to,
+            },
+        },
     )

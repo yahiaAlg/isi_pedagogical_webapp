@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load static %}
+{% load static qs_tags %}
 
 {% block title %}Clients — ISI Gestion Pédagogique{% endblock %}
 
@@ -41,22 +41,46 @@
 
   <!-- Filter bar -->
   <div class="isi-card mb-4">
-    <div class="isi-card-body" style="padding:16px 24px;">
+    <form method="get" class="isi-card-body" style="padding:16px 24px;">
+      <input type="hidden" name="sort" value="{{ sort }}">
+      <input type="hidden" name="dir" value="{{ dir }}">
       <div class="row g-3 align-items-end">
-        <div class="col-sm-8 col-md-6">
+        <div class="col-sm-8 col-md-4">
           <label class="form-label">Rechercher</label>
           <div class="input-icon-wrap">
             <i class="bi bi-search"></i>
-            <input type="text" id="clientSearch" class="form-control" placeholder="Raison sociale, ville, contact…" />
+            <input type="text" name="q" value="{{ filters.q }}" class="form-control" placeholder="Raison sociale, ville, contact, NIF/NIS/RC, email…" />
           </div>
         </div>
-        <div class="col-sm-4 col-md-3">
-          <button type="button" id="clearSearch" class="btn btn-ghost w-100">
-            <i class="bi bi-x-lg"></i> Réinitialiser
-          </button>
+        <div class="col-sm-4 col-md-2">
+          <label class="form-label">Ville</label>
+          <select name="city" class="form-select">
+            <option value="">Toutes</option>
+            {% for c in cities %}
+            <option value="{{ c }}" {% if filters.city == c %}selected{% endif %}>{{ c }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-sm-6 col-md-2">
+          <label class="form-label">Sessions (min–max)</label>
+          <div class="d-flex gap-2">
+            <input type="number" min="0" name="sessions_min" value="{{ filters.sessions_min }}" class="form-control" placeholder="Min">
+            <input type="number" min="0" name="sessions_max" value="{{ filters.sessions_max }}" class="form-control" placeholder="Max">
+          </div>
+        </div>
+        <div class="col-sm-6 col-md-2">
+          <label class="form-label">Créé entre</label>
+          <div class="d-flex gap-2">
+            <input type="date" name="created_from" value="{{ filters.created_from }}" class="form-control">
+            <input type="date" name="created_to" value="{{ filters.created_to }}" class="form-control">
+          </div>
+        </div>
+        <div class="col-sm-4 col-md-2 d-flex gap-2">
+          <button type="submit" class="btn btn-amber w-100"><i class="bi bi-funnel-fill"></i> Filtrer</button>
+          <a href="{% url 'clients:client_list' %}" class="btn btn-ghost w-100" title="Réinitialiser"><i class="bi bi-x-lg"></i></a>
         </div>
       </div>
-    </div>
+    </form>
   </div>
 
   <!-- Results card -->
@@ -77,12 +101,12 @@
       <table class="isi-table" id="clientTable">
         <thead>
           <tr>
-            <th><a href="?sort=name&amp;dir={% if sort == 'name' and dir == 'asc' %}desc{% else %}asc{% endif %}" class="sort-th {% if sort == 'name' %}active{% endif %}">Raison sociale <i class="bi bi-arrow-{% if sort == 'name' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
-            <th><a href="?sort=city&amp;dir={% if sort == 'city' and dir == 'asc' %}desc{% else %}asc{% endif %}" class="sort-th {% if sort == 'city' %}active{% endif %}">Ville <i class="bi bi-arrow-{% if sort == 'city' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
-            <th><a href="?sort=contact_person&amp;dir={% if sort == 'contact_person' and dir == 'asc' %}desc{% else %}asc{% endif %}" class="sort-th {% if sort == 'contact_person' %}active{% endif %}">Contact <i class="bi bi-arrow-{% if sort == 'contact_person' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
+            <th><a href="{% if sort == 'name' and dir == 'asc' %}?{% qs sort="name" dir="desc" %}{% else %}?{% qs sort="name" dir="asc" %}{% endif %}" class="sort-th {% if sort == 'name' %}active{% endif %}">Raison sociale <i class="bi bi-arrow-{% if sort == 'name' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
+            <th><a href="{% if sort == 'city' and dir == 'asc' %}?{% qs sort="city" dir="desc" %}{% else %}?{% qs sort="city" dir="asc" %}{% endif %}" class="sort-th {% if sort == 'city' %}active{% endif %}">Ville <i class="bi bi-arrow-{% if sort == 'city' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
+            <th><a href="{% if sort == 'contact_person' and dir == 'asc' %}?{% qs sort="contact_person" dir="desc" %}{% else %}?{% qs sort="contact_person" dir="asc" %}{% endif %}" class="sort-th {% if sort == 'contact_person' %}active{% endif %}">Contact <i class="bi bi-arrow-{% if sort == 'contact_person' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
             <th>Téléphone</th>
             <th>Email</th>
-            <th style="text-align:center;"><a href="?sort=session_count&amp;dir={% if sort == 'session_count' and dir == 'asc' %}desc{% else %}asc{% endif %}" class="sort-th {% if sort == 'session_count' %}active{% endif %}">Sessions <i class="bi bi-arrow-{% if sort == 'session_count' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
+            <th style="text-align:center;"><a href="{% if sort == 'session_count' and dir == 'asc' %}?{% qs sort="session_count" dir="desc" %}{% else %}?{% qs sort="session_count" dir="asc" %}{% endif %}" class="sort-th {% if sort == 'session_count' %}active{% endif %}">Sessions <i class="bi bi-arrow-{% if sort == 'session_count' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
             <th style="text-align:right;">Actions</th>
           </tr>
         </thead>
@@ -150,7 +174,7 @@
       </div>
       <div class="isi-pagination-controls">
         {% if page_obj.has_previous %}
-        <a href="?page={{ page_obj.previous_page_number }}" class="btn btn-ghost btn-sm">
+        <a href="?{% qs page=page_obj.previous_page_number %}" class="btn btn-ghost btn-sm">
           <i class="bi bi-chevron-left"></i>
         </a>
         {% endif %}
@@ -159,12 +183,12 @@
           {% if num == page_obj.number %}
           <button class="btn btn-amber btn-sm" disabled>{{ num }}</button>
           {% elif num >= page_obj.number|add:"-2" and num <= page_obj.number|add:"2" %}
-          <a href="?page={{ num }}" class="btn btn-ghost btn-sm">{{ num }}</a>
+          <a href="?{% qs page=num %}" class="btn btn-ghost btn-sm">{{ num }}</a>
           {% endif %}
         {% endfor %}
 
         {% if page_obj.has_next %}
-        <a href="?page={{ page_obj.next_page_number }}" class="btn btn-ghost btn-sm">
+        <a href="?{% qs page=page_obj.next_page_number %}" class="btn btn-ghost btn-sm">
           <i class="bi bi-chevron-right"></i>
         </a>
         {% endif %}

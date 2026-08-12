@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load static %}
+{% load static qs_tags %}
 
 {% block title %}Formateurs — ISI Gestion Pédagogique{% endblock %}
 
@@ -41,30 +41,47 @@
 
   <!-- Filter bar -->
   <div class="isi-card mb-4">
-    <div class="isi-card-body" style="padding:16px 24px;">
+    <form method="get" class="isi-card-body" style="padding:16px 24px;">
+      <input type="hidden" name="sort" value="{{ sort }}">
+      <input type="hidden" name="dir" value="{{ dir }}">
       <div class="row g-3 align-items-end">
-        <div class="col-sm-8 col-md-5">
+        <div class="col-sm-6 col-md-4">
           <label class="form-label">Rechercher</label>
           <div class="input-icon-wrap">
             <i class="bi bi-search"></i>
-            <input type="text" id="trainerSearch" class="form-control"
-              placeholder="Nom, spécialité, téléphone…" />
+            <input type="text" name="q" value="{{ filters.q }}" class="form-control"
+              placeholder="Nom, spécialité, téléphone, email…" />
           </div>
         </div>
-        <div class="col-sm-4 col-md-3">
-          <button type="button" id="clearSearch" class="btn btn-ghost w-100">
-            <i class="bi bi-x-lg"></i> Réinitialiser
-          </button>
+        <div class="col-sm-4 col-md-2">
+          <label class="form-label">Type d'emploi</label>
+          <select name="employment_type" class="form-select">
+            <option value="">Tous</option>
+            {% for val, label in employment_choices %}
+            <option value="{{ val }}" {% if filters.employment_type == val %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-sm-4 col-md-2">
+          <label class="form-label">Sessions (min–max)</label>
+          <div class="d-flex gap-2">
+            <input type="number" min="0" name="sessions_min" value="{{ filters.sessions_min }}" class="form-control" placeholder="Min">
+            <input type="number" min="0" name="sessions_max" value="{{ filters.sessions_max }}" class="form-control" placeholder="Max">
+          </div>
+        </div>
+        <div class="col-sm-4 col-md-2 d-flex gap-2">
+          <button type="submit" class="btn btn-amber w-100"><i class="bi bi-funnel-fill"></i> Filtrer</button>
+          <a href="{% url 'resources:trainer_list' %}" class="btn btn-ghost w-100" title="Réinitialiser"><i class="bi bi-x-lg"></i></a>
         </div>
         {% if request.user.profile.is_admin %}
-        <div class="col-md-4 text-md-end">
+        <div class="col-md-2 text-md-end">
           <a href="{% url 'resources:room_list' %}" class="btn btn-ghost">
-            <i class="bi bi-door-open-fill"></i> Gérer les salles
+            <i class="bi bi-door-open-fill"></i> Salles
           </a>
         </div>
         {% endif %}
       </div>
-    </div>
+    </form>
   </div>
 
   <!-- Results -->
@@ -85,12 +102,12 @@
       <table class="isi-table">
         <thead>
           <tr>
-            <th><a href="?sort=last_name&amp;dir={% if sort == 'last_name' and dir == 'asc' %}desc{% else %}asc{% endif %}" class="sort-th {% if sort == 'last_name' %}active{% endif %}">Nom et prénom <i class="bi bi-arrow-{% if sort == 'last_name' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
-            <th><a href="?sort=specialty&amp;dir={% if sort == 'specialty' and dir == 'asc' %}desc{% else %}asc{% endif %}" class="sort-th {% if sort == 'specialty' %}active{% endif %}">Spécialité <i class="bi bi-arrow-{% if sort == 'specialty' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
-            <th><a href="?sort=employment_type&amp;dir={% if sort == 'employment_type' and dir == 'asc' %}desc{% else %}asc{% endif %}" class="sort-th {% if sort == 'employment_type' %}active{% endif %}">Type <i class="bi bi-arrow-{% if sort == 'employment_type' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
+            <th><a href="{% if sort == 'last_name' and dir == 'asc' %}?{% qs sort="last_name" dir="desc" %}{% else %}?{% qs sort="last_name" dir="asc" %}{% endif %}" class="sort-th {% if sort == 'last_name' %}active{% endif %}">Nom et prénom <i class="bi bi-arrow-{% if sort == 'last_name' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
+            <th><a href="{% if sort == 'specialty' and dir == 'asc' %}?{% qs sort="specialty" dir="desc" %}{% else %}?{% qs sort="specialty" dir="asc" %}{% endif %}" class="sort-th {% if sort == 'specialty' %}active{% endif %}">Spécialité <i class="bi bi-arrow-{% if sort == 'specialty' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
+            <th><a href="{% if sort == 'employment_type' and dir == 'asc' %}?{% qs sort="employment_type" dir="desc" %}{% else %}?{% qs sort="employment_type" dir="asc" %}{% endif %}" class="sort-th {% if sort == 'employment_type' %}active{% endif %}">Type <i class="bi bi-arrow-{% if sort == 'employment_type' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
             <th>Téléphone</th>
-            <th style="text-align:center;"><a href="?sort=session_count&amp;dir={% if sort == 'session_count' and dir == 'asc' %}desc{% else %}asc{% endif %}" class="sort-th {% if sort == 'session_count' %}active{% endif %}">Sessions <i class="bi bi-arrow-{% if sort == 'session_count' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
-            <th><a href="?sort=is_active&amp;dir={% if sort == 'is_active' and dir == 'asc' %}desc{% else %}asc{% endif %}" class="sort-th {% if sort == 'is_active' %}active{% endif %}">Statut <i class="bi bi-arrow-{% if sort == 'is_active' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
+            <th style="text-align:center;"><a href="{% if sort == 'session_count' and dir == 'asc' %}?{% qs sort="session_count" dir="desc" %}{% else %}?{% qs sort="session_count" dir="asc" %}{% endif %}" class="sort-th {% if sort == 'session_count' %}active{% endif %}">Sessions <i class="bi bi-arrow-{% if sort == 'session_count' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
+            <th><a href="{% if sort == 'is_active' and dir == 'asc' %}?{% qs sort="is_active" dir="desc" %}{% else %}?{% qs sort="is_active" dir="asc" %}{% endif %}" class="sort-th {% if sort == 'is_active' %}active{% endif %}">Statut <i class="bi bi-arrow-{% if sort == 'is_active' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
             <th style="text-align:right;">Actions</th>
           </tr>
         </thead>
@@ -161,17 +178,17 @@
       </div>
       <div class="isi-pagination-controls">
         {% if page_obj.has_previous %}
-        <a href="?page={{ page_obj.previous_page_number }}" class="btn btn-ghost btn-sm"><i class="bi bi-chevron-left"></i></a>
+        <a href="?{% qs page=page_obj.previous_page_number %}" class="btn btn-ghost btn-sm"><i class="bi bi-chevron-left"></i></a>
         {% endif %}
         {% for num in page_obj.paginator.page_range %}
           {% if num == page_obj.number %}
             <button class="btn btn-amber btn-sm" disabled>{{ num }}</button>
           {% elif num >= page_obj.number|add:"-2" and num <= page_obj.number|add:"2" %}
-            <a href="?page={{ num }}" class="btn btn-ghost btn-sm">{{ num }}</a>
+            <a href="?{% qs page=num %}" class="btn btn-ghost btn-sm">{{ num }}</a>
           {% endif %}
         {% endfor %}
         {% if page_obj.has_next %}
-        <a href="?page={{ page_obj.next_page_number }}" class="btn btn-ghost btn-sm"><i class="bi bi-chevron-right"></i></a>
+        <a href="?{% qs page=page_obj.next_page_number %}" class="btn btn-ghost btn-sm"><i class="bi bi-chevron-right"></i></a>
         {% endif %}
       </div>
     </div>

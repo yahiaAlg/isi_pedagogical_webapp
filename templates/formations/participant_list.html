@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load static %}
+{% load static qs_tags %}
 
 {% block title %}Participants — ISI Gestion Pédagogique{% endblock %}
 
@@ -43,7 +43,7 @@
             <div class="input-icon-wrap">
               <i class="bi bi-search"></i>
               <input type="text" name="q" class="form-control"
-                value="{{ request.GET.q|default:'' }}"
+                value="{{ filters.q }}"
                 placeholder="Nom, prénom, employeur…" />
             </div>
           </div>
@@ -51,18 +51,18 @@
             <label class="form-label">Statut résultat</label>
             <select name="result" class="form-select">
               <option value="">— Tous —</option>
-              <option value="passed"  {% if request.GET.result == 'passed'  %}selected{% endif %}>Reçu</option>
-              <option value="failed"  {% if request.GET.result == 'failed'  %}selected{% endif %}>Ajourné</option>
-              <option value="pending" {% if request.GET.result == 'pending' %}selected{% endif %}>En attente</option>
-              <option value="absent"  {% if request.GET.result == 'absent'  %}selected{% endif %}>Absent</option>
+              <option value="passed"  {% if filters.result == 'passed'  %}selected{% endif %}>Reçu</option>
+              <option value="failed"  {% if filters.result == 'failed'  %}selected{% endif %}>Ajourné</option>
+              <option value="pending" {% if filters.result == 'pending' %}selected{% endif %}>En attente</option>
+              <option value="absent"  {% if filters.result == 'absent'  %}selected{% endif %}>Absent</option>
             </select>
           </div>
           <div class="col-sm-6 col-md-3">
             <label class="form-label">Attestation</label>
             <select name="cert" class="form-select">
               <option value="">— Toutes —</option>
-              <option value="yes" {% if request.GET.cert == 'yes' %}selected{% endif %}>Délivrée</option>
-              <option value="no"  {% if request.GET.cert == 'no'  %}selected{% endif %}>Non délivrée</option>
+              <option value="yes" {% if filters.cert == 'yes' %}selected{% endif %}>Délivrée</option>
+              <option value="no"  {% if filters.cert == 'no'  %}selected{% endif %}>Non délivrée</option>
             </select>
           </div>
           <div class="col-sm-6 col-md-2">
@@ -73,6 +73,43 @@
               <a href="{% url 'formations:participant_list' %}" class="btn btn-ghost" title="Réinitialiser">
                 <i class="bi bi-x-lg"></i>
               </a>
+            </div>
+          </div>
+          <div class="col-sm-4 col-md-2">
+            <label class="form-label">Genre</label>
+            <select name="gender" class="form-select">
+              <option value="">— Tous —</option>
+              {% for val, label in gender_choices %}
+              <option value="{{ val }}" {% if filters.gender == val %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-sm-4 col-md-2">
+            <label class="form-label">Présence</label>
+            <select name="attended" class="form-select">
+              <option value="">— Toutes —</option>
+              <option value="yes" {% if filters.attended == "yes" %}selected{% endif %}>Présent</option>
+              <option value="no" {% if filters.attended == "no" %}selected{% endif %}>Absent</option>
+            </select>
+          </div>
+          <div class="col-sm-4 col-md-3">
+            <label class="form-label">Formation</label>
+            <select name="formation" class="form-select">
+              <option value="">— Toutes —</option>
+              {% for f in formations %}
+              <option value="{{ f.pk }}" {% if filters.formation == f.pk|stringformat:"s" %}selected{% endif %}>{{ f.title }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-sm-6 col-md-2">
+            <label class="form-label">Référence session</label>
+            <input type="text" name="session" value="{{ filters.session }}" class="form-control" placeholder="Réf. session">
+          </div>
+          <div class="col-sm-6 col-md-3">
+            <label class="form-label">Date de naissance (entre)</label>
+            <div class="d-flex gap-2">
+              <input type="date" name="dob_from" value="{{ filters.dob_from }}" class="form-control">
+              <input type="date" name="dob_to" value="{{ filters.dob_to }}" class="form-control">
             </div>
           </div>
         </div>
@@ -93,14 +130,14 @@
       <table class="isi-table">
         <thead>
           <tr>
-            <th><a href="?sort=last_name&amp;dir={% if sort == 'last_name' and dir == 'asc' %}desc{% else %}asc{% endif %}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.result %}&result={{ request.GET.result }}{% endif %}{% if request.GET.cert %}&cert={{ request.GET.cert }}{% endif %}" class="sort-th {% if sort == 'last_name' %}active{% endif %}">Nom et prénom <i class="bi bi-arrow-{% if sort == 'last_name' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
-            <th><a href="?sort=session__reference&amp;dir={% if sort == 'session__reference' and dir == 'asc' %}desc{% else %}asc{% endif %}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.result %}&result={{ request.GET.result }}{% endif %}{% if request.GET.cert %}&cert={{ request.GET.cert }}{% endif %}" class="sort-th {% if sort == 'session__reference' %}active{% endif %}">Session <i class="bi bi-arrow-{% if sort == 'session__reference' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
-            <th><a href="?sort=job_title&amp;dir={% if sort == 'job_title' and dir == 'asc' %}desc{% else %}asc{% endif %}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.result %}&result={{ request.GET.result }}{% endif %}{% if request.GET.cert %}&cert={{ request.GET.cert }}{% endif %}" class="sort-th {% if sort == 'job_title' %}active{% endif %}">Fonction <i class="bi bi-arrow-{% if sort == 'job_title' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
-            <th><a href="?sort=employer&amp;dir={% if sort == 'employer' and dir == 'asc' %}desc{% else %}asc{% endif %}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.result %}&result={{ request.GET.result }}{% endif %}{% if request.GET.cert %}&cert={{ request.GET.cert }}{% endif %}" class="sort-th {% if sort == 'employer' %}active{% endif %}">Employeur <i class="bi bi-arrow-{% if sort == 'employer' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
-            <th><a href="?sort=attended&amp;dir={% if sort == 'attended' and dir == 'asc' %}desc{% else %}asc{% endif %}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.result %}&result={{ request.GET.result }}{% endif %}{% if request.GET.cert %}&cert={{ request.GET.cert }}{% endif %}" class="sort-th {% if sort == 'attended' %}active{% endif %}">Présence <i class="bi bi-arrow-{% if sort == 'attended' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
+            <th><a href="{% if sort == 'last_name' and dir == 'asc' %}?{% qs sort="last_name" dir="desc" %}{% else %}?{% qs sort="last_name" dir="asc" %}{% endif %}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.result %}&result={{ request.GET.result }}{% endif %}{% if request.GET.cert %}&cert={{ request.GET.cert }}{% endif %}" class="sort-th {% if sort == 'last_name' %}active{% endif %}">Nom et prénom <i class="bi bi-arrow-{% if sort == 'last_name' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
+            <th><a href="{% if sort == 'session__reference' and dir == 'asc' %}?{% qs sort="session__reference" dir="desc" %}{% else %}?{% qs sort="session__reference" dir="asc" %}{% endif %}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.result %}&result={{ request.GET.result }}{% endif %}{% if request.GET.cert %}&cert={{ request.GET.cert }}{% endif %}" class="sort-th {% if sort == 'session__reference' %}active{% endif %}">Session <i class="bi bi-arrow-{% if sort == 'session__reference' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
+            <th><a href="{% if sort == 'job_title' and dir == 'asc' %}?{% qs sort="job_title" dir="desc" %}{% else %}?{% qs sort="job_title" dir="asc" %}{% endif %}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.result %}&result={{ request.GET.result }}{% endif %}{% if request.GET.cert %}&cert={{ request.GET.cert }}{% endif %}" class="sort-th {% if sort == 'job_title' %}active{% endif %}">Fonction <i class="bi bi-arrow-{% if sort == 'job_title' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
+            <th><a href="{% if sort == 'employer' and dir == 'asc' %}?{% qs sort="employer" dir="desc" %}{% else %}?{% qs sort="employer" dir="asc" %}{% endif %}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.result %}&result={{ request.GET.result }}{% endif %}{% if request.GET.cert %}&cert={{ request.GET.cert }}{% endif %}" class="sort-th {% if sort == 'employer' %}active{% endif %}">Employeur <i class="bi bi-arrow-{% if sort == 'employer' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
+            <th><a href="{% if sort == 'attended' and dir == 'asc' %}?{% qs sort="attended" dir="desc" %}{% else %}?{% qs sort="attended" dir="asc" %}{% endif %}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.result %}&result={{ request.GET.result }}{% endif %}{% if request.GET.cert %}&cert={{ request.GET.cert }}{% endif %}" class="sort-th {% if sort == 'attended' %}active{% endif %}">Présence <i class="bi bi-arrow-{% if sort == 'attended' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
             <th>Note</th>
             <th>Résultat</th>
-            <th><a href="?sort=certificate_issued&amp;dir={% if sort == 'certificate_issued' and dir == 'asc' %}desc{% else %}asc{% endif %}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.result %}&result={{ request.GET.result }}{% endif %}{% if request.GET.cert %}&cert={{ request.GET.cert }}{% endif %}" class="sort-th {% if sort == 'certificate_issued' %}active{% endif %}">Attestation <i class="bi bi-arrow-{% if sort == 'certificate_issued' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
+            <th><a href="{% if sort == 'certificate_issued' and dir == 'asc' %}?{% qs sort="certificate_issued" dir="desc" %}{% else %}?{% qs sort="certificate_issued" dir="asc" %}{% endif %}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.result %}&result={{ request.GET.result }}{% endif %}{% if request.GET.cert %}&cert={{ request.GET.cert }}{% endif %}" class="sort-th {% if sort == 'certificate_issued' %}active{% endif %}">Attestation <i class="bi bi-arrow-{% if sort == 'certificate_issued' %}{% if dir == 'asc' %}up{% else %}down{% endif %}{% else %}down-up{% endif %}-short si"></i></a></th>
             <th style="text-align:right;">Actions</th>
           </tr>
         </thead>
