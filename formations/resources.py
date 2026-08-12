@@ -16,6 +16,65 @@ from resources.models import Room, Trainer
 from .models import Branch, Category, Formation, Participant, Session, Specialty
 
 
+class SelfReferenceWidget(ForeignKeyWidget):
+    """ForeignKeyWidget for self-referencing FKs (Session.parent_session,
+    Participant.source_participant).
+
+    A row that references a parent/source appearing *later* in the same
+    import file would otherwise blow up with "<Model> matching query does
+    not exist", because that target hasn't been created yet — which in turn
+    causes the entire row (and anything imported afterwards that depends on
+    it, e.g. participants under a still-missing session) to fail.
+
+    Here, clean() returns None instead of raising when the target isn't
+    found yet, so the row still imports; the resource then relinks the
+    real value in a second pass (see before_import/after_import below),
+    once every row in the file is guaranteed to exist.
+    """
+
+    def clean(self, value, row=None, **kwargs):
+        try:
+            return super().clean(value, row=row, **kwargs)
+        except self.model.DoesNotExist:
+            return None
+
+
+class SelfReferenceLinkingMixin:
+    """Defers a self-referencing FK column to a second pass after import.
+
+    Subclasses set `self_ref_field` (model field name) and
+    `self_ref_column` (source column name in the dataset).
+    """
+
+    self_ref_field = None
+    self_ref_column = None
+
+    def before_import(self, dataset, **kwargs):
+        self._self_ref_links = {}
+        if (
+            dataset is not None
+            and "id" in dataset.headers
+            and self.self_ref_column in dataset.headers
+        ):
+            id_idx = dataset.headers.index("id")
+            ref_idx = dataset.headers.index(self.self_ref_column)
+            for row in dataset:
+                row_id = row[id_idx]
+                ref_id = row[ref_idx]
+                if row_id not in (None, "") and ref_id not in (None, ""):
+                    self._self_ref_links[row_id] = ref_id
+        super().before_import(dataset, **kwargs)
+
+    def after_import(self, dataset, result, **kwargs):
+        super().after_import(dataset, result, **kwargs)
+        links = getattr(self, "_self_ref_links", {})
+        if not links:
+            return
+        model = self._meta.model
+        for row_id, ref_id in links.items():
+            model.objects.filter(pk=row_id).update(**{self.self_ref_field: ref_id})
+
+
 class CategoryResource(resources.ModelResource):
     class Meta:
         model = Category
@@ -124,7 +183,7 @@ class JSONWidget(Widget):
         return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
 
 
-class SessionResource(resources.ModelResource):
+class SessionResource(SelfReferenceLinkingMixin, resources.ModelResource):
     formation = fields.Field(
         attribute="formation",
         column_name="formation_id",
@@ -153,8 +212,11 @@ class SessionResource(resources.ModelResource):
     parent_session = fields.Field(
         attribute="parent_session",
         column_name="parent_session_id",
-        widget=ForeignKeyWidget(Session, "pk"),
+        widget=SelfReferenceWidget(Session, "pk"),
     )
+
+    self_ref_field = "parent_session_id"
+    self_ref_column = "parent_session_id"
 
     class Meta:
         model = Session
@@ -186,7 +248,7 @@ class SessionResource(resources.ModelResource):
         report_skipped = True
 
 
-class ParticipantResource(resources.ModelResource):
+class ParticipantResource(SelfReferenceLinkingMixin, resources.ModelResource):
     session = fields.Field(
         attribute="session",
         column_name="session_id",
@@ -205,8 +267,11 @@ class ParticipantResource(resources.ModelResource):
     source_participant = fields.Field(
         attribute="source_participant",
         column_name="source_participant_id",
-        widget=ForeignKeyWidget(Participant, "pk"),
+        widget=SelfReferenceWidget(Participant, "pk"),
     )
+
+    self_ref_field = "source_participant_id"
+    self_ref_column = "source_participant_id"
 
     class Meta:
         model = Participant
