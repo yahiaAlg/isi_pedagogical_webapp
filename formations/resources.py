@@ -320,16 +320,20 @@ class ParticipantResource(SelfReferenceLinkingMixin, resources.ModelResource):
         """Respect the existing capacity/duplicate rules for session imports."""
         session = getattr(self, "_session", None)
         if session is None:
-            return super().skip_row(instance, original, **kwargs)
+            return super().skip_row(instance, original, *args, **kwargs)
 
         if session.available_spots <= 0 and getattr(instance, "pk", None) is None:
             return True
 
-        return Participant.objects.filter(
-            session=session,
-            first_name=instance.first_name,
-            last_name=instance.last_name,
-        ).exclude(pk=getattr(instance, "pk", None)).exists()
+        return (
+            Participant.objects.filter(
+                session=session,
+                first_name=instance.first_name,
+                last_name=instance.last_name,
+            )
+            .exclude(pk=getattr(instance, "pk", None))
+            .exists()
+        )
 
     def before_save_instance(self, instance, *args, **kwargs):
         session = getattr(self, "_session", None)
