@@ -1,17 +1,28 @@
 from django.contrib import admin
 from django.urls import reverse
 from django.utils.html import format_html
+from import_export.admin import ImportExportModelAdmin
 from .models import Category, Branch, Specialty, Formation, Session, Participant
+from .resources import (
+    CategoryResource,
+    BranchResource,
+    SpecialtyResource,
+    FormationResource,
+    SessionResource,
+    ParticipantResource,
+)
 
 
 @admin.register(Category)
-class CategoryAdmin(admin.ModelAdmin):
+class CategoryAdmin(ImportExportModelAdmin):
+    resource_classes = [CategoryResource]
     list_display = ["name", "description", "color"]
     search_fields = ["name"]
 
 
 @admin.register(Branch)
-class BranchAdmin(admin.ModelAdmin):
+class BranchAdmin(ImportExportModelAdmin):
+    resource_classes = [BranchResource]
     list_display = [
         "abbreviation",
         "name",
@@ -25,14 +36,16 @@ class BranchAdmin(admin.ModelAdmin):
 
 
 @admin.register(Specialty)
-class SpecialtyAdmin(admin.ModelAdmin):
+class SpecialtyAdmin(ImportExportModelAdmin):
+    resource_classes = [SpecialtyResource]
     list_display = ["reference_root", "branch", "code", "title", "title_ar"]
     list_filter = ["branch"]
     search_fields = ["code", "title", "title_ar"]
 
 
 @admin.register(Formation)
-class FormationAdmin(admin.ModelAdmin):
+class FormationAdmin(ImportExportModelAdmin):
+    resource_classes = [FormationResource]
     list_display = [
         "code",
         "title",
@@ -134,7 +147,8 @@ class ParticipantInline(admin.TabularInline):
 
 
 @admin.register(Session)
-class SessionAdmin(admin.ModelAdmin):
+class SessionAdmin(ImportExportModelAdmin):
+    resource_classes = [SessionResource]
     list_display = [
         "reference",
         "formation",
@@ -216,7 +230,8 @@ class SessionAdmin(admin.ModelAdmin):
 
 
 @admin.register(Participant)
-class ParticipantAdmin(admin.ModelAdmin):
+class ParticipantAdmin(ImportExportModelAdmin):
+    resource_classes = [ParticipantResource]
     list_display = [
         "full_name",
         "full_name_ar",

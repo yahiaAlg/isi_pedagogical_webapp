@@ -1,16 +1,20 @@
 from django.contrib import admin
+from import_export.admin import ImportExportModelAdmin
 from .models import InstituteInfo, CommitteeMember
+from .resources import CommitteeMemberResource, InstituteInfoResource
 
 
 @admin.register(CommitteeMember)
-class CommitteeMemberAdmin(admin.ModelAdmin):
+class CommitteeMemberAdmin(ImportExportModelAdmin):
+    resource_classes = [CommitteeMemberResource]
     list_display = ("full_name", "role", "order", "is_active")
     list_editable = ("order", "is_active")
     ordering = ("order", "id")
 
 
 @admin.register(InstituteInfo)
-class InstituteInfoAdmin(admin.ModelAdmin):
+class InstituteInfoAdmin(ImportExportModelAdmin):
+    resource_classes = [InstituteInfoResource]
     fieldsets = (
         ('Informations générales', {
             'fields': ('name_fr', 'name_ar', 'logo', 'address', 'phone', 'email')

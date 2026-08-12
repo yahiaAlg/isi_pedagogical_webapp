@@ -1,8 +1,11 @@
 from django.contrib import admin
+from import_export.admin import ImportExportModelAdmin
 from .models import Client
+from .resources import ClientResource
 
 @admin.register(Client)
-class ClientAdmin(admin.ModelAdmin):
+class ClientAdmin(ImportExportModelAdmin):
+    resource_classes = [ClientResource]
     list_display = ['name', 'name_ar', 'city', 'contact_person', 'phone', 'is_active']
     list_filter = ['is_active', 'city']
     search_fields = ['name', 'name_ar', 'contact_person']
