@@ -241,6 +241,112 @@
         </div>
 
       </form>
+
+      <!-- ── Aعضاء اللجنة الافتراضيون / Comité PV par défaut ──────── -->
+      <div class="isi-card mb-4" id="committee-members" style="margin-top:24px;">
+        <div class="isi-card-header">
+          <div class="card-icon green"><i class="bi bi-people-fill"></i></div>
+          <h3>أعضاء اللجنة الافتراضيون (محضر المداولات)</h3>
+        </div>
+        <div class="isi-card-body">
+          <div style="font-size:12.5px;color:var(--text-muted);margin-bottom:14px;" dir="rtl">
+            هؤلاء الأعضاء (عادة مدير المؤسسة وباقي الأعضاء الدائمين) يظهرون تلقائياً في جدول
+            محضر المداولات عند إنشائه. أما الأستاذ المكوّن وممثل الشركة المتعاقد معها فيُدخلان
+            مباشرة عند تحرير كل محضر لأنهما يتغيران حسب كل دورة تكوين.
+          </div>
+
+          {% if committee_members %}
+          <table class="table" style="margin-bottom:20px;" dir="rtl">
+            <thead>
+              <tr>
+                <th style="width:60px;">الترتيب</th>
+                <th>الاسم و اللقب</th>
+                <th>الصفة</th>
+                <th style="width:80px;">نشط</th>
+                <th style="width:140px;"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for m in committee_members %}
+              <tr {% if not m.is_active %}style="opacity:.5;"{% endif %}>
+                <td>{{ m.order }}</td>
+                <td>{{ m.full_name }}</td>
+                <td>{{ m.role }}</td>
+                <td>{% if m.is_active %}<i class="bi bi-check-circle-fill" style="color:var(--success);"></i>{% else %}<i class="bi bi-dash-circle" style="color:var(--text-muted);"></i>{% endif %}</td>
+                <td style="display:flex;gap:8px;">
+                  <button type="button" class="btn btn-ghost btn-sm"
+                    onclick="isiEditCommitteeMember('{{ m.pk }}','{{ m.full_name|escapejs }}','{{ m.role|escapejs }}','{{ m.order }}',{{ m.is_active|yesno:'true,false' }})">
+                    <i class="bi bi-pencil"></i>
+                  </button>
+                  <form method="post" action="{% url 'core:committee_member_delete' m.pk %}" onsubmit="return confirm('حذف هذا العضو؟');">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--danger);">
+                      <i class="bi bi-trash"></i>
+                    </button>
+                  </form>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% endif %}
+
+          <form method="post" action="{% url 'core:committee_member_add' %}" id="committee-member-form" dir="rtl">
+            {% csrf_token %}
+            <input type="hidden" name="member_id" id="cm-member-id" value="{{ editing_member_id|default:'' }}" />
+            <div class="row g-3 align-items-end">
+              <div class="col-sm-4">
+                <label class="form-label">الاسم و اللقب</label>
+                <input type="text" name="full_name" id="cm-full-name" class="form-control" dir="rtl"
+                  value="{{ committee_member_form.full_name.value|default_if_none:'' }}" required />
+              </div>
+              <div class="col-sm-4">
+                <label class="form-label">الصفة</label>
+                <input type="text" name="role" id="cm-role" class="form-control" dir="rtl"
+                  value="{{ committee_member_form.role.value|default_if_none:'' }}"
+                  placeholder="مدير المؤسسة" required />
+              </div>
+              <div class="col-sm-2">
+                <label class="form-label">الترتيب</label>
+                <input type="number" name="order" id="cm-order" class="form-control" min="0"
+                  value="{{ committee_member_form.order.value|default:'0' }}" />
+              </div>
+              <div class="col-sm-2 d-flex align-items-center" style="gap:8px;padding-bottom:8px;">
+                <input type="checkbox" name="is_active" id="cm-is-active" class="form-check-input"
+                  {% if committee_member_form.is_active.value|default:True %}checked{% endif %} />
+                <label class="form-label mb-0" for="cm-is-active" style="cursor:pointer;">نشط</label>
+              </div>
+            </div>
+            <div style="margin-top:12px;display:flex;gap:10px;">
+              <button type="submit" class="btn btn-amber btn-sm" id="cm-submit-btn">
+                <i class="bi bi-plus-lg"></i> <span id="cm-submit-label">إضافة عضو</span>
+              </button>
+              <button type="button" class="btn btn-ghost btn-sm" id="cm-cancel-btn" style="display:none;" onclick="isiResetCommitteeForm()">
+                إلغاء التعديل
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <script>
+        function isiEditCommitteeMember(id, fullName, role, order, isActive) {
+          document.getElementById('cm-member-id').value = id;
+          document.getElementById('cm-full-name').value = fullName;
+          document.getElementById('cm-role').value = role;
+          document.getElementById('cm-order').value = order;
+          document.getElementById('cm-is-active').checked = !!isActive;
+          document.getElementById('cm-submit-label').textContent = 'حفظ التعديل';
+          document.getElementById('cm-cancel-btn').style.display = 'inline-block';
+          document.getElementById('committee-members').scrollIntoView({behavior:'smooth', block:'center'});
+        }
+        function isiResetCommitteeForm() {
+          document.getElementById('committee-member-form').reset();
+          document.getElementById('cm-member-id').value = '';
+          document.getElementById('cm-submit-label').textContent = 'إضافة عضو';
+          document.getElementById('cm-cancel-btn').style.display = 'none';
+        }
+      </script>
     </div>
   </div>
 </div>

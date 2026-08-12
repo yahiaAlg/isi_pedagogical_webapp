@@ -14,5 +14,9 @@ urlpatterns = [
     path("", include("core.urls")),
 ]
 
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+# Media files (institute logo, etc.) must be served regardless of DEBUG:
+# this project has no separate media host / nginx alias for MEDIA_ROOT, so
+# without this the uploaded logo 404s in production and never shows up on
+# the printed documents (PV, attestations, ...), even though the upload
+# itself succeeds and InstituteInfo.logo.url is correct.
+urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

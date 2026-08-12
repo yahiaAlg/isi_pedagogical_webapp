@@ -1,11 +1,11 @@
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils import timezone
 
 from formations.models import Session, Participant
-from .models import InstituteInfo
-from .forms import InstituteInfoForm
+from .models import InstituteInfo, CommitteeMember
+from .forms import InstituteInfoForm, CommitteeMemberForm
 
 
 # ---------------------------------------------------------------------------
@@ -88,8 +88,59 @@ def settings_view(request):
         {
             "form": form,
             "instance": instance,
+            "committee_members": CommitteeMember.objects.all(),
+            "committee_member_form": CommitteeMemberForm(),
         },
     )
+
+
+@login_required
+def committee_member_add(request):
+    """Add a default PV committee member (e.g. a director) — Admin only.
+    Editing reuses this same view: POST with `member_id` updates instead
+    of creating."""
+    if not request.user.profile.is_admin():
+        messages.error(request, "Accès réservé aux administrateurs.")
+        return redirect("core:dashboard")
+
+    member_id = request.POST.get("member_id") or request.GET.get("member_id")
+    instance = get_object_or_404(CommitteeMember, pk=member_id) if member_id else None
+
+    if request.method == "POST":
+        form = CommitteeMemberForm(request.POST, instance=instance)
+        if form.is_valid():
+            form.save()
+            messages.success(
+                request,
+                "Membre du comité mis à jour." if instance else "Membre du comité ajouté.",
+            )
+            return redirect("core:settings")
+        messages.error(request, "Veuillez corriger les erreurs du formulaire.")
+        return render(
+            request,
+            "core/settings.html",
+            {
+                "form": InstituteInfoForm(instance=InstituteInfo.get_instance()),
+                "instance": InstituteInfo.get_instance(),
+                "committee_members": CommitteeMember.objects.all(),
+                "committee_member_form": form,
+                "editing_member_id": instance.pk if instance else None,
+            },
+        )
+
+    return redirect("core:settings")
+
+
+@login_required
+def committee_member_delete(request, pk):
+    if not request.user.profile.is_admin():
+        messages.error(request, "Accès réservé aux administrateurs.")
+        return redirect("core:dashboard")
+    member = get_object_or_404(CommitteeMember, pk=pk)
+    if request.method == "POST":
+        member.delete()
+        messages.success(request, "Membre du comité supprimé.")
+    return redirect("core:settings")
 
 
 def verify_attestation(request, token):

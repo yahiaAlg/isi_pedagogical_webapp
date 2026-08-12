@@ -1,7 +1,34 @@
 from django import forms
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
-from .models import InstituteInfo
+from .models import InstituteInfo, CommitteeMember
+
+
+class CommitteeMemberForm(forms.ModelForm):
+    """Add/edit a default PV committee member (e.g. a director) from the
+    Settings page."""
+
+    class Meta:
+        model = CommitteeMember
+        fields = ["full_name", "role", "order", "is_active"]
+        widgets = {
+            "full_name": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "dir": "rtl",
+                    "placeholder": "لكراش حسين",
+                }
+            ),
+            "role": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "dir": "rtl",
+                    "placeholder": "مدير المؤسسة",
+                }
+            ),
+            "order": forms.NumberInput(attrs={"class": "form-control", "min": 0}),
+            "is_active": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+        }
 
 
 class InstituteInfoForm(forms.ModelForm):
