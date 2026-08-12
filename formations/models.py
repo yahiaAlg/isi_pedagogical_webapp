@@ -589,10 +589,16 @@ class Participant(models.Model):
 
     def save(self, *args, **kwargs):
         if self.pk:
-            # Protect certificate_number from being changed once assigned
-            old = Participant.objects.get(pk=self.pk)
+            # Protect certificate_number from being changed once assigned.
+            # self.pk may be set (e.g. from an import file) without a row
+            # actually existing yet, so treat "not found" as a new record.
+            try:
+                old = Participant.objects.get(pk=self.pk)
+            except Participant.DoesNotExist:
+                old = None
             if (
-                old.certificate_number
+                old is not None
+                and old.certificate_number
                 and self.certificate_number != old.certificate_number
             ):
                 self.certificate_number = old.certificate_number
@@ -657,7 +663,9 @@ class Participant(models.Model):
         if eval_type == "both":
             if self.score_theory is None or self.score_practice is None:
                 return None
-            return ((self.score_theory + self.score_practice) / Decimal("2")).quantize(Decimal("0.01"))
+            return ((self.score_theory + self.score_practice) / Decimal("2")).quantize(
+                Decimal("0.01")
+            )
         if eval_type == "theory_only":
             return self.score_theory
         if eval_type == "practice_only":
