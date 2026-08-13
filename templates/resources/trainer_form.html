@@ -53,7 +53,7 @@
         </div>
         <div class="isi-card-body">
 
-          <form method="post" novalidate>
+          <form method="post" enctype="multipart/form-data" novalidate>
             {% csrf_token %}
 
             {% if form.non_field_errors %}
@@ -248,6 +248,49 @@
             {% if form.qualifications.errors %}
             <div class="invalid-feedback d-block mt-2">{{ form.qualifications.errors|join:", " }}</div>
             {% endif %}
+
+            <!-- ── Section: Documents ──────────────────────────── -->
+            <div class="section-divider"></div>
+            <div class="form-section-title">Documents</div>
+            <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">
+              CV et document de contact du formateur — consultables plus tard depuis sa fiche. Formats acceptés : image ou PDF.
+            </p>
+            <div class="row g-3">
+              <div class="col-sm-6">
+                <label class="form-label" for="{{ form.cv.id_for_label }}">CV</label>
+                <input type="file"
+                  id="{{ form.cv.id_for_label }}"
+                  name="{{ form.cv.html_name }}"
+                  accept=".pdf,.jpg,.jpeg,.png,.webp"
+                  class="form-control {% if form.cv.errors %}is-invalid{% endif %}" />
+                {% if form.cv.errors %}
+                <div class="invalid-feedback d-block">{{ form.cv.errors|join:", " }}</div>
+                {% endif %}
+                {% if trainer and trainer.cv %}
+                <div style="font-size:12px;margin-top:6px;">
+                  <i class="bi bi-file-earmark-check-fill" style="color:var(--accent);"></i>
+                  Actuel : <a href="{{ trainer.cv.url }}" target="_blank" rel="noopener">{{ trainer.cv.name|slice:"-40:" }}</a>
+                </div>
+                {% endif %}
+              </div>
+              <div class="col-sm-6">
+                <label class="form-label" for="{{ form.contact_document.id_for_label }}">Document de contact</label>
+                <input type="file"
+                  id="{{ form.contact_document.id_for_label }}"
+                  name="{{ form.contact_document.html_name }}"
+                  accept=".pdf,.jpg,.jpeg,.png,.webp"
+                  class="form-control {% if form.contact_document.errors %}is-invalid{% endif %}" />
+                {% if form.contact_document.errors %}
+                <div class="invalid-feedback d-block">{{ form.contact_document.errors|join:", " }}</div>
+                {% endif %}
+                {% if trainer and trainer.contact_document %}
+                <div style="font-size:12px;margin-top:6px;">
+                  <i class="bi bi-file-earmark-check-fill" style="color:var(--accent);"></i>
+                  Actuel : <a href="{{ trainer.contact_document.url }}" target="_blank" rel="noopener">{{ trainer.contact_document.name|slice:"-40:" }}</a>
+                </div>
+                {% endif %}
+              </div>
+            </div>
 
             <!-- ── Section: Statut ─────────────────────────────── -->
             <div class="section-divider"></div>

@@ -17,6 +17,8 @@ class TrainerForm(forms.ModelForm):
             "email",
             "employment_type",
             "qualifications",  # spec §10.5 — M2M added in round 1
+            "cv",
+            "contact_document",
             "is_active",
         ]
         widgets = {
@@ -36,6 +38,12 @@ class TrainerForm(forms.ModelForm):
             "email": forms.EmailInput(attrs={"class": "form-control"}),
             "employment_type": forms.Select(attrs={"class": "form-select"}),
             "qualifications": forms.CheckboxSelectMultiple(),
+            "cv": forms.ClearableFileInput(
+                attrs={"class": "form-control", "accept": ".pdf,.jpg,.jpeg,.png,.webp"}
+            ),
+            "contact_document": forms.ClearableFileInput(
+                attrs={"class": "form-control", "accept": ".pdf,.jpg,.jpeg,.png,.webp"}
+            ),
             "is_active": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
 

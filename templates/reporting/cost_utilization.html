@@ -476,14 +476,14 @@
 {% endblock %}
 
 {% block extra_scripts %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script src="{% static 'vendor/chartjs/chart.umd.min.js' %}"></script>
 <script src="{% static 'reporting/js/reporting.js' %}"></script>
 
 {% if top_revenue_rows %}
 <script>
 buildMultiBarChart(
   "revenueCostChart",
-  [{% for r in top_revenue_rows %}"{{ r.formation.title|escapejs|truncatechars:22 }}"{% if not forloop.last %},{% endif %}{% endfor %}],
+  [{% for r in top_revenue_rows %}"{{ r.formation.title|truncatechars:22|escapejs }}"{% if not forloop.last %},{% endif %}{% endfor %}],
   [
     { label: "Revenu (DA)", data: [{% for r in top_revenue_rows %}{{ r.revenue|floatformat:0 }}{% if not forloop.last %},{% endif %}{% endfor %}], color: "rgba(16,185,129,0.75)" },
     { label: "Coût (DA)", data: [{% for r in top_revenue_rows %}{{ r.cost|floatformat:0 }}{% if not forloop.last %},{% endif %}{% endfor %}], color: "rgba(239,68,68,0.75)" }
@@ -540,7 +540,7 @@ buildDoughnut(
 <script>
 buildHorizontalBar(
   "equipUtilChart",
-  [{% for r in top_equipment_by_utilization %}"{{ r.equipment.name|escapejs|truncatechars:22 }}"{% if not forloop.last %},{% endif %}{% endfor %}],
+  [{% for r in top_equipment_by_utilization %}"{{ r.equipment.name|truncatechars:22|escapejs }}"{% if not forloop.last %},{% endif %}{% endfor %}],
   [{% for r in top_equipment_by_utilization %}{{ r.utilization }}{% if not forloop.last %},{% endif %}{% endfor %}]
 );
 </script>
@@ -550,7 +550,7 @@ buildHorizontalBar(
 <script>
 buildBarChart(
   "topConsumedChart",
-  [{% for r in top_consumed_assets %}"{{ r.asset.name|escapejs|truncatechars:18 }}"{% if not forloop.last %},{% endif %}{% endfor %}],
+  [{% for r in top_consumed_assets %}"{{ r.asset.name|truncatechars:18|escapejs }}"{% if not forloop.last %},{% endif %}{% endfor %}],
   [{% for r in top_consumed_assets %}{{ r.consumed_cost|floatformat:0 }}{% if not forloop.last %},{% endif %}{% endfor %}],
   "rgba(239,68,68,0.75)"
 );
@@ -561,7 +561,7 @@ buildBarChart(
 <script>
 buildBarChart(
   "roomUtilChart",
-  [{% for r in room_rows %}"{{ r.room.name|escapejs|truncatechars:18 }}"{% if not forloop.last %},{% endif %}{% endfor %}],
+  [{% for r in room_rows %}"{{ r.room.name|truncatechars:18|escapejs }}"{% if not forloop.last %},{% endif %}{% endfor %}],
   [{% for r in room_rows %}{{ r.session_count }}{% if not forloop.last %},{% endif %}{% endfor %}],
   "rgba(59,130,246,0.75)"
 );

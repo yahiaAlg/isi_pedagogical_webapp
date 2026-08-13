@@ -1,6 +1,8 @@
+import uuid
 from decimal import Decimal, ROUND_HALF_UP
 
 from django.conf import settings
+from django.core.validators import FileExtensionValidator
 from django.db import models
 
 
@@ -614,6 +616,17 @@ class AssetMovement(models.Model):
         return f"{self.asset.name} {sign}{self.quantity}"
 
 
+def trainer_cv_path(instance, filename):
+    """MEDIA_ROOT/trainers/cv/{uuid}_{filename} — uuid avoids relying on a
+    pk that doesn't exist yet on first save, and prevents collisions."""
+    return f"trainers/cv/{uuid.uuid4().hex}_{filename}"
+
+
+def trainer_contact_document_path(instance, filename):
+    """MEDIA_ROOT/trainers/contact/{uuid}_{filename}."""
+    return f"trainers/contact/{uuid.uuid4().hex}_{filename}"
+
+
 class Trainer(models.Model):
     EMPLOYMENT_CHOICES = [
         ("internal", "Interne"),
@@ -651,6 +664,28 @@ class Trainer(models.Model):
         verbose_name="Formations qualifiées",
     )
 
+    # ----------------------------------------------------------- attachments
+    # Viewable later from the trainer detail page — image or PDF only.
+    _doc_validator = FileExtensionValidator(
+        allowed_extensions=["pdf", "jpg", "jpeg", "png", "webp"]
+    )
+    cv = models.FileField(
+        upload_to=trainer_cv_path,
+        blank=True,
+        null=True,
+        validators=[_doc_validator],
+        verbose_name="CV",
+        help_text="Image ou PDF.",
+    )
+    contact_document = models.FileField(
+        upload_to=trainer_contact_document_path,
+        blank=True,
+        null=True,
+        validators=[_doc_validator],
+        verbose_name="Document de contact",
+        help_text="Image ou PDF.",
+    )
+
     # ----------------------------------------------------------------- status
     is_active = models.BooleanField(default=True, verbose_name="Actif")
     created_at = models.DateTimeField(auto_now_add=True)
@@ -681,3 +716,15 @@ class Trainer(models.Model):
     def can_generate_mission_order(self):
         """Spec §11.1 — mission order blocked if professional_address absent."""
         return bool(self.professional_address.strip())
+
+    @staticmethod
+    def _is_pdf(field_file):
+        return bool(field_file) and field_file.name.lower().endswith(".pdf")
+
+    @property
+    def cv_is_pdf(self):
+        return self._is_pdf(self.cv)
+
+    @property
+    def contact_document_is_pdf(self):
+        return self._is_pdf(self.contact_document)

@@ -109,5 +109,6 @@ class TrainerAdmin(ImportExportModelAdmin, admin.ModelAdmin):
         ),
         ("Formations qualifiées", {"fields": ("qualifications",)}),
         ("Contact", {"fields": ("phone", "email")}),
+        ("Documents", {"fields": ("cv", "contact_document")}),
         ("Statut", {"fields": ("is_active",)}),
     )

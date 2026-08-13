@@ -110,7 +110,7 @@ def trainer_create(request):
         messages.error(request, "Vous n'avez pas les permissions nécessaires.")
         return redirect("resources:trainer_list")
     if request.method == "POST":
-        form = TrainerForm(request.POST)
+        form = TrainerForm(request.POST, request.FILES)
         if form.is_valid():
             trainer = form.save()
             messages.success(
@@ -133,7 +133,7 @@ def trainer_edit(request, pk):
         messages.error(request, "Vous n'avez pas les permissions nécessaires.")
         return redirect("resources:trainer_detail", pk=trainer.pk)
     if request.method == "POST":
-        form = TrainerForm(request.POST, instance=trainer)
+        form = TrainerForm(request.POST, request.FILES, instance=trainer)
         if form.is_valid():
             trainer = form.save()
             messages.success(

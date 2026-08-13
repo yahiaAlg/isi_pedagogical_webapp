@@ -120,6 +120,40 @@
             {% endif %}
           </ul>
 
+          <!-- Documents (CV / contact) — image or PDF, viewable later -->
+          {% if trainer.cv or trainer.contact_document %}
+          <div class="section-divider" style="margin:16px 0;"></div>
+          <div style="font-size:12px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px;">
+            Documents
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            {% if trainer.cv %}
+            <a href="{{ trainer.cv.url }}" target="_blank" rel="noopener"
+              style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--card-border);border-radius:8px;color:var(--text-primary);font-size:13px;text-decoration:none;">
+              {% if trainer.cv_is_pdf %}
+              <i class="bi bi-file-earmark-pdf-fill" style="color:#ef4444;font-size:16px;"></i>
+              {% else %}
+              <i class="bi bi-file-earmark-image-fill" style="color:var(--accent);font-size:16px;"></i>
+              {% endif %}
+              <span>CV</span>
+              <i class="bi bi-box-arrow-up-right" style="margin-left:auto;font-size:11px;color:var(--text-muted);"></i>
+            </a>
+            {% endif %}
+            {% if trainer.contact_document %}
+            <a href="{{ trainer.contact_document.url }}" target="_blank" rel="noopener"
+              style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--card-border);border-radius:8px;color:var(--text-primary);font-size:13px;text-decoration:none;">
+              {% if trainer.contact_document_is_pdf %}
+              <i class="bi bi-file-earmark-pdf-fill" style="color:#ef4444;font-size:16px;"></i>
+              {% else %}
+              <i class="bi bi-file-earmark-image-fill" style="color:var(--accent);font-size:16px;"></i>
+              {% endif %}
+              <span>Document de contact</span>
+              <i class="bi bi-box-arrow-up-right" style="margin-left:auto;font-size:11px;color:var(--text-muted);"></i>
+            </a>
+            {% endif %}
+          </div>
+          {% endif %}
+
           <!-- Mission order warning if address absent -->
           {% if not trainer.can_generate_mission_order %}
           <div style="margin-top:16px;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:10px 12px;font-size:12px;">
