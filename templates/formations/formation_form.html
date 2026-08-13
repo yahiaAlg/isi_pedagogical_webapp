@@ -153,11 +153,20 @@
               </div>
             </div>
             <div class="row g-3">
-              <div class="col-sm-4">
-                <label class="form-label" for="{{ form.base_price.id_for_label }}">Prix de base (DA)</label>
-                <input type="number" id="{{ form.base_price.id_for_label }}" name="{{ form.base_price.html_name }}"
-                  value="{{ form.base_price.value|default_if_none:'' }}"
-                  class="form-control" step="0.01" min="0" placeholder="0.00" />
+              <div class="col-12">
+                <div class="alert alert-info" style="font-size:13px;padding:10px 14px;">
+                  <i class="bi bi-info-circle-fill"></i>
+                  Le prix n'est plus fixé au niveau de la formation : il varie d'un cycle de
+                  session à l'autre selon la demande du marché. Chaque nouvelle session
+                  (« Nouvelle session ») définit son propre prix de base et mode de tarification.
+                  {% if formation.average_price %}
+                  Prix moyen constaté sur les cycles déjà tarifés :
+                  <strong>{{ formation.average_price|floatformat:0 }} DA</strong>
+                  (moyenne pondérée par le nombre de participants).
+                  {% elif formation %}
+                  Aucun cycle n'a encore été tarifé pour cette formation.
+                  {% endif %}
+                </div>
               </div>
             </div>
           </div>
@@ -282,4 +291,32 @@
 </div>
 {% endblock %}
 
-{% block extra_scripts %}<script src="{% static 'formations/js/formations.js' %}"></script>{% endblock %}
+{% block extra_scripts %}
+{% if not formation %}
+<script>
+// ── Nouvelle formation — auto-calc helpers (Spec §new) ──────────────────
+// Durée (heures) = 8h × durée (jours), and Présence minimale (jours) =
+// durée (jours). Both stay editable — once the user types into either
+// field directly, it stops being auto-updated.
+(function () {
+  const daysInput  = document.getElementById("{{ form.duration_days.id_for_label }}");
+  const hoursInput = document.getElementById("{{ form.duration_hours.id_for_label }}");
+  const attInput   = document.getElementById("{{ form.min_attendance_days.id_for_label }}");
+  if (!daysInput) return;
+
+  let hoursAuto = true;
+  let attAuto = true;
+  if (hoursInput) hoursInput.addEventListener("input", function () { hoursAuto = false; });
+  if (attInput) attInput.addEventListener("input", function () { attAuto = false; });
+
+  daysInput.addEventListener("input", function () {
+    const days = parseInt(daysInput.value, 10);
+    if (!days || days < 1) return;
+    if (hoursAuto && hoursInput) hoursInput.value = days * 8;
+    if (attAuto && attInput) attInput.value = days;
+  });
+})();
+</script>
+{% endif %}
+<script src="{% static 'formations/js/formations.js' %}"></script>
+{% endblock %}

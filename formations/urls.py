@@ -96,6 +96,11 @@ urlpatterns = [
         name="participant_import",
     ),
     path(
+        "sessions/<int:session_pk>/participants/export/",
+        views.participant_export,
+        name="participant_export",
+    ),
+    path(
         "participants/<int:pk>/edit/", views.participant_edit, name="participant_edit"
     ),
     path(

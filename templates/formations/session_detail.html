@@ -196,6 +196,21 @@
               <span class="meta-label"><i class="bi bi-calendar-check-fill" style="margin-right:4px;"></i>Présence min.</span>
               <span class="meta-value">{{ session.formation.min_attendance_days }} jour{{ session.formation.min_attendance_days|pluralize }}</span>
             </li>
+            {% if session.is_primary and session.status in 'completed,archived' and session.total_price is not None %}
+            <li>
+              <span class="meta-label"><i class="bi bi-cash-stack" style="margin-right:4px;"></i>Montant total</span>
+              <span class="meta-value" style="font-weight:700;color:var(--success);">
+                {{ session.total_price|floatformat:2 }} DA
+                <br><small style="font-weight:400;color:var(--text-muted);">{{ session.get_price_mode_display }} — {{ session.base_price|floatformat:0 }} DA / cycle</small>
+              </span>
+            </li>
+            {% endif %}
+            {% if session.invoice_reference %}
+            <li>
+              <span class="meta-label"><i class="bi bi-receipt" style="margin-right:4px;"></i>Facture</span>
+              <span class="meta-value" style="font-family:monospace;">{{ session.invoice_reference }}</span>
+            </li>
+            {% endif %}
             {% if session.cancellation_reason %}
             <li>
               <span class="meta-label" style="color:var(--danger);"><i class="bi bi-x-circle-fill" style="margin-right:4px;"></i>Annulation</span>
@@ -242,6 +257,9 @@
             {% endif %}
             {% if session.is_primary and request.user.profile.can_edit_scores %}
             <a href="{% url 'formations:session_exam_scores' session.pk %}" class="btn btn-ghost btn-sm" style="color:var(--success);"><i class="bi bi-clipboard2-data-fill"></i> Examen</a>
+            {% endif %}
+            {% if participants %}
+            <a href="{% url 'formations:participant_export' session.pk %}" class="btn btn-ghost btn-sm"><i class="bi bi-download"></i> Exporter</a>
             {% endif %}
             {% if request.user.profile.can_manage_sessions and session.can_add_participants %}
             <a href="{% url 'formations:participant_import' session.pk %}" class="btn btn-ghost btn-sm"><i class="bi bi-upload"></i> Importer</a>

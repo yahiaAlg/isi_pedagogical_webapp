@@ -113,10 +113,10 @@
               <span class="meta-label">Participants</span>
               <span class="meta-value">{{ formation.min_participants }} – {{ formation.max_participants }}</span>
             </li>
-            {% if formation.base_price %}
+            {% if formation.average_price %}
             <li>
-              <span class="meta-label">Prix de base</span>
-              <span class="meta-value">{{ formation.base_price|floatformat:0 }} DA</span>
+              <span class="meta-label">Prix moyen</span>
+              <span class="meta-value">{{ formation.average_price|floatformat:0 }} DA <small style="color:var(--text-muted);">(moyenne pondérée des cycles de session)</small></span>
             </li>
             {% endif %}
             <li>
@@ -210,7 +210,7 @@
           <h3>Sessions récentes</h3>
           <span class="header-count ms-1">({{ sessions|length }})</span>
           {% if request.user.profile.can_manage_sessions %}
-          <a href="{% url 'formations:session_create' %}" class="btn btn-amber btn-sm ms-auto"><i class="bi bi-plus-lg"></i> Nouvelle session</a>
+          <a href="{% url 'formations:session_create' %}?formation={{ formation.pk }}" class="btn btn-amber btn-sm ms-auto"><i class="bi bi-plus-lg"></i> Nouvelle session</a>
           {% endif %}
         </div>
 
@@ -265,7 +265,7 @@
           <div class="empty-state-icon" style="font-size:40px;"><i class="bi bi-calendar3-fill"></i></div>
           <p class="empty-state-text" style="font-size:14px;">Aucune session pour cette formation.</p>
           {% if request.user.profile.can_manage_sessions %}
-          <a href="{% url 'formations:session_create' %}" class="btn btn-amber btn-sm"><i class="bi bi-plus-lg"></i> Créer une session</a>
+          <a href="{% url 'formations:session_create' %}?formation={{ formation.pk }}" class="btn btn-amber btn-sm"><i class="bi bi-plus-lg"></i> Créer une session</a>
           {% endif %}
         </div>
         {% endif %}

@@ -103,7 +103,6 @@ class FormationForm(forms.ModelForm):
             "duration_hours",
             "min_participants",
             "max_participants",
-            "base_price",
             "evaluation_type",
             "passing_score",
             "max_score",
@@ -131,9 +130,6 @@ class FormationForm(forms.ModelForm):
             ),
             "max_participants": forms.NumberInput(
                 attrs={"class": "form-control", "min": "1"}
-            ),
-            "base_price": forms.NumberInput(
-                attrs={"class": "form-control", "step": "0.01"}
             ),
             "evaluation_type": forms.Select(attrs={"class": "form-select"}),
             "passing_score": forms.NumberInput(
@@ -213,6 +209,9 @@ class SessionForm(forms.ModelForm):
             "capacity",
             "specialty_code",
             "session_number",
+            "base_price",
+            "price_mode",
+            "invoice_reference",
             "committee_members",
         ]
         widgets = {
@@ -232,13 +231,22 @@ class SessionForm(forms.ModelForm):
             "capacity": forms.NumberInput(attrs={"class": "form-control", "min": "1"}),
             "specialty_code": forms.TextInput(attrs={"class": "form-control"}),
             "session_number": forms.TextInput(attrs={"class": "form-control"}),
+            "base_price": forms.NumberInput(
+                attrs={"class": "form-control", "step": "0.01", "min": "0"}
+            ),
+            "price_mode": forms.Select(attrs={"class": "form-select"}),
+            "invoice_reference": forms.TextInput(
+                attrs={"class": "form-control", "placeholder": "Ex : FA-2026-010"}
+            ),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["formation"].queryset = Formation.objects.filter(is_active=True)
         self.fields["client"].queryset = Client.objects.filter(is_active=True)
-        self.fields["trainer"].queryset = Trainer.objects.filter(is_active=True)
+        self.fields["trainer"].queryset = Trainer.objects.filter(
+            is_active=True
+        ).prefetch_related("qualifications")
         self.fields["room"].queryset = Room.objects.filter(is_active=True)
         self.fields["room"].required = False
         self.fields["external_location"].required = False

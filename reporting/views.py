@@ -705,11 +705,19 @@ def cost_utilization_report(request):
     )
 
     # ------------------------------------------- revenue / cost by formation
+    # Spec §new — price now lives on the session cycle (primary session),
+    # not the formation, so revenue is read from each cycle's own
+    # total_price (which already applies that cycle's price_mode) instead
+    # of a flat formation.base_price × participants. Only primary sessions
+    # are counted for revenue — child (day 2-N) sessions are the same
+    # cycle and would otherwise double/triple-count it — while costs are
+    # still summed across every session (equipment/assets can be
+    # allocated to any day).
     revenue_by_formation = defaultdict(lambda: Decimal("0"))
     cost_by_formation = defaultdict(lambda: Decimal("0"))
     for s in sessions_list:
-        price = s.formation.base_price or Decimal("0")
-        revenue_by_formation[s.formation] += price * s.participant_count
+        if s.is_primary:
+            revenue_by_formation[s.formation] += s.total_price or Decimal("0")
         session_cost = (alloc_cost_by_session.get(s.pk) or Decimal("0")) + (
             move_cost_by_session.get(s.pk) or Decimal("0")
         )
@@ -941,11 +949,14 @@ def client_activity_report(request):
     sessions_qs = _apply_date_filter(sessions_qs, form)
     sessions_list = list(sessions_qs)
 
+    # Spec §new — same switch as cost_utilization_report: revenue now
+    # comes from each cycle's own total_price (primary session only, to
+    # avoid counting the same cycle once per day).
     revenue_by_client = defaultdict(lambda: Decimal("0"))
     sessions_by_client_map = defaultdict(list)
     for s in sessions_list:
-        price = s.formation.base_price or Decimal("0")
-        revenue_by_client[s.client_id] += price * s.participant_count
+        if s.is_primary:
+            revenue_by_client[s.client_id] += s.total_price or Decimal("0")
         sessions_by_client_map[s.client_id].append(s)
 
     client_ids = list(sessions_by_client_map.keys())

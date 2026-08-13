@@ -114,6 +114,8 @@
                   <option value="{{ f.pk }}"
                     data-max="{{ f.max_participants }}"
                     data-days="{{ f.duration_days }}"
+                    data-code="{{ f.code }}"
+                    data-specialty-code="{% if f.specialty_id %}{{ f.specialty.reference_root }}{% else %}{{ f.code }}{% endif %}"
                     {% if form.formation.value|stringformat:"s" == f.pk|stringformat:"s" %}selected{% endif %}>
                     {{ f.code }} — {{ f.title }}
                   </option>
@@ -160,7 +162,10 @@
                   class="form-select {% if form.trainer.errors %}is-invalid{% endif %}" required>
                   <option value="">— Sélectionner un formateur —</option>
                   {% for t in form.fields.trainer.queryset %}
-                  <option value="{{ t.pk }}" {% if form.trainer.value|stringformat:"s" == t.pk|stringformat:"s" %}selected{% endif %}>{{ t.full_name }}</option>
+                  <option value="{{ t.pk }}"
+                    data-lastname="{{ t.last_name }}"
+                    data-quals="{% for q in t.qualifications.all %}{{ q.pk }}{% if not forloop.last %},{% endif %}{% endfor %}"
+                    {% if form.trainer.value|stringformat:"s" == t.pk|stringformat:"s" %}selected{% endif %}>{{ t.full_name }}</option>
                   {% endfor %}
                 </select>
                 {% if form.trainer.errors %}<div class="invalid-feedback d-block">{{ form.trainer.errors|join:", " }}</div>{% endif %}
@@ -254,6 +259,42 @@
               </div>
             </div>
 
+            <!-- ── Tarification ─────────────────────────────── -->
+            <div class="section-divider"></div>
+            <div class="form-section-title">
+              Tarification de ce cycle
+              <span style="font-size:12px;font-weight:400;color:var(--text-muted);">(optionnel — propre à cette session, le prix varie selon la demande)</span>
+            </div>
+            <div class="row g-3 mb-3">
+              <div class="col-sm-4">
+                <label class="form-label" for="{{ form.base_price.id_for_label }}">Prix de base (DA)</label>
+                <input type="number" id="{{ form.base_price.id_for_label }}" name="{{ form.base_price.html_name }}"
+                  value="{{ form.base_price.value|default_if_none:'' }}"
+                  class="form-control {% if form.base_price.errors %}is-invalid{% endif %}" step="0.01" min="0" placeholder="0.00" />
+                {% if form.base_price.errors %}<div class="invalid-feedback d-block">{{ form.base_price.errors|join:", " }}</div>{% endif %}
+              </div>
+              <div class="col-sm-4">
+                <label class="form-label" for="{{ form.price_mode.id_for_label }}">Mode de tarification</label>
+                <select id="{{ form.price_mode.id_for_label }}" name="{{ form.price_mode.html_name }}"
+                  class="form-select {% if form.price_mode.errors %}is-invalid{% endif %}">
+                  {% for val, label in form.fields.price_mode.choices %}
+                  <option value="{{ val }}" {% if form.price_mode.value == val %}selected{% endif %}>{{ label }}</option>
+                  {% endfor %}
+                </select>
+                {% if form.price_mode.errors %}<div class="invalid-feedback d-block">{{ form.price_mode.errors|join:", " }}</div>{% endif %}
+              </div>
+              <div class="col-sm-4">
+                <label class="form-label" for="{{ form.invoice_reference.id_for_label }}">Numéro de facture</label>
+                <input type="text" id="{{ form.invoice_reference.id_for_label }}" name="{{ form.invoice_reference.html_name }}"
+                  value="{{ form.invoice_reference.value|default_if_none:'' }}"
+                  class="form-control {% if form.invoice_reference.errors %}is-invalid{% endif %}" placeholder="Ex : FA-2026-010" style="font-family:monospace;" />
+                {% if form.invoice_reference.errors %}<div class="invalid-feedback d-block">{{ form.invoice_reference.errors|join:", " }}</div>{% endif %}
+                <div style="font-size:11.5px;color:var(--text-muted);margin-top:4px;">
+                  Séquence de facture associée à ce cycle — recherchable depuis la liste des sessions.
+                </div>
+              </div>
+            </div>
+
             <div class="section-divider"></div>
             <div style="display:flex;gap:12px;">
               <button type="submit" class="btn btn-amber"><i class="bi bi-check-lg"></i> {% if session %}Enregistrer{% else %}Créer la session{% endif %}</button>
@@ -283,6 +324,8 @@
   const capMax       = document.getElementById("capacity-max");
   const durHint      = document.getElementById("duration-hint");
   const durVal       = document.getElementById("duration-days-val");
+  const specialtyInput = document.getElementById("{{ form.specialty_code.id_for_label }}");
+  const sessionNumberInput = document.getElementById("{{ form.session_number.id_for_label }}");
 
   // Utility: select an <option> by value
   function selectOption(sel, val) {
@@ -293,6 +336,88 @@
         return;
       }
     }
+  }
+
+  // ── Formateur filtering — only show trainers qualified for the chosen
+  // formation (falls back to showing everyone if none qualify, so the
+  // list is never a dead end). ─────────────────────────────────────────
+  function filterTrainers(formationPk) {
+    if (!trainerSel) return;
+    const options = Array.from(trainerSel.options);
+    if (!formationPk) {
+      options.forEach(o => { o.hidden = false; });
+      return;
+    }
+    let anyVisible = false;
+    options.forEach(o => {
+      if (!o.value) { o.hidden = false; return; }
+      const quals = (o.dataset.quals || "").split(",").filter(Boolean);
+      const match = quals.includes(String(formationPk));
+      o.hidden = !match;
+      if (match) anyVisible = true;
+    });
+    if (!anyVisible) {
+      options.forEach(o => { o.hidden = false; });
+    } else {
+      const current = trainerSel.options[trainerSel.selectedIndex];
+      if (current && current.value && current.hidden) {
+        trainerSel.value = "";
+      }
+    }
+  }
+
+  // ── Session code / specialty code auto-fill (Spec §new) ─────────────
+  // Format: S-{formation}-{formateur}-{date}. Only overwrites fields the
+  // user hasn't manually edited themselves.
+  let specialtyAuto = !!specialtyInput && !specialtyInput.value;
+  let sessionNumberAuto = !!sessionNumberInput && !sessionNumberInput.value;
+  if (specialtyInput) specialtyInput.addEventListener("input", function () { specialtyAuto = false; });
+  if (sessionNumberInput) sessionNumberInput.addEventListener("input", function () { sessionNumberAuto = false; });
+
+  function slugTag(str) {
+    return (str || "")
+      .toUpperCase()
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^A-Z0-9]/g, "");
+  }
+
+  function recomputeCodes() {
+    const fOpt = formationSel ? formationSel.options[formationSel.selectedIndex] : null;
+    const formationCode = fOpt ? slugTag(fOpt.dataset.code || "") : "";
+    const specialtyCode = fOpt ? (fOpt.dataset.specialtyCode || formationCode) : "";
+
+    if (specialtyAuto && specialtyInput) {
+      specialtyInput.value = specialtyCode.slice(0, 20);
+    }
+
+    if (sessionNumberAuto && sessionNumberInput && formationCode) {
+      const tOpt = trainerSel ? trainerSel.options[trainerSel.selectedIndex] : null;
+      // Field is 100 chars, so the trainer's full (slugged) last name fits —
+      // no need to abbreviate to a few initials anymore.
+      const trainerTag = tOpt ? slugTag(tOpt.dataset.lastname) : "";
+      // YYMMDD keeps the reference compact and readable
+      const dateTag = dateStart && dateStart.value
+        ? dateStart.value.replace(/-/g, "").slice(2)
+        : "";
+      sessionNumberInput.value = buildSessionNumber(formationCode, trainerTag, dateTag, 100);
+    }
+  }
+
+  function buildSessionNumber(formationCode, trainerTag, dateTag, maxLen) {
+    const build = (fc, tt) => ["S", fc, tt, dateTag].filter(Boolean).join("-");
+    let result = build(formationCode, trainerTag);
+    if (result.length > maxLen) {
+      let over = result.length - maxLen;
+      const trimFc = Math.min(over, Math.max(0, formationCode.length - 2));
+      if (trimFc > 0) formationCode = formationCode.slice(0, formationCode.length - trimFc);
+      over -= trimFc;
+      if (over > 0 && trainerTag) {
+        const trimTt = Math.min(over, trainerTag.length);
+        trainerTag = trainerTag.slice(0, trainerTag.length - trimTt);
+      }
+      result = build(formationCode, trainerTag);
+    }
+    return result.slice(0, maxLen);
   }
 
   function fetchAndFill(pk) {
@@ -319,16 +444,20 @@
         // Client / trainer — pre-fill from last session of this formation
         if (clientSel && clientSel.value === "") selectOption(clientSel, data.last_client_id);
         if (trainerSel && trainerSel.value === "") selectOption(trainerSel, data.last_trainer_id);
+        recomputeCodes();
       })
       .catch(() => {});
   }
 
   if (formationSel) {
     formationSel.addEventListener("change", function () {
+      filterTrainers(this.value);
       fetchAndFill(this.value);
+      recomputeCodes();
     });
 
     // On page load — if a formation is already selected (from ?formation= or edit mode)
+    filterTrainers(formationSel.value);
     if (formationSel.value) {
       // Show capacity hint from data-* attrs without API call
       const opt = formationSel.options[formationSel.selectedIndex];
@@ -344,6 +473,10 @@
       }
     }
   }
+
+  if (trainerSel) trainerSel.addEventListener("change", recomputeCodes);
+  if (dateStart) dateStart.addEventListener("change", recomputeCodes);
+  recomputeCodes();
 })();
 </script>
 <script>

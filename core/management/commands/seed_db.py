@@ -696,7 +696,6 @@ class Command(BaseCommand):
                 duration_hours=21,
                 min_participants=5,
                 max_participants=15,
-                base_price=Decimal("45000.00"),
                 evaluation_type="both",
                 passing_score=Decimal("10.00"),
                 produces_certificate=True,
@@ -713,7 +712,6 @@ class Command(BaseCommand):
                 duration_hours=14,
                 min_participants=5,
                 max_participants=15,
-                base_price=Decimal("30000.00"),
                 evaluation_type="theory_only",
                 passing_score=Decimal("10.00"),
                 produces_certificate=True,
@@ -730,7 +728,6 @@ class Command(BaseCommand):
                 duration_hours=21,
                 min_participants=5,
                 max_participants=12,
-                base_price=Decimal("50000.00"),
                 evaluation_type="both",
                 passing_score=Decimal("10.00"),
                 produces_certificate=True,
@@ -748,7 +745,6 @@ class Command(BaseCommand):
                 duration_hours=35,
                 min_participants=4,
                 max_participants=10,
-                base_price=Decimal("70000.00"),
                 evaluation_type="both",
                 passing_score=Decimal("10.00"),
                 produces_certificate=True,
@@ -765,7 +761,6 @@ class Command(BaseCommand):
                 duration_hours=14,
                 min_participants=5,
                 max_participants=15,
-                base_price=Decimal("35000.00"),
                 evaluation_type="practice_only",
                 passing_score=Decimal("10.00"),
                 produces_certificate=True,
@@ -837,6 +832,8 @@ class Command(BaseCommand):
                 status="planned",
                 specialty_code="CPHS",
                 session_number="001/2025",
+                base_price=Decimal("45000.00"),
+                price_mode="by_person",
                 committee_members=[],
                 equipment=["Vidéoprojecteur Epson"],
             ),
@@ -852,6 +849,8 @@ class Command(BaseCommand):
                 status="planned",
                 specialty_code="SHE1",
                 session_number="002/2025",
+                base_price=Decimal("30000.00"),
+                price_mode="by_person",
                 committee_members=[],
             ),
             # --- in progress
@@ -867,6 +866,8 @@ class Command(BaseCommand):
                 status="in_progress",
                 specialty_code="PLCI",
                 session_number="003/2025",
+                base_price=Decimal("50000.00"),
+                price_mode="by_day",
                 committee_members=[],
             ),
             # --- completed (with committee, ready for docs)
@@ -882,6 +883,13 @@ class Command(BaseCommand):
                 status="completed",
                 specialty_code="CPHS",
                 session_number="004/2025",
+                # A different cycle of the same formation — priced higher
+                # than the "001/2025" cycle above, illustrating that the
+                # price fluctuates per cycle rather than being fixed on
+                # the formation.
+                base_price=Decimal("48000.00"),
+                price_mode="by_person",
+                invoice_reference="FA-2025-004",
                 committee_members=[
                     "M. Karim Bensalem — Directeur ISI",
                     "Mme Nadia Hamidi — Responsable pédagogique",
@@ -902,6 +910,9 @@ class Command(BaseCommand):
                 status="archived",
                 specialty_code="CIP1202",
                 session_number="005/2024",
+                base_price=Decimal("70000.00"),
+                price_mode="by_day",
+                invoice_reference="FA-2024-011",
                 committee_members=[
                     "M. Karim Bensalem — Directeur ISI",
                     "M. Rachid Boukhalfa — Formateur",
@@ -921,6 +932,8 @@ class Command(BaseCommand):
                 cancellation_reason="Client a reporté la session à une date ultérieure.",
                 specialty_code="PSE",
                 session_number="006/2024",
+                base_price=Decimal("35000.00"),
+                price_mode="by_person",
                 committee_members=[],
             ),
         ]

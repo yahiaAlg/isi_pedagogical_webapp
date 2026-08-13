@@ -161,14 +161,11 @@ class Formation(models.Model):
 
     duration_days = models.IntegerField(verbose_name="Durée (jours)")
     duration_hours = models.IntegerField(verbose_name="Durée (heures)")
-    min_participants = models.IntegerField(verbose_name="Minimum participants")
-    max_participants = models.IntegerField(verbose_name="Maximum participants")
-    base_price = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        null=True,
-        blank=True,
-        verbose_name="Prix de base (DA)",
+    min_participants = models.IntegerField(
+        default=6, verbose_name="Minimum participants"
+    )
+    max_participants = models.IntegerField(
+        default=12, verbose_name="Maximum participants"
     )
 
     evaluation_type = models.CharField(
@@ -225,6 +222,32 @@ class Formation(models.Model):
     def save(self, *args, **kwargs):
         self._apply_specialty_derivation()
         super().save(*args, **kwargs)
+
+    @property
+    def average_price(self):
+        """
+        Spec §new — a formation no longer carries its own fixed price: each
+        session cycle (its primary session) sets its own `base_price` /
+        `price_mode`, since the market price fluctuates per cycle depending
+        on demand. This is a weighted average of those cycle prices,
+        weighted by each cycle's participant count (a fuller session
+        influences the average more than a near-empty one), so the
+        formation still exposes a single representative price for catalog
+        display/sorting. Cycles without a base_price are ignored. Returns
+        None if no cycle has been priced yet.
+        """
+        primaries = self.session_set.filter(
+            is_primary=True, base_price__isnull=False
+        ).only("base_price", "capacity", "pk")
+        total_weight = Decimal("0")
+        weighted_sum = Decimal("0")
+        for s in primaries:
+            weight = Decimal(s.participant_count or 1)
+            weighted_sum += s.base_price * weight
+            total_weight += weight
+        if total_weight == 0:
+            return None
+        return (weighted_sum / total_weight).quantize(Decimal("0.01"))
 
     def clean(self):
         # Derive before validation runs, otherwise clean_fields() would flag
@@ -299,6 +322,19 @@ class Session(models.Model):
         ("on_site", "Sur site"),
     ]
 
+    # Spec §new — pricing now belongs to the session CYCLE (its primary
+    # session), not the formation: the market price fluctuates each time
+    # depending on demand, rather than being a fixed formation attribute.
+    # See Formation.average_price for the catalog-level rollup.
+    PRICE_MODE_CHOICES = [
+        ("by_day", "Par jour (prix de base × nombre de jours)"),
+        ("by_person", "Par participant (prix de base × participants)"),
+        (
+            "by_day_person",
+            "Par jour et par participant (prix de base × jours × participants)",
+        ),
+    ]
+
     formation = models.ForeignKey(Formation, on_delete=models.CASCADE)
     client = models.ForeignKey("clients.Client", on_delete=models.CASCADE)
     trainer = models.ForeignKey("resources.Trainer", on_delete=models.CASCADE)
@@ -350,7 +386,34 @@ class Session(models.Model):
         max_length=20, blank=True, verbose_name="Code spécialité"
     )
     session_number = models.CharField(
-        max_length=20, blank=True, verbose_name="Numéro de session"
+        max_length=100, blank=True, verbose_name="Numéro de session"
+    )
+
+    # Spec §new — this cycle's market price. Set on the primary session;
+    # read from there for the whole group (see total_price below).
+    base_price = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Prix de base (DA)",
+        help_text="Prix de ce cycle de session — peut varier d'un cycle à "
+        "l'autre selon la demande.",
+    )
+    price_mode = models.CharField(
+        max_length=20,
+        choices=PRICE_MODE_CHOICES,
+        default="by_person",
+        verbose_name="Mode de tarification",
+    )
+    # Spec §new — the invoice/billing sequence this session cycle is
+    # associated with (searchable from the session listing).
+    invoice_reference = models.CharField(
+        max_length=50,
+        blank=True,
+        db_index=True,
+        verbose_name="Numéro de facture",
+        help_text="Référence/séquence de facture associée à ce cycle de session.",
     )
 
     # Spec §new — session group support
@@ -475,6 +538,34 @@ class Session(models.Model):
     @property
     def duration_days(self):
         return (self.date_end - self.date_start).days + 1
+
+    @property
+    def total_price(self):
+        """
+        Spec §new — total price for the whole session group, computed from
+        the *cycle's own* `price_mode` and `base_price` (set on the primary
+        session — the market price fluctuates per cycle depending on
+        demand, it isn't a fixed formation attribute). Meant to be read
+        once the session is terminated (status completed/archived), when
+        the participant count is final.
+          - by_day:         base_price × total days in the group
+          - by_person:      base_price × participants
+          - by_day_person:  base_price × total days × participants
+        Always computed from the *primary* session of the group so the
+        total is not duplicated across child (day 2-N) sessions.
+        """
+        primary = self if self.is_primary else (self.parent_session or self)
+        price = primary.base_price
+        if price is None:
+            return None
+        days = primary.group_sessions_count
+        persons = primary.participant_count
+        mode = primary.price_mode
+        if mode == "by_day":
+            return price * days
+        if mode == "by_day_person":
+            return price * days * persons
+        return price * persons  # by_person (default)
 
     @property
     def group_sessions_count(self):

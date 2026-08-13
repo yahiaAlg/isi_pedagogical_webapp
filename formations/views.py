@@ -1,10 +1,10 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.core.paginator import Paginator
 from django.views.decorators.http import require_POST
-from django.db.models import Count, Q, Sum
+from django.db.models import Avg, Count, Q, Sum
 from django.utils import timezone
 
 from .models import Category, Branch, Specialty, Formation, Session, Participant
@@ -32,6 +32,7 @@ from .utils import (
     has_scheduling_conflicts,
     equipment_is_blocked,
     get_idle_equipment,
+    build_session_number,
 )
 
 
@@ -323,7 +324,7 @@ FORMATION_SORT_MAP = {
     "title": "title",
     "category__name": "category__name",
     "duration_days": "duration_days",
-    "base_price": "base_price",
+    "avg_price": "avg_price",
     "session_count": "sessions_total",
     "is_active": "is_active",
 }
@@ -336,8 +337,16 @@ def formation_list(request):
     if sort not in FORMATION_SORT_MAP:
         sort = "title"
     db_field = FORMATION_SORT_MAP[sort]
+    # Spec §new — price no longer lives on Formation: each session cycle
+    # (primary session) carries its own market price. `avg_price` is a
+    # plain SQL average of those cycle prices, used only for list-level
+    # sort/filter (cheap, DB-side). The catalog/detail page instead uses
+    # Formation.average_price, a participant-count-weighted average.
     qs = Formation.objects.select_related("category", "specialty").annotate(
-        sessions_total=Count("session")
+        sessions_total=Count("session"),
+        avg_price=Avg(
+            "session__base_price", filter=Q(session__is_primary=True)
+        ),
     )
 
     q = request.GET.get("q", "").strip()
@@ -362,12 +371,15 @@ def formation_list(request):
         qs = qs.filter(is_active=True)
     elif is_active == "no":
         qs = qs.filter(is_active=False)
+    # Spec §new — price now rolls up from session cycles (see avg_price
+    # annotation above), so the min/max filter runs against that instead
+    # of a removed Formation.base_price field.
     price_min = request.GET.get("price_min", "").strip()
     if price_min:
-        qs = qs.filter(base_price__gte=price_min)
+        qs = qs.filter(avg_price__gte=price_min)
     price_max = request.GET.get("price_max", "").strip()
     if price_max:
-        qs = qs.filter(base_price__lte=price_max)
+        qs = qs.filter(avg_price__lte=price_max)
     duration_min = request.GET.get("duration_min", "").strip()
     if duration_min.isdigit():
         qs = qs.filter(duration_days__gte=int(duration_min))
@@ -555,14 +567,28 @@ def formation_api_detail(request, pk):
         .first()
     )
     today = timezone.localdate().isoformat()
+    # Prefer the last trainer only if still qualified for this formation;
+    # otherwise fall back to any trainer currently qualified for it.
+    trainer = None
+    if last and last.trainer_id and formation.qualified_trainers.filter(
+        pk=last.trainer_id
+    ).exists():
+        trainer = last.trainer
+    else:
+        trainer = formation.qualified_trainers.filter(is_active=True).first()
     data = {
         "max_participants": formation.max_participants,
         "duration_days": formation.duration_days,
         "today": today,
         "last_client_id": last.client_id if last else None,
         "last_client_name": last.client.name if last else None,
-        "last_trainer_id": last.trainer_id if last else None,
-        "last_trainer_name": last.trainer.full_name if last else None,
+        "last_trainer_id": trainer.pk if trainer else None,
+        "last_trainer_name": trainer.full_name if trainer else None,
+        "specialty_code": (
+            formation.specialty.reference_root
+            if formation.specialty_id
+            else formation.code
+        ),
     }
     return JsonResponse(data)
 
@@ -601,6 +627,9 @@ def session_list(request):
             | Q(trainer__first_name__icontains=q)
             | Q(trainer__last_name__icontains=q)
             | Q(external_location__icontains=q)
+            # Spec §new — invoice sequence associated with this session
+            # cycle is one of the free-text search criteria.
+            | Q(invoice_reference__icontains=q)
         )
     status = request.GET.get("status", "").strip()
     if status:
@@ -931,22 +960,51 @@ def session_create(request):
                 today = timezone.localdate()
                 initial["date_start"] = today
                 initial["date_end"] = today
-                # Pre-select last used client/trainer for this formation
+                # Spec §new — specialty code pre-filled from the formation's
+                # specialty abbreviation (or its own code as a fallback).
+                initial["specialty_code"] = (
+                    formation.specialty.reference_root
+                    if formation.specialty_id
+                    else formation.code
+                )[:20]
+                # Pre-select last used client/trainer for this formation,
+                # restricted to trainers actually qualified for it.
+                qualified_trainer = formation.qualified_trainers.filter(
+                    is_active=True
+                ).first()
                 last = (
                     formation.session_set.filter(is_primary=True)
                     .order_by("-date_start")
                     .first()
                 )
+                trainer = None
+                if last and last.trainer_id and formation.qualified_trainers.filter(
+                    pk=last.trainer_id
+                ).exists():
+                    trainer = last.trainer
+                elif qualified_trainer:
+                    trainer = qualified_trainer
+                if trainer:
+                    initial["trainer"] = trainer
                 if last:
                     initial["client"] = last.client
-                    initial["trainer"] = last.trainer
                     initial["location_type"] = last.location_type
                     initial["room"] = last.room
                     initial["external_location"] = last.external_location
+                    # Spec §new — carry forward the last cycle's price as a
+                    # starting point (still fully editable): the market
+                    # price fluctuates per cycle depending on demand, so
+                    # this is only a suggestion, not a fixed catalog price.
+                    initial["base_price"] = last.base_price
+                    initial["price_mode"] = last.price_mode
                     # Spec §new — equipment homed in the room is inherently
                     # imported/pre-checked when creating a session there.
                     if last.room:
                         initial["equipment"] = list(last.room.available_equipment)
+                # Spec §new — session code S-{formation}-{formateur}-{date}
+                initial["session_number"] = build_session_number(
+                    formation.code, trainer.last_name if trainer else "", today
+                )
             except Formation.DoesNotExist:
                 pass
         form = SessionForm(initial=initial)
@@ -1355,6 +1413,79 @@ def participant_import(request, session_pk):
         "formations/participant_import.html",
         {"form": form, "session": session},
     )
+
+
+@login_required
+def participant_export(request, session_pk):
+    """Export the session's participants to .xlsx, using the same column
+    headers accepted by `import_participants_from_file` so the file can be
+    edited and re-imported (plus read-only Présence/Résultat/Note columns)."""
+    import openpyxl
+    from openpyxl.styles import Font
+
+    session = get_object_or_404(Session, pk=session_pk)
+
+    headers = [
+        "Prénom",
+        "Nom",
+        "Prénom AR",
+        "Nom AR",
+        "Date naissance",
+        "Lieu naissance",
+        "Lieu naissance AR",
+        "Fonction",
+        "Employeur",
+        "Téléphone",
+        "Email",
+        "Présence",
+        "Résultat",
+    ]
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Participants"
+    ws.append(headers)
+    for cell in ws[1]:
+        cell.font = Font(bold=True)
+
+    result_labels = {
+        "passed": "Admis",
+        "failed": "Échoué",
+        "pending": "En attente",
+        "absent": "Absent",
+        "present": "Présent",
+    }
+
+    for p in session.participant_set.all().order_by("last_name", "first_name"):
+        ws.append(
+            [
+                p.first_name,
+                p.last_name,
+                p.first_name_ar,
+                p.last_name_ar,
+                p.date_of_birth.strftime("%d/%m/%Y") if p.date_of_birth else "",
+                p.place_of_birth,
+                p.place_of_birth_ar,
+                p.job_title,
+                p.employer,
+                p.phone,
+                p.email,
+                "Présent" if p.attended else "Absent",
+                result_labels.get(p.result, p.result),
+            ]
+        )
+
+    for col in ws.columns:
+        width = max((len(str(c.value)) for c in col if c.value), default=10)
+        ws.column_dimensions[col[0].column_letter].width = min(max(width + 2, 12), 35)
+
+    response = HttpResponse(
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    filename = f"participants_{session.reference.replace('/', '-')}.xlsx"
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    wb.save(response)
+    return response
 
 
 # ===========================================================================

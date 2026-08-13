@@ -1155,7 +1155,12 @@ class Command(BaseCommand):
                 "duration_hours": duration_hours,
                 "min_participants": min_p,
                 "max_participants": max_p,
-                "base_price": base_price,
+                # Spec §new — Formation no longer carries a fixed price;
+                # price now lives per session cycle (Session.base_price).
+                # This importer only seeds the formation catalog (it does
+                # not create sessions), so `base_price` from the invoice
+                # data has nothing to attach to here and is intentionally
+                # not applied.
                 "evaluation_type": eval_type,
                 "produces_certificate": produces_cert,
                 "passing_score": passing_score,

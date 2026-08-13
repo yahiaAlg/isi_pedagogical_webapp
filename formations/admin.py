@@ -94,7 +94,6 @@ class FormationAdmin(ImportExportModelAdmin, admin.ModelAdmin):
                     "duration_hours",
                     "min_participants",
                     "max_participants",
-                    "base_price",
                     "evaluation_type",
                     "passing_score",
                     "max_score",
@@ -171,6 +170,7 @@ class SessionAdmin(ImportExportModelAdmin, admin.ModelAdmin):
         "formation__title",
         "client__name",
         "trainer__last_name",
+        "invoice_reference",
     ]
     # Use admin callable names, not model @property names
     readonly_fields = [
@@ -186,6 +186,10 @@ class SessionAdmin(ImportExportModelAdmin, admin.ModelAdmin):
         (
             "Formation",
             {"fields": ("formation", "reference", "specialty_code", "session_number")},
+        ),
+        (
+            "Tarification",
+            {"fields": ("base_price", "price_mode", "invoice_reference")},
         ),
         (
             "Planification",

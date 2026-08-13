@@ -5,6 +5,43 @@ from .models import Session, Participant
 from django.utils import timezone
 
 
+def build_session_number(formation_code, trainer_last_name="", date_obj=None, max_len=100):
+    """
+    Spec §new — session number format: S-{formation}-{formateur}-{date}.
+    `session_number` is CharField(max_length=100), so there's room for the
+    trainer's full (slugged) last name rather than a 4-letter abbreviation.
+    The trimming fallback below (formation code, then trainer tag) only
+    kicks in for the rare formation/trainer combo that would still overflow
+    `max_len` — the date is never truncated, since it must stay readable.
+    """
+    import re
+    import unicodedata
+
+    def _slug(value):
+        value = unicodedata.normalize("NFKD", value or "")
+        value = value.encode("ascii", "ignore").decode("ascii")
+        return re.sub(r"[^A-Za-z0-9]", "", value).upper()
+
+    formation_code = _slug(formation_code)
+    trainer_tag = _slug(trainer_last_name)
+    date_tag = date_obj.strftime("%y%m%d") if date_obj else ""
+
+    def _build(fc, tt):
+        return "-".join(p for p in ["S", fc, tt, date_tag] if p)
+
+    result = _build(formation_code, trainer_tag)
+    if len(result) > max_len:
+        over = len(result) - max_len
+        trim_fc = min(over, max(0, len(formation_code) - 2))
+        formation_code = formation_code[: len(formation_code) - trim_fc] or formation_code
+        over -= trim_fc
+        if over > 0 and trainer_tag:
+            trim_tt = min(over, len(trainer_tag))
+            trainer_tag = trainer_tag[: len(trainer_tag) - trim_tt]
+        result = _build(formation_code, trainer_tag)
+    return result[:max_len]
+
+
 def generate_session_reference(session):
     """
     Auto-generate a unique session reference.
@@ -146,6 +183,7 @@ def generate_child_sessions(primary_session):
             status="planned",
             specialty_code=primary_session.specialty_code,
             session_number=primary_session.session_number,
+            invoice_reference=primary_session.invoice_reference,
             committee_members=primary_session.committee_members,
             is_primary=False,
             parent_session=primary_session,
