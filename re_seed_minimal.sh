@@ -52,8 +52,9 @@ ok "Environment OK"
 # ── 1. flush ──────────────────────────────────────────────────────────────
 step "1/6  — Django flush (wipe ALL data)"
 # --noinput skips the "Are you sure?" confirmation.
-# --reset-static-sequences is included so AutoField PKs restart at 1 on Postgres.
-$MANAGE flush --noinput --reset-static-sequences
+# Note: `manage.py flush` has no --reset-static-sequences flag (that's not
+# a real Django option); flush already resets AutoField sequences on its own.
+$MANAGE flush --noinput
 ok "Database flushed"
 
 # ── 2. migrate (safety net, in case migrations drifted) ──────────────────
