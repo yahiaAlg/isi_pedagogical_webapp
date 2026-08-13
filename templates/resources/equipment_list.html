@@ -38,14 +38,14 @@
       <input type="hidden" name="sort" value="{{ sort }}">
       <input type="hidden" name="dir" value="{{ dir }}">
       <div class="row g-3 align-items-end">
-        <div class="col-sm-6 col-md-3">
+        <div class="col-12 col-md-6 col-lg-3">
           <label class="form-label">Rechercher</label>
           <div class="input-icon-wrap">
             <i class="bi bi-search"></i>
             <input type="text" name="q" value="{{ filters.q }}" class="form-control" placeholder="Nom, code inventaire, notes…" />
           </div>
         </div>
-        <div class="col-sm-3 col-md-2">
+        <div class="col-6 col-md-3 col-lg-2">
           <label class="form-label">Catégorie</label>
           <select name="category" class="form-select">
             <option value="">Toutes</option>
@@ -54,7 +54,7 @@
             {% endfor %}
           </select>
         </div>
-        <div class="col-sm-3 col-md-2">
+        <div class="col-6 col-md-3 col-lg-2">
           <label class="form-label">État</label>
           <select name="status" class="form-select">
             <option value="">Tous</option>
@@ -63,23 +63,23 @@
             {% endfor %}
           </select>
         </div>
-        <div class="col-sm-6 col-md-2">
+        <div class="col-12 col-md-6 col-lg-2">
           <label class="form-label">Quantité (min–max)</label>
           <div class="d-flex gap-2">
             <input type="number" min="0" name="quantity_min" value="{{ filters.quantity_min }}" class="form-control" placeholder="Min">
             <input type="number" min="0" name="quantity_max" value="{{ filters.quantity_max }}" class="form-control" placeholder="Max">
           </div>
         </div>
-        <div class="col-sm-6 col-md-2">
+        <div class="col-12 col-md-6 col-lg-3">
           <label class="form-label">Date d'acquisition</label>
           <div class="d-flex gap-2">
-            <input type="date" name="acq_from" value="{{ filters.acq_from }}" class="form-control">
-            <input type="date" name="acq_to" value="{{ filters.acq_to }}" class="form-control">
+            <input type="date" name="acq_from" value="{{ filters.acq_from }}" class="form-control" style="min-width:0;">
+            <input type="date" name="acq_to" value="{{ filters.acq_to }}" class="form-control" style="min-width:0;">
           </div>
         </div>
-        <div class="col-sm-6 col-md-1 d-flex gap-2">
-          <button type="submit" class="btn btn-amber w-100"><i class="bi bi-funnel-fill"></i></button>
-          <a href="{% url 'resources:equipment_list' %}" class="btn btn-ghost w-100" title="Réinitialiser"><i class="bi bi-x-lg"></i></a>
+        <div class="col-12 col-lg-auto d-flex gap-2 ms-lg-auto">
+          <button type="submit" class="btn btn-amber flex-fill flex-lg-grow-0"><i class="bi bi-funnel-fill"></i> Filtrer</button>
+          <a href="{% url 'resources:equipment_list' %}" class="btn btn-ghost" title="Réinitialiser"><i class="bi bi-x-lg"></i></a>
         </div>
       </div>
     </form>
