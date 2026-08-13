@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.urls import reverse
 from django.utils.html import format_html
 from import_export.admin import ExportMixin
-from .models import GeneratedDocument
+from .models import GeneratedDocument, HotEvaluation
 from .resources import GeneratedDocumentResource
 
 @admin.register(GeneratedDocument)
@@ -55,3 +55,11 @@ class GeneratedDocumentAdmin(ExportMixin, admin.ModelAdmin):
     
     def has_delete_permission(self, request, obj=None):
         return request.user.is_superuser  # Only superuser can delete
+
+
+@admin.register(HotEvaluation)
+class HotEvaluationAdmin(admin.ModelAdmin):
+    list_display = ["participant", "overall_satisfaction", "total_score", "filled_by", "filled_at"]
+    list_filter = ["overall_satisfaction", "filled_at"]
+    search_fields = ["participant__first_name", "participant__last_name"]
+    readonly_fields = ["filled_by", "filled_at"]

@@ -8,8 +8,8 @@ from django.http import HttpResponse
 from django.core.exceptions import PermissionDenied
 
 from formations.models import Session, Participant
-from .models import GeneratedDocument
-from .forms import AttendanceSheetForm, AttestationGenerationForm, CommitteeForm
+from .models import GeneratedDocument, HotEvaluation
+from .forms import AttendanceSheetForm, AttestationGenerationForm, CommitteeForm, HotEvaluationForm
 from .utils import check_document_requirements
 from .notifications import notify_pv_generated
 
@@ -204,6 +204,9 @@ def generate_deliberation_report_view(request, session_pk):
         messages.error(request, f"Impossible de générer: {'; '.join(errors)}")
         return redirect("documents:dashboard", session_pk=session.pk)
 
+    # Allocate the PV number now (no-op if the nominal list already did) so
+    # it's already fixed by the time the notification email goes out.
+    session.assign_pv_number()
     notify_pv_generated(session, generated_by=request.user, request=request)
 
     return redirect("documents:print_deliberation_report", session_pk=session.pk)
@@ -262,8 +265,61 @@ def generate_evaluation_sheet_view(request, participant_pk):
     if errors:
         messages.error(request, f"Impossible de générer: {'; '.join(errors)}")
         return redirect("documents:dashboard", session_pk=session.pk)
-    # Reuse evaluation list for individual (or add a dedicated print view later)
-    return redirect("documents:print_evaluation_list", session_pk=session.pk)
+
+    # Nothing transcribed yet for this candidate's paper survey -> send
+    # the operator to fill it in first; the dedicated print view (blank
+    # or filled) is reached from there / from the dashboard afterwards.
+    evaluation = getattr(participant, "hot_evaluation", None)
+    if not evaluation or not evaluation.is_complete:
+        return redirect(
+            "documents:evaluation_sheet_form", participant_pk=participant.pk
+        )
+    return redirect(
+        "documents:print_evaluation_sheet", participant_pk=participant.pk
+    )
+
+
+@login_required
+def evaluation_sheet_form_view(request, participant_pk):
+    """
+    Transcription screen for the paper « Fiche d'évaluation à chaud » —
+    enter what the candidate ticked by hand so the filled print view can
+    reproduce it. The blank version (for printing and handing to the
+    candidate in the first place) doesn't need this form at all — see
+    documents:print_evaluation_sheet?mode=blank.
+    """
+    participant = get_object_or_404(Participant, pk=participant_pk)
+    session = participant.session
+    if not request.user.profile.can_generate_documents():
+        raise PermissionDenied()
+    errors = check_document_requirements(session, "evaluation_sheet", participant)
+    if errors:
+        messages.error(request, f"Impossible de saisir: {'; '.join(errors)}")
+        return redirect("documents:dashboard", session_pk=session.pk)
+
+    evaluation, _ = HotEvaluation.objects.get_or_create(participant=participant)
+
+    if request.method == "POST":
+        form = HotEvaluationForm(request.POST, instance=evaluation)
+        if form.is_valid():
+            evaluation = form.save(commit=False)
+            evaluation.filled_by = request.user
+            evaluation.save()
+            messages.success(
+                request,
+                f"Fiche d'évaluation à chaud de {participant.full_name} enregistrée.",
+            )
+            return redirect(
+                "documents:print_evaluation_sheet", participant_pk=participant.pk
+            )
+    else:
+        form = HotEvaluationForm(instance=evaluation)
+
+    return render(
+        request,
+        "documents/evaluation_sheet_form.html",
+        {"form": form, "participant": participant, "session": session},
+    )
 
 
 @login_required

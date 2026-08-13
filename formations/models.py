@@ -304,6 +304,17 @@ class Session(models.Model):
     trainer = models.ForeignKey("resources.Trainer", on_delete=models.CASCADE)
 
     reference = models.CharField(max_length=50, unique=True, verbose_name="Référence")
+
+    # pv_number: the محضر مداولات (PV) reference — a SEPARATE monthly-reset
+    # sequence from `reference` (see core/sequencing.py:allocate_pv_number).
+    # Auto-assigned once, on first use (nominal list or PV print — whichever
+    # happens first), then reused by both documents. Never user-editable and
+    # never reassigned once set, same protection pattern as
+    # Participant.certificate_number below.
+    pv_number = models.CharField(
+        max_length=20, blank=True, verbose_name="Numéro PV"
+    )
+
     date_start = models.DateField(verbose_name="Date début")
     date_end = models.DateField(verbose_name="Date fin")
 
@@ -373,12 +384,37 @@ class Session(models.Model):
             self.reference = self._generate_reference()
         if not self.capacity:
             self.capacity = self.formation.max_participants
+        if self.pk:
+            # Protect pv_number from being changed/cleared once assigned —
+            # same rule as Participant.certificate_number.
+            old_pv_number = (
+                Session.objects.filter(pk=self.pk)
+                .values_list("pv_number", flat=True)
+                .first()
+            )
+            if old_pv_number and self.pv_number != old_pv_number:
+                self.pv_number = old_pv_number
         super().save(*args, **kwargs)
 
     def _generate_reference(self):
         from .utils import generate_session_reference
 
         return generate_session_reference(self)
+
+    def assign_pv_number(self):
+        """
+        Assign this session's PV (محضر مداولات) number if it doesn't have
+        one yet. Idempotent and safe to call from both the nominal-list
+        print view and the deliberation-report print view — whichever is
+        rendered first allocates the number, the other one just reuses it,
+        so both documents always show the same reference.
+        """
+        if self.pv_number:
+            return
+        from core.sequencing import allocate_pv_number
+
+        self.pv_number = allocate_pv_number()
+        self.save(update_fields=["pv_number"])
 
     def clean(self):
         if self.date_start and self.date_end and self.date_end < self.date_start:

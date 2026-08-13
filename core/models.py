@@ -94,3 +94,92 @@ class PVDefaultSignatory(models.Model):
 
     def __str__(self):
         return f"{self.full_name} — {self.role}"
+
+
+class SequenceCounter(models.Model):
+    """
+    Generic, race-safe numbering counter shared by every document sequencer
+    in the app. One row per (kind, period_key) — e.g. kind="pv",
+    period_key="2026-08" (resets every month) or kind="certificate",
+    period_key="2026" (resets every year). Values are never reused, even
+    if a document is later deleted/regenerated, so numbers stay unique and
+    strictly increasing within their own period.
+
+    Two independent sequencers currently use this counter (see
+    core/sequencing.py):
+    - "pv" — محضر مداولات (PV) reference, one counter per calendar month.
+    - "certificate" — شهادة / attestation number, one counter per year.
+    """
+
+    KIND_CHOICES = [
+        ("pv", "Procès-verbal (PV) de délibération"),
+        ("certificate", "Attestation / Certificat"),
+    ]
+
+    kind = models.CharField(max_length=20, choices=KIND_CHOICES, verbose_name="Type")
+    period_key = models.CharField(
+        max_length=20,
+        verbose_name="Période",
+        help_text=(
+            "Clé de la période sur laquelle le compteur est remis à zéro "
+            "(ex. '2026-08' pour un compteur mensuel, '2026' pour un compteur annuel)."
+        ),
+    )
+    last_value = models.PositiveIntegerField(default=0, verbose_name="Dernière valeur")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Compteur de séquence"
+        verbose_name_plural = "Compteurs de séquence"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["kind", "period_key"], name="unique_sequence_kind_period"
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.get_kind_display()} — {self.period_key} → {self.last_value}"
+
+    @classmethod
+    def next_value(cls, kind, period_key):
+        """
+        Atomically allocate and return the next integer in the
+        (kind, period_key) sequence.
+
+        Safe under concurrent requests: the increment is a single
+        UPDATE ... SET last_value = last_value + 1 (an F() expression)
+        wrapped in a transaction, so two callers racing for the same
+        (kind, period_key) can never be handed the same number — every
+        supported backend serializes that UPDATE at the row (or, for
+        SQLite, whole-database) level.
+
+        On SQLite specifically, a burst of simultaneous writers can still
+        surface as a transient "database is locked" OperationalError
+        rather than a silent wait (Postgres deployments — the production
+        target — block and retry internally and never hit this path). A
+        few short, jittered retries absorb that burst without ever
+        allowing a duplicate or skipped number: each retry re-attempts
+        the whole atomic increment from scratch.
+        """
+        import random
+        import time
+
+        from django.db import OperationalError, transaction
+        from django.db.models import F
+
+        attempts = 5
+        for attempt in range(attempts):
+            try:
+                with transaction.atomic():
+                    counter, _ = cls.objects.get_or_create(
+                        kind=kind, period_key=period_key
+                    )
+                    cls.objects.filter(pk=counter.pk).update(
+                        last_value=F("last_value") + 1
+                    )
+                    counter.refresh_from_db(fields=["last_value"])
+                    return counter.last_value
+            except OperationalError:
+                if attempt == attempts - 1:
+                    raise
+                time.sleep(0.05 * (attempt + 1) + random.uniform(0, 0.05))

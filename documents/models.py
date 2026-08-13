@@ -158,3 +158,186 @@ class GeneratedDocument(models.Model):
             raise ValidationError(
                 f"Un numéro de jour est requis pour '{self.get_doc_type_display()}'"
             )
+
+
+class HotEvaluation(models.Model):
+    """
+    « Fiche d'évaluation à chaud » — post-training satisfaction survey
+    filled out by the candidate on paper right after the session, then
+    transcribed into the app. One per participant (doc_type
+    "evaluation_sheet" / "Fiche d'évaluation individuelle" in
+    GeneratedDocument — see check_document_requirements(), which already
+    requires the participant's result to be settled before this can be
+    generated).
+
+    The 8 criteria and their A/B/C/D grading scale are fixed by the
+    institute's own paper form (never configured per-formation), so they
+    live as a plain class-level constant here instead of a separate
+    lookup model.
+
+    Two print modes share this same data (see documents/views_print.py):
+    - blank  (?mode=blank) — nothing pre-filled, meant to be printed and
+      handed to the candidate to tick by hand.
+    - filled — renders the checkmarks/ticks from whatever has been
+      transcribed here via the HotEvaluationForm.
+    """
+
+    GRADE_CHOICES = [
+        ("A", "A — Satisfait"),
+        ("B", "B — Bon"),
+        ("C", "C — Moyen"),
+        ("D", "D — Non satisfait"),
+    ]
+    # Max points each grade is worth — mirrors the paper form's own
+    # "A /10  B /8  C /6  D /4" column headers. Used to render the
+    # "NOTE/10" cell and to compute the overall score out of 80.
+    GRADE_POINTS = {"A": 10, "B": 8, "C": 6, "D": 4}
+
+    SATISFACTION_CHOICES = [
+        ("very_satisfied", "Très satisfait"),
+        ("satisfied", "Satisfait"),
+        ("average", "Moyen"),
+        ("dissatisfied", "Insatisfait"),
+    ]
+
+    # (field_suffix, French label, Arabic label) — order matches the
+    # paper form (N° 1 to 8) and is fixed on purpose.
+    CRITERIA = [
+        (
+            "content",
+            "Contenu de la formation (objectifs, thème)",
+            "محتوى التدريب (الأهداف, الموضوع)",
+        ),
+        (
+            "duration",
+            "Durée de la formation",
+            "مدة التدريب",
+        ),
+        (
+            "materials",
+            "Supports pédagogiques (documents, présentation, autres…)",
+            "الدعم التعليمي (الوثائق, العرض التقديمي للتدريب)",
+        ),
+        (
+            "trainer_delivery",
+            "Comment avez-vous ressenti l'animation du formateur ?",
+            "ما هو شعورك تجاه شرح الأستاذ ؟",
+        ),
+        (
+            "atmosphere",
+            "Ambiance générale de la formation (degré de participation)",
+            "الجو العام للتدريب (درجة المشاركة)",
+        ),
+        (
+            "new_knowledge",
+            "Nouvelles connaissances acquises",
+            "المعرفة المكتسبة الجديدة",
+        ),
+        (
+            "expectations",
+            "Connaissances répondant à vos attentes et à vos besoins",
+            "المعرفة التي تلبي توقعاتك و احتياجاتك",
+        ),
+        (
+            "applicability",
+            "Connaissances applicables sur le poste de travail",
+            "المعرفة التي تنطبق على منصب عملك",
+        ),
+    ]
+
+    participant = models.OneToOneField(
+        "formations.Participant",
+        on_delete=models.CASCADE,
+        related_name="hot_evaluation",
+        verbose_name="Participant",
+    )
+
+    grade_1 = models.CharField(
+        max_length=1, choices=GRADE_CHOICES, blank=True,
+        verbose_name="1. Contenu de la formation",
+    )
+    grade_2 = models.CharField(
+        max_length=1, choices=GRADE_CHOICES, blank=True,
+        verbose_name="2. Durée de la formation",
+    )
+    grade_3 = models.CharField(
+        max_length=1, choices=GRADE_CHOICES, blank=True,
+        verbose_name="3. Supports pédagogiques",
+    )
+    grade_4 = models.CharField(
+        max_length=1, choices=GRADE_CHOICES, blank=True,
+        verbose_name="4. Animation du formateur",
+    )
+    grade_5 = models.CharField(
+        max_length=1, choices=GRADE_CHOICES, blank=True,
+        verbose_name="5. Ambiance générale",
+    )
+    grade_6 = models.CharField(
+        max_length=1, choices=GRADE_CHOICES, blank=True,
+        verbose_name="6. Nouvelles connaissances acquises",
+    )
+    grade_7 = models.CharField(
+        max_length=1, choices=GRADE_CHOICES, blank=True,
+        verbose_name="7. Réponse aux attentes/besoins",
+    )
+    grade_8 = models.CharField(
+        max_length=1, choices=GRADE_CHOICES, blank=True,
+        verbose_name="8. Applicabilité sur le poste de travail",
+    )
+
+    overall_satisfaction = models.CharField(
+        max_length=20,
+        choices=SATISFACTION_CHOICES,
+        blank=True,
+        verbose_name="Appréciation générale",
+        help_text="بشكل عام، كيف تقيم هذا التدريب ؟",
+    )
+    comments = models.TextField(blank=True, verbose_name="Commentaires")
+
+    filled_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        verbose_name="Saisi par",
+    )
+    filled_at = models.DateTimeField(auto_now=True, verbose_name="Dernière saisie")
+
+    class Meta:
+        verbose_name = "Fiche d'évaluation à chaud"
+        verbose_name_plural = "Fiches d'évaluation à chaud"
+
+    def __str__(self):
+        return f"Éval. à chaud — {self.participant.full_name}"
+
+    def graded_criteria(self):
+        """(criterion, grade, points) triples in display order — used by
+        both the form and the print template so the 8 rows never drift
+        out of sync with each other."""
+        rows = []
+        for i, (key, label_fr, label_ar) in enumerate(self.CRITERIA, start=1):
+            grade = getattr(self, f"grade_{i}")
+            rows.append(
+                {
+                    "number": i,
+                    "field_name": f"grade_{i}",
+                    "key": key,
+                    "label_fr": label_fr,
+                    "label_ar": label_ar,
+                    "grade": grade,
+                    "points": self.GRADE_POINTS.get(grade),
+                }
+            )
+        return rows
+
+    @property
+    def is_complete(self):
+        return bool(self.overall_satisfaction) and all(
+            getattr(self, f"grade_{i}") for i in range(1, 9)
+        )
+
+    @property
+    def total_score(self):
+        """Sum of points across the 8 criteria (max 80), or None while
+        any criterion is still ungraded."""
+        points = [self.GRADE_POINTS.get(getattr(self, f"grade_{i}")) for i in range(1, 9)]
+        if any(p is None for p in points):
+            return None
+        return sum(points)

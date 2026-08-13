@@ -4,8 +4,9 @@ from django.contrib import messages
 from django.utils import timezone
 
 from formations.models import Session, Participant
-from .models import InstituteInfo, PVDefaultSignatory
-from .forms import InstituteInfoForm, PVDefaultSignatoryForm
+from .models import InstituteInfo, PVDefaultSignatory, SequenceCounter
+from .forms import InstituteInfoForm, PVDefaultSignatoryForm, SequenceCounterForm
+from .sequencing import PV_KIND, CERTIFICATE_KIND
 
 
 # ---------------------------------------------------------------------------
@@ -148,6 +149,85 @@ def pv_signatory_delete(request, pk):
         request,
         "core/pv_signatory_confirm_delete.html",
         {"signatory": signatory},
+    )
+
+
+def _current_period_key(kind):
+    """Same period-key scheme as core.sequencing: monthly for PV, yearly
+    for certificates."""
+    today = timezone.localdate()
+    if kind == PV_KIND:
+        return f"{today.year:04d}-{today.month:02d}"
+    return f"{today.year:04d}"
+
+
+@login_required
+def sequence_counter_list(request):
+    """
+    Numbering counters (PV monthly / certificate yearly) — Admin only.
+
+    Shows the counter for the current period of each kind (auto-created
+    on first view if it doesn't exist yet, starting at 0) plus recent
+    history, with a link to manually override the current value for
+    edge cases — e.g. resuming a series that was numbered on paper
+    before this app existed, or correcting a mistake. Past periods are
+    shown read-only; only the counter that governs the NEXT number to be
+    handed out (the current period) is meant to be edited in practice,
+    though any row can be opened and adjusted if truly needed.
+    """
+    if not request.user.profile.is_admin():
+        messages.error(request, "Accès réservé aux administrateurs.")
+        return redirect("core:dashboard")
+
+    counters = {}
+    for kind, label in SequenceCounter.KIND_CHOICES:
+        period_key = _current_period_key(kind)
+        current, _ = SequenceCounter.objects.get_or_create(
+            kind=kind, period_key=period_key
+        )
+        history = (
+            SequenceCounter.objects.filter(kind=kind)
+            .exclude(pk=current.pk)
+            .order_by("-period_key")[:12]
+        )
+        counters[kind] = {"label": label, "current": current, "history": history}
+
+    return render(request, "core/sequence_counter_list.html", {"counters": counters})
+
+
+@login_required
+def sequence_counter_edit(request, pk):
+    """
+    Override a single counter's last_value. Saving does not touch any
+    document already printed — it only changes where the NEXT allocation
+    starts counting from. Session.assign_pv_number() /
+    assign_certificate_number() keep working exactly as before and will
+    simply continue incrementing from whatever is saved here.
+    """
+    if not request.user.profile.is_admin():
+        messages.error(request, "Accès réservé aux administrateurs.")
+        return redirect("core:dashboard")
+
+    counter = get_object_or_404(SequenceCounter, pk=pk)
+
+    if request.method == "POST":
+        form = SequenceCounterForm(request.POST, instance=counter)
+        if form.is_valid():
+            form.save()
+            messages.success(
+                request,
+                f"Compteur « {counter.get_kind_display()} — {counter.period_key} » "
+                f"réglé sur {counter.last_value}. Le prochain numéro attribué "
+                f"sera le n° {counter.last_value + 1}.",
+            )
+            return redirect("core:sequence_counter_list")
+    else:
+        form = SequenceCounterForm(instance=counter)
+
+    return render(
+        request,
+        "core/sequence_counter_form.html",
+        {"form": form, "counter": counter, "next_preview": counter.last_value + 1},
     )
 
 

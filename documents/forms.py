@@ -1,5 +1,6 @@
 from django import forms
 from formations.models import Session
+from .models import HotEvaluation
 
 class DocumentGenerationForm(forms.Form):
     """Base form for document generation"""
@@ -105,3 +106,47 @@ class CommitteeForm(forms.Form):
 
         cleaned_data["committee_members"] = members
         return cleaned_data
+
+
+class HotEvaluationForm(forms.ModelForm):
+    """
+    Transcription form for the paper « Fiche d'évaluation à chaud » —
+    one radio-style choice (A/B/C/D) per criterion plus the overall
+    smiley appreciation. Used to enter what the candidate ticked by hand
+    so the "filled" print view can reproduce it.
+    """
+
+    class Meta:
+        model = HotEvaluation
+        fields = [
+            "grade_1", "grade_2", "grade_3", "grade_4",
+            "grade_5", "grade_6", "grade_7", "grade_8",
+            "overall_satisfaction", "comments",
+        ]
+        widgets = {
+            "grade_1": forms.RadioSelect,
+            "grade_2": forms.RadioSelect,
+            "grade_3": forms.RadioSelect,
+            "grade_4": forms.RadioSelect,
+            "grade_5": forms.RadioSelect,
+            "grade_6": forms.RadioSelect,
+            "grade_7": forms.RadioSelect,
+            "grade_8": forms.RadioSelect,
+            "overall_satisfaction": forms.RadioSelect,
+            "comments": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
+        }
+
+    def criteria_fields(self):
+        """(criterion metadata, bound field) pairs in display order, so
+        the template can render each row without hardcoding grade_1..8."""
+        pairs = []
+        for i, (key, label_fr, label_ar) in enumerate(HotEvaluation.CRITERIA, start=1):
+            pairs.append(
+                {
+                    "number": i,
+                    "label_fr": label_fr,
+                    "label_ar": label_ar,
+                    "field": self[f"grade_{i}"],
+                }
+            )
+        return pairs

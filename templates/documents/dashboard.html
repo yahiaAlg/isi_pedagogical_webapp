@@ -407,8 +407,11 @@
             <i class="bi bi-download"></i> Éval.
           </a>
           {% endif %}
+          <a href="{% url 'documents:print_evaluation_sheet' participant_pk=p.pk %}?mode=blank" class="btn btn-ghost btn-sm" title="Imprimer la fiche vierge" target="_blank">
+            <i class="bi bi-printer"></i> Vierge
+          </a>
           <a href="{% url 'documents:generate_evaluation_sheet' participant_pk=p.pk %}" class="btn btn-outline-amber btn-sm generate-confirm" data-label="la fiche d'évaluation de {{ p.full_name }}">
-            <i class="bi bi-file-earmark-arrow-down-fill"></i> {% if eval_doc %}Regén.{% else %}Éval.{% endif %}
+            <i class="bi bi-file-earmark-arrow-down-fill"></i> {% if p.hot_evaluation.is_complete %}Regén.{% else %}Éval.{% endif %}
           </a>
           {% endif %}
           {% if 'attestation' in available_docs and session.formation.produces_certificate and p.result == 'passed' %}

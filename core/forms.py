@@ -1,7 +1,7 @@
 from django import forms
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
-from .models import InstituteInfo, PVDefaultSignatory
+from .models import InstituteInfo, PVDefaultSignatory, SequenceCounter
 
 
 class InstituteInfoForm(forms.ModelForm):
@@ -86,3 +86,35 @@ class PVDefaultSignatoryForm(forms.ModelForm):
             "order": forms.NumberInput(attrs={"class": "form-control"}),
             "is_active": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
+
+
+class SequenceCounterForm(forms.ModelForm):
+    """
+    Manual override for a numbering counter (PV or certificate), for edge
+    cases: resuming a paper-based series, correcting an operator mistake,
+    aligning the app with numbers already handed out outside the system,
+    etc. Only `last_value` is editable — `kind` and `period_key` define
+    which counter this is and are never changed here.
+
+    Nothing else needs to be touched: SequenceCounter.next_value() always
+    reads the stored last_value and increments it by one, so as soon as
+    this is saved, the very next PV/certificate printed picks up right
+    after the new value — both the pv/certificate print flow and this
+    form share the exact same counter row.
+    """
+
+    class Meta:
+        model = SequenceCounter
+        fields = ["last_value"]
+        widgets = {
+            "last_value": forms.NumberInput(attrs={"class": "form-control", "min": 0}),
+        }
+        labels = {
+            "last_value": "Dernier numéro attribué",
+        }
+
+    def clean_last_value(self):
+        value = self.cleaned_data["last_value"]
+        if value < 0:
+            raise forms.ValidationError("La valeur doit être positive ou nulle.")
+        return value

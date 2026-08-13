@@ -26,6 +26,16 @@ urlpatterns = [
         views.pv_signatory_delete,
         name="pv_signatory_delete",
     ),
+    path(
+        "settings/sequences/",
+        views.sequence_counter_list,
+        name="sequence_counter_list",
+    ),
+    path(
+        "settings/sequences/<int:pk>/edit/",
+        views.sequence_counter_edit,
+        name="sequence_counter_edit",
+    ),
     # Spec §11.6 — public QR verification landing page (no login required)
     path("verify/<int:token>/", views.verify_attestation, name="verify_attestation"),
 ]

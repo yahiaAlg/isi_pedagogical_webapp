@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Numérotation des documents — ISI Gestion Pédagogique{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'core/css/base.css' %}" />{% endblock %}
+
+{% block breadcrumb %}
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="{% url 'core:settings' %}">Paramètres</a>
+<i class="bi bi-chevron-right bc-sep"></i>
+{% endblock %}
+{% block breadcrumb_active %}<span class="bc-active">Numérotation des documents</span>{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% url 'core:settings' %}" class="topbar-btn"><i class="bi bi-arrow-left"></i> Paramètres</a>
+{% endblock %}
+
+{% block content %}
+<div class="fade-up">
+  <div class="page-header">
+    <div class="page-header-left">
+      <h1>Numérotation des documents</h1>
+      <p class="page-subtitle">
+        Le numéro de PV se remet à zéro chaque mois, le numéro d'attestation chaque année.
+        Réglez le « dernier numéro attribué » pour un cas particulier (reprise d'une série papier,
+        correction) — la numérotation automatique continue ensuite normalement à partir de cette valeur.
+      </p>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    {% for kind, data in counters.items %}
+    <div class="col-lg-6">
+      <div class="isi-card mb-4">
+        <div class="isi-card-header">
+          <div class="card-icon {% if kind == 'pv' %}blue{% else %}amber{% endif %}">
+            <i class="bi {% if kind == 'pv' %}bi-file-earmark-text-fill{% else %}bi-patch-check-fill{% endif %}"></i>
+          </div>
+          <h3>{{ data.label }}</h3>
+        </div>
+        <div class="isi-card-body">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:16px;">
+            <div>
+              <div style="font-size:11.5px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.03em;">
+                Période en cours — {{ data.current.period_key }}
+              </div>
+              <div style="font-size:28px;font-weight:700;line-height:1.3;">
+                {{ data.current.last_value }}
+              </div>
+              <div style="font-size:12.5px;color:var(--text-muted);">
+                Prochain numéro attribué : n° {{ data.current.last_value|add:1 }}
+              </div>
+            </div>
+            <a href="{% url 'core:sequence_counter_edit' data.current.pk %}" class="btn btn-amber btn-sm">
+              <i class="bi bi-pencil-fill"></i> Régler
+            </a>
+          </div>
+
+          {% if data.history %}
+          <div class="section-divider"></div>
+          <div class="form-section-title">Périodes précédentes</div>
+          <div style="overflow-x:auto;">
+            <table class="isi-table">
+              <thead>
+                <tr>
+                  <th>Période</th>
+                  <th>Dernier numéro</th>
+                  <th style="text-align:right;">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for c in data.history %}
+                <tr>
+                  <td>{{ c.period_key }}</td>
+                  <td>{{ c.last_value }}</td>
+                  <td>
+                    <div style="display:flex;justify-content:flex-end;">
+                      <a href="{% url 'core:sequence_counter_edit' c.pk %}" class="btn btn-ghost btn-sm">
+                        <i class="bi bi-pencil-fill"></i>
+                      </a>
+                    </div>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

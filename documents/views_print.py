@@ -92,6 +92,9 @@ def print_nominal_list(request, session_pk):
     session = get_object_or_404(Session, pk=session_pk)
     if not request.user.profile.can_generate_documents():
         raise PermissionDenied()
+    # Nominal list and PV share the same reference (§ PV sequencer) —
+    # whichever of the two is printed first allocates it.
+    session.assign_pv_number()
     participants = session.participant_set.order_by("last_name", "first_name")
     return render(
         request,
@@ -141,6 +144,9 @@ def print_deliberation_report(request, session_pk):
     session = get_object_or_404(Session, pk=session_pk)
     if not request.user.profile.can_generate_documents():
         raise PermissionDenied()
+    # Same PV sequencer/number as the nominal list (§ PV sequencer) —
+    # no-op if the nominal list already allocated one for this session.
+    session.assign_pv_number()
     return render(
         request,
         "documents/print/deliberation_report.html",
@@ -180,6 +186,57 @@ def print_attestation(request, participant_pk):
     context.update(column_offsets())
 
     return render(request, "documents/print/attestation.html", context)
+
+
+@login_required
+def print_evaluation_sheet(request, participant_pk):
+    """
+    « Fiche d'évaluation à chaud » — per candidate, same document in two
+    modes:
+    - ?mode=blank — nothing filled in, meant to be printed and handed to
+      the candidate right after the session for them to tick by hand.
+    - default — renders whatever has been transcribed via
+      documents:evaluation_sheet_form (ticks/checkmarks placed
+      programmatically instead of by hand).
+    """
+    participant = get_object_or_404(Participant, pk=participant_pk)
+    if not request.user.profile.can_generate_documents():
+        raise PermissionDenied()
+
+    blank_mode = request.GET.get("mode") == "blank"
+    evaluation = None if blank_mode else getattr(participant, "hot_evaluation", None)
+
+    from .models import HotEvaluation
+
+    criteria = (
+        evaluation.graded_criteria()
+        if evaluation
+        else [
+            {
+                "number": i,
+                "key": key,
+                "label_fr": label_fr,
+                "label_ar": label_ar,
+                "grade": "",
+                "points": None,
+            }
+            for i, (key, label_fr, label_ar) in enumerate(HotEvaluation.CRITERIA, start=1)
+        ]
+    )
+
+    return render(
+        request,
+        "documents/print/evaluation_sheet.html",
+        {
+            "participant": participant,
+            "session": participant.session,
+            "institute": _get_institute(),
+            "evaluation": evaluation,
+            "criteria": criteria,
+            "satisfaction_choices": HotEvaluation.SATISFACTION_CHOICES,
+            "blank_mode": blank_mode,
+        },
+    )
 
 
 @login_required

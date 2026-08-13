@@ -57,6 +57,11 @@ urlpatterns = [
         name="generate_evaluation_sheet",
     ),
     path(
+        "participants/<int:participant_pk>/evaluation-sheet/saisie/",
+        views.evaluation_sheet_form_view,
+        name="evaluation_sheet_form",
+    ),
+    path(
         "participants/<int:participant_pk>/generate/attestation/",
         views.generate_attestation_view,
         name="generate_attestation",
@@ -97,6 +102,11 @@ urlpatterns = [
         "sessions/<int:session_pk>/print/deliberation-report/",
         views_print.print_deliberation_report,
         name="print_deliberation_report",
+    ),
+    path(
+        "participants/<int:participant_pk>/print/evaluation-sheet/",
+        views_print.print_evaluation_sheet,
+        name="print_evaluation_sheet",
     ),
     path(
         "sessions/<int:session_pk>/print/batch-attestations/",
