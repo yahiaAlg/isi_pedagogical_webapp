@@ -90,8 +90,10 @@ def category_list(request):
     q = request.GET.get("q", "").strip()
     if q:
         categories = categories.filter(
-            Q(name__icontains=q) | Q(description__icontains=q)
-        )
+            Q(name__icontains=q)
+            | Q(description__icontains=q)
+            | Q(formation__title__icontains=q)
+        ).distinct()
     categories = categories.order_by(db_field if dir_ == "asc" else "-" + db_field)
     return render(
         request,
@@ -171,7 +173,9 @@ def branch_list(request):
             Q(name__icontains=q)
             | Q(name_ar__icontains=q)
             | Q(abbreviation__icontains=q)
-        )
+            | Q(specialties__title__icontains=q)
+            | Q(specialties__formations__title__icontains=q)
+        ).distinct()
     curriculum_type = request.GET.get("curriculum_type", "").strip()
     if curriculum_type:
         branches = branches.filter(curriculum_type=curriculum_type)
@@ -256,8 +260,11 @@ def specialty_list(request):
     q = request.GET.get("q", "").strip()
     if q:
         specialties = specialties.filter(
-            Q(title__icontains=q) | Q(title_ar__icontains=q) | Q(code__icontains=q)
-        )
+            Q(title__icontains=q)
+            | Q(title_ar__icontains=q)
+            | Q(code__icontains=q)
+            | Q(formations__title__icontains=q)
+        ).distinct()
     branch = request.GET.get("branch", "").strip()
     if branch.isdigit():
         specialties = specialties.filter(branch_id=branch)
