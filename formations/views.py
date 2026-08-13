@@ -7,7 +7,15 @@ from django.views.decorators.http import require_POST
 from django.db.models import Avg, Count, Q, Sum
 from django.utils import timezone
 
-from .models import Category, Branch, Specialty, Formation, Session, Participant, TrainerPayment
+from .models import (
+    Category,
+    Branch,
+    Specialty,
+    Formation,
+    Session,
+    Participant,
+    TrainerPayment,
+)
 from clients.models import Client
 from resources.models import Trainer
 from .forms import (
@@ -81,7 +89,9 @@ def category_list(request):
     categories = Category.objects.annotate(formations_total=Count("formation"))
     q = request.GET.get("q", "").strip()
     if q:
-        categories = categories.filter(Q(name__icontains=q) | Q(description__icontains=q))
+        categories = categories.filter(
+            Q(name__icontains=q) | Q(description__icontains=q)
+        )
     categories = categories.order_by(db_field if dir_ == "asc" else "-" + db_field)
     return render(
         request,
@@ -157,7 +167,11 @@ def branch_list(request):
     branches = Branch.objects.annotate(specialties_total=Count("specialties"))
     q = request.GET.get("q", "").strip()
     if q:
-        branches = branches.filter(Q(name__icontains=q) | Q(name_ar__icontains=q) | Q(abbreviation__icontains=q))
+        branches = branches.filter(
+            Q(name__icontains=q)
+            | Q(name_ar__icontains=q)
+            | Q(abbreviation__icontains=q)
+        )
     curriculum_type = request.GET.get("curriculum_type", "").strip()
     if curriculum_type:
         branches = branches.filter(curriculum_type=curriculum_type)
@@ -267,9 +281,7 @@ def specialty_create(request):
         form = SpecialtyForm(request.POST)
         if form.is_valid():
             specialty = form.save()
-            messages.success(
-                request, f'Spécialité "{specialty.reference_root}" créée.'
-            )
+            messages.success(request, f'Spécialité "{specialty.reference_root}" créée.')
             return redirect("formations:specialty_list")
     else:
         form = SpecialtyForm()
@@ -345,9 +357,7 @@ def formation_list(request):
     # Formation.average_price, a participant-count-weighted average.
     qs = Formation.objects.select_related("category", "specialty").annotate(
         sessions_total=Count("session"),
-        avg_price=Avg(
-            "session__base_price", filter=Q(session__is_primary=True)
-        ),
+        avg_price=Avg("session__base_price", filter=Q(session__is_primary=True)),
     )
 
     q = request.GET.get("q", "").strip()
@@ -361,6 +371,12 @@ def formation_list(request):
     category = request.GET.get("category", "").strip()
     if category.isdigit():
         qs = qs.filter(category_id=category)
+    branch = request.GET.get("branch", "").strip()
+    if branch.isdigit():
+        qs = qs.filter(specialty__branch_id=branch)
+    specialty = request.GET.get("specialty", "").strip()
+    if specialty.isdigit():
+        qs = qs.filter(specialty_id=specialty)
     attestation_type = request.GET.get("attestation_type", "").strip()
     if attestation_type:
         qs = qs.filter(attestation_type=attestation_type)
@@ -404,11 +420,19 @@ def formation_list(request):
             "sort": sort,
             "dir": dir_,
             "categories": Category.objects.order_by("name"),
+            "branches": Branch.objects.order_by("name"),
+            "specialties": (
+                Specialty.objects.select_related("branch").filter(branch_id=branch)
+                if branch.isdigit()
+                else Specialty.objects.select_related("branch")
+            ).order_by("branch__abbreviation", "code"),
             "attestation_choices": Formation.ATTESTATION_TYPE_CHOICES,
             "evaluation_choices": Formation.EVALUATION_CHOICES,
             "filters": {
                 "q": q,
                 "category": category,
+                "branch": branch,
+                "specialty": specialty,
                 "attestation_type": attestation_type,
                 "evaluation_type": evaluation_type,
                 "is_active": is_active,
@@ -571,9 +595,11 @@ def formation_api_detail(request, pk):
     # Prefer the last trainer only if still qualified for this formation;
     # otherwise fall back to any trainer currently qualified for it.
     trainer = None
-    if last and last.trainer_id and formation.qualified_trainers.filter(
-        pk=last.trainer_id
-    ).exists():
+    if (
+        last
+        and last.trainer_id
+        and formation.qualified_trainers.filter(pk=last.trainer_id).exists()
+    ):
         trainer = last.trainer
     else:
         trainer = formation.qualified_trainers.filter(is_active=True).first()
@@ -781,7 +807,9 @@ def session_equipment_update(request, pk):
         messages.error(request, "Aucune salle n'est associée à cette session.")
         return redirect("formations:session_detail", pk=pk)
 
-    submitted_ids = {int(i) for i in request.POST.getlist("equipment_ids") if i.isdigit()}
+    submitted_ids = {
+        int(i) for i in request.POST.getlist("equipment_ids") if i.isdigit()
+    }
     current_ids = set(session.equipment.values_list("pk", flat=True))
 
     added_count, blocked = 0, []
@@ -860,7 +888,7 @@ def session_asset_deliver(request, pk):
         else:
             messages.success(
                 request,
-                f"{quantity} {asset.get_unit_display()} de \"{asset.name}\" livré(s) à la session.",
+                f'{quantity} {asset.get_unit_display()} de "{asset.name}" livré(s) à la session.',
             )
     else:
         for err in form.errors.values():
@@ -1002,9 +1030,11 @@ def session_create(request):
                     .first()
                 )
                 trainer = None
-                if last and last.trainer_id and formation.qualified_trainers.filter(
-                    pk=last.trainer_id
-                ).exists():
+                if (
+                    last
+                    and last.trainer_id
+                    and formation.qualified_trainers.filter(pk=last.trainer_id).exists()
+                ):
                     trainer = last.trainer
                 elif qualified_trainer:
                     trainer = qualified_trainer
@@ -1168,7 +1198,9 @@ def session_trainer_payment(request, pk):
         )
         return redirect("formations:session_detail", pk=pk)
     if primary.trainer_payment_status == "paid":
-        messages.info(request, "Le règlement du formateur est déjà soldé pour ce cycle.")
+        messages.info(
+            request, "Le règlement du formateur est déjà soldé pour ce cycle."
+        )
         return redirect("formations:session_detail", pk=pk)
 
     if request.method == "POST":

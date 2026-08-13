@@ -59,6 +59,24 @@
           </select>
         </div>
         <div class="col-sm-3 col-md-2">
+          <label class="form-label">Branche</label>
+          <select name="branch" class="form-select">
+            <option value="">Toutes</option>
+            {% for b in branches %}
+            <option value="{{ b.pk }}" {% if filters.branch == b.pk|stringformat:"s" %}selected{% endif %}>{{ b.abbreviation }} — {{ b.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-sm-3 col-md-2">
+          <label class="form-label">Spécialité</label>
+          <select name="specialty" class="form-select">
+            <option value="">Toutes</option>
+            {% for s in specialties %}
+            <option value="{{ s.pk }}" {% if filters.specialty == s.pk|stringformat:"s" %}selected{% endif %}>{{ s.reference_root }} — {{ s.title }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-sm-3 col-md-2">
           <label class="form-label">Attestation</label>
           <select name="attestation_type" class="form-select">
             <option value="">Toutes</option>
