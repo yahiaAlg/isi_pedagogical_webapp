@@ -27,8 +27,6 @@ Run
 
 from __future__ import annotations
 
-import datetime
-
 from django.core.management.base import BaseCommand
 
 # ─────────────────────────── raw data ──────────────────────────────────────
@@ -1745,11 +1743,31 @@ class Command(BaseCommand):
     def _info(self, msg: str):
         self.stdout.write(self.style.MIGRATE_HEADING(f"\n► {msg}"))
 
+    # The `clients.Client` model only exposes this subset of fields (see
+    # master_models.md). The CSV export carries several extra columns
+    # (client_type, forme_juridique, postal_code, website, activity_sector,
+    # contact_phone, contact_email, nin, article_imposition, rib, tin,
+    # carte_auto_entrepreneur, label_startup_*, programme_accompagnement,
+    # is_tva_exempt, notes) that have no matching model field — passing
+    # them straight to Client.objects.create(**data) raises
+    # `TypeError: unexpected keyword argument`. We keep the richer CLIENTS
+    # dicts as the source-of-truth import data, but only forward the
+    # fields the model actually has, remapping the couple of renamed ones.
     @staticmethod
-    def _parse_date(value):
-        if not value:
-            return None
-        return datetime.datetime.strptime(value, "%Y-%m-%d").date()
+    def _to_model_fields(data: dict) -> dict:
+        return {
+            "name": data.get("name", ""),
+            "name_ar": data.get("name_ar", ""),
+            "address": data.get("address", ""),
+            "city": data.get("city", ""),
+            "phone": data.get("phone", ""),
+            "email": data.get("email", ""),
+            "contact_person": data.get("contact_name", ""),
+            "nif": data.get("nif", ""),
+            "nis": data.get("nis", ""),
+            "rc": data.get("rc", ""),
+            "is_active": data.get("is_active", True),
+        }
 
     # ── clients ──────────────────────────────────────────────────────────
     def _seed_clients(self, force: bool):
@@ -1768,9 +1786,8 @@ class Command(BaseCommand):
 
         created, updated, skipped = 0, 0, 0
 
-        for data in CLIENTS:
-            data = dict(data)
-            data["label_startup_date"] = self._parse_date(data.get("label_startup_date"))
+        for raw in CLIENTS:
+            data = self._to_model_fields(raw)
 
             existing = Client.objects.filter(name__iexact=data["name"]).first()
 
