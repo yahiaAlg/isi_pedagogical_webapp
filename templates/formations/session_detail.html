@@ -749,6 +749,9 @@
         <div class="isi-card-header">
           <div class="card-icon purple"><i class="bi bi-file-earmark-richtext-fill"></i></div>
           <h3>Documents de la session</h3>
+          <a href="{% url 'documents:dashboard' session_pk=session.pk %}" class="btn btn-ghost btn-sm ms-auto">
+            <i class="bi bi-folder2-open"></i> Voir tous les documents
+          </a>
         </div>
         <div class="isi-card-body">
           {% with has_participants=participants|length %}

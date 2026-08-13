@@ -106,10 +106,27 @@ def trainer_detail(request, pk):
         .select_related("session", "session__formation", "confirmed_by")
         .order_by("-paid_at")
     )
+    # Spec §new — session cycles for this trainer that are terminated and
+    # still owe a règlement, so we can offer a direct "add payment" shortcut
+    # instead of leaving the payment history as a dead-end empty state.
+    unpaid_sessions = [
+        s
+        for s in trainer.session_set.filter(
+            is_primary=True, status__in=["completed", "archived"]
+        )
+        .select_related("formation")
+        .order_by("-date_start")
+        if s.trainer_cost is not None and s.trainer_payment_status != "paid"
+    ]
     return render(
         request,
         "resources/trainer_detail.html",
-        {"trainer": trainer, "sessions": sessions, "payments": payments},
+        {
+            "trainer": trainer,
+            "sessions": sessions,
+            "payments": payments,
+            "unpaid_sessions": unpaid_sessions,
+        },
     )
 
 
@@ -198,7 +215,11 @@ def room_list(request):
             "rooms": list(rooms),
             "sort": sort_key,
             "dir": dir_,
-            "filters": {"q": q, "capacity_min": capacity_min, "capacity_max": capacity_max},
+            "filters": {
+                "q": q,
+                "capacity_min": capacity_min,
+                "capacity_max": capacity_max,
+            },
         },
     )
 
@@ -209,7 +230,9 @@ def _apply_room_equipment(room, selected_qs, user):
     session attached). Guardrail: an item actively allocated to a session
     elsewhere is skipped and reported back."""
     selected_ids = set(e.pk for e in selected_qs)
-    currently_here = set(Equipment.objects.filter(room=room).values_list("pk", flat=True))
+    currently_here = set(
+        Equipment.objects.filter(room=room).values_list("pk", flat=True)
+    )
 
     skipped = []
     for eq in Equipment.objects.filter(pk__in=(selected_ids - currently_here)):
@@ -236,10 +259,9 @@ def _apply_room_equipment(room, selected_qs, user):
 def room_detail(request, pk):
     room = get_object_or_404(Room, pk=pk)
     equipment = room.equipment_set.all().order_by("name")
-    history = (
-        EquipmentAllocation.objects.filter(room=room)
-        .select_related("equipment", "session", "allocated_by", "released_by")[:50]
-    )
+    history = EquipmentAllocation.objects.filter(room=room).select_related(
+        "equipment", "session", "allocated_by", "released_by"
+    )[:50]
     return render(
         request,
         "resources/room_detail.html",
@@ -442,7 +464,9 @@ def equipment_list(request):
     q = request.GET.get("q", "").strip()
     if q:
         equipment_qs = equipment_qs.filter(
-            Q(name__icontains=q) | Q(inventory_code__icontains=q) | Q(notes__icontains=q)
+            Q(name__icontains=q)
+            | Q(inventory_code__icontains=q)
+            | Q(notes__icontains=q)
         )
     category = request.GET.get("category", "").strip()
     if category:
@@ -622,9 +646,7 @@ def asset_create(request):
             asset.save()
             initial_qty = request.POST.get("initial_stock", "").strip()
             if initial_qty.isdigit() and int(initial_qty) > 0:
-                asset.restock(
-                    int(initial_qty), by=request.user, note="Stock initial"
-                )
+                asset.restock(int(initial_qty), by=request.user, note="Stock initial")
             messages.success(request, f'Actif "{asset.name}" créé avec succès.')
             return redirect("resources:asset_detail", pk=asset.pk)
     else:
