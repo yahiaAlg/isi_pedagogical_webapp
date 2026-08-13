@@ -23,6 +23,7 @@ from .forms import (
     ExamScoreForm,
     ParticipantImportForm,
     SessionAssetDeliveryForm,
+    SessionAssetReturnForm,
 )
 from .utils import (
     validate_session_transition,
@@ -689,14 +690,24 @@ def session_detail(request, pk):
     from resources.models import PedagogicalAsset
 
     delivery_filter = Q(movements__session=session, movements__movement_type="delivery")
+    return_filter = Q(movements__session=session, movements__movement_type="return")
     asset_deliveries = (
         PedagogicalAsset.objects.filter(delivery_filter)
-        .annotate(delivered_qty=Sum("movements__quantity", filter=delivery_filter))
+        .annotate(
+            delivered_qty=Sum("movements__quantity", filter=delivery_filter),
+            delivered_value=Sum("movements__total_price", filter=delivery_filter),
+            returned_qty=Sum("movements__quantity", filter=return_filter),
+        )
         .select_related("category")
         .distinct()
         .order_by("name")
     )
     asset_delivery_form = SessionAssetDeliveryForm()
+    asset_return_form = SessionAssetReturnForm()
+
+    # Spec §new — reserved equipment cost for this session (quantity ×
+    # unit price snapshotted at allocation time).
+    equipment_allocations = session.equipment_allocations.select_related("equipment")
 
     return render(
         request,
@@ -710,6 +721,8 @@ def session_detail(request, pk):
             "selected_equipment_ids": selected_ids,
             "asset_deliveries": asset_deliveries,
             "asset_delivery_form": asset_delivery_form,
+            "asset_return_form": asset_return_form,
+            "equipment_allocations": equipment_allocations,
         },
     )
 
@@ -803,14 +816,51 @@ def session_asset_deliver(request, pk):
         asset = form.cleaned_data["asset"]
         quantity = form.cleaned_data["quantity"]
         note = form.cleaned_data.get("note", "")
+        unit_price = form.cleaned_data.get("unit_price")
         try:
-            asset.deliver(quantity, session=session, by=request.user, note=note)
+            asset.deliver(
+                quantity,
+                session=session,
+                by=request.user,
+                note=note,
+                unit_price=unit_price,
+            )
         except ValueError as e:
             messages.error(request, str(e))
         else:
             messages.success(
                 request,
                 f"{quantity} {asset.get_unit_display()} de \"{asset.name}\" livré(s) à la session.",
+            )
+    else:
+        for err in form.errors.values():
+            messages.error(request, "; ".join(err))
+    return redirect("formations:session_detail", pk=pk)
+
+
+@login_required
+@require_POST
+def session_asset_return(request, pk):
+    """Spec §new — return part of an asset delivered to this session
+    (surplus not consumed, wrong item...) back to stock."""
+    session = get_object_or_404(Session, pk=pk)
+    if not request.user.profile.can_manage_sessions():
+        messages.error(request, "Vous n'avez pas les permissions nécessaires.")
+        return redirect("formations:session_detail", pk=pk)
+
+    form = SessionAssetReturnForm(request.POST)
+    if form.is_valid():
+        asset = form.cleaned_data["asset"]
+        quantity = form.cleaned_data["quantity"]
+        note = form.cleaned_data.get("note", "")
+        try:
+            asset.return_stock(quantity, session=session, by=request.user, note=note)
+        except ValueError as e:
+            messages.error(request, str(e))
+        else:
+            messages.success(
+                request,
+                f'{quantity} {asset.get_unit_display()} de "{asset.name}" retourné(s) au stock.',
             )
     else:
         for err in form.errors.values():

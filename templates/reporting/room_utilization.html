@@ -1,0 +1,207 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Occupation des salles — Rapports — ISI Gestion Pédagogique{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'reporting/css/reporting.css' %}" />{% endblock %}
+
+{% block breadcrumb %}
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="{% url 'reporting:dashboard' %}">Rapports</a>
+<i class="bi bi-chevron-right bc-sep"></i>
+{% endblock %}
+{% block breadcrumb_active %}<span class="bc-active">Occupation des salles</span>{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% url 'reporting:dashboard' %}" class="topbar-btn"><i class="bi bi-arrow-left"></i> Rapports</a>
+{% endblock %}
+
+{% block content %}
+<div class="fade-up">
+  <div class="page-header">
+    <div class="page-header-left">
+      <h1>Occupation & utilisation des salles</h1>
+      <p class="page-subtitle">Volume de réservations, taux de remplissage et usage de la capacité par salle</p>
+    </div>
+  </div>
+
+  <!-- ── Filter bar ─────────────────────────────────────────── -->
+  <div class="isi-card mb-4">
+    <div class="report-filter-bar">
+      <form method="get" novalidate>
+        <div class="row g-3 align-items-end">
+          <div class="col-sm-5 col-md-3">
+            <label class="form-label">Du</label>
+            <input type="date" name="date_from" class="form-control" value="{{ form.date_from.value|default_if_none:'' }}" />
+          </div>
+          <div class="col-sm-5 col-md-3">
+            <label class="form-label">Au</label>
+            <input type="date" name="date_to" class="form-control" value="{{ form.date_to.value|default_if_none:'' }}" />
+          </div>
+          <div class="col-sm-2 d-flex gap-2 align-items-end">
+            <button type="submit" class="btn btn-amber" style="justify-content:center;"><i class="bi bi-funnel-fill"></i> Filtrer</button>
+            <a href="{% url 'reporting:room_utilization' %}" class="btn btn-ghost"><i class="bi bi-x-lg"></i></a>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── KPI row ───────────────────────────────────────────── -->
+  <div class="row g-3 mb-4">
+    <div class="col-sm-6 col-lg-3">
+      <div class="isi-card">
+        <div class="isi-card-body" style="display:flex;align-items:center;gap:14px;padding:14px 18px;">
+          <div class="card-icon amber" style="width:44px;height:44px;font-size:20px;border-radius:12px;flex-shrink:0;"><i class="bi bi-door-open-fill"></i></div>
+          <div>
+            <div class="stat-value">{{ total_sessions_with_room }}</div>
+            <div class="stat-label">Sessions en salle (période)</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+      <div class="isi-card">
+        <div class="isi-card-body" style="display:flex;align-items:center;gap:14px;padding:14px 18px;">
+          <div class="card-icon green" style="width:44px;height:44px;font-size:20px;border-radius:12px;flex-shrink:0;"><i class="bi bi-star-fill"></i></div>
+          <div style="min-width:0;">
+            <div class="stat-value" style="font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{% if busiest_room %}{{ busiest_room.room.name|truncatechars:20 }}{% else %}—{% endif %}</div>
+            <div class="stat-label">Salle la plus sollicitée</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+      <div class="isi-card">
+        <div class="isi-card-body" style="display:flex;align-items:center;gap:14px;padding:14px 18px;">
+          <div class="card-icon red" style="width:44px;height:44px;font-size:20px;border-radius:12px;flex-shrink:0;"><i class="bi bi-door-closed-fill"></i></div>
+          <div>
+            <div class="stat-value">{{ idle_room_count }}</div>
+            <div class="stat-label">Salles inutilisées sur la période</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+      <div class="isi-card">
+        <div class="isi-card-body" style="display:flex;align-items:center;gap:14px;padding:14px 18px;">
+          <div class="card-icon blue" style="width:44px;height:44px;font-size:20px;border-radius:12px;flex-shrink:0;"><i class="bi bi-building"></i></div>
+          <div>
+            <div class="stat-value">{{ rows|length }}</div>
+            <div class="stat-label">Salles actives</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-4 mb-4">
+    <div class="col-lg-6">
+      <div class="isi-card">
+        <div class="isi-card-header">
+          <div class="card-icon amber"><i class="bi bi-bar-chart-line-fill"></i></div>
+          <h3>Sessions par salle</h3>
+        </div>
+        <div class="chart-container" style="height:260px;">
+          {% if usage_chart %}<canvas id="roomUsageChart"></canvas>{% else %}
+          <div class="empty-state"><p class="empty-state-text">Aucune donnée pour la période sélectionnée.</p></div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="isi-card">
+        <div class="isi-card-header">
+          <div class="card-icon blue"><i class="bi bi-graph-up"></i></div>
+          <h3>Réservations — 6 derniers mois</h3>
+        </div>
+        <div class="chart-container" style="height:260px;">
+          {% if booking_trend %}<canvas id="bookingTrendChart"></canvas>{% else %}
+          <div class="empty-state"><p class="empty-state-text">—</p></div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="isi-card">
+    <div class="isi-card-header">
+      <div class="card-icon amber"><i class="bi bi-door-open-fill"></i></div>
+      <h3>Détail par salle</h3>
+      <span class="header-count ms-1">({{ rows|length }})</span>
+    </div>
+
+    {% if rows %}
+    <div style="overflow-x:auto;">
+      <table class="isi-table">
+        <thead>
+          <tr>
+            <th>Salle</th>
+            <th style="text-align:center;">Capacité</th>
+            <th style="text-align:center;">Équipements</th>
+            <th style="text-align:center;">Sessions</th>
+            <th>Taux remplissage moy.</th>
+            <th>Usage de la capacité moy.</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+          <tr>
+            <td><span class="table-primary-link" style="cursor:default;">{{ row.room.name }}</span></td>
+            <td style="text-align:center;">{{ row.room.capacity }}</td>
+            <td style="text-align:center;">{{ row.equipment_count }}</td>
+            <td style="text-align:center;"><span style="font-family:var(--font-head);font-size:18px;font-weight:700;">{{ row.session_count }}</span></td>
+            <td>
+              <div class="fill-bar-wrap">
+                <div class="fill-bar-track">
+                  <div class="fill-bar-fill" style="width:{{ row.avg_fill_rate }}%;background:{% if row.avg_fill_rate >= 90 %}var(--success){% elif row.avg_fill_rate >= 60 %}var(--accent){% else %}#94a3b8{% endif %};"></div>
+                </div>
+                <span class="fill-bar-label">{{ row.avg_fill_rate }}%</span>
+              </div>
+            </td>
+            <td>
+              <div class="fill-bar-wrap">
+                <div class="fill-bar-track">
+                  <div class="fill-bar-fill" style="width:{{ row.avg_capacity_use }}%;background:{% if row.avg_capacity_use >= 90 %}var(--danger){% elif row.avg_capacity_use >= 60 %}var(--accent){% else %}#3b82f6{% endif %};"></div>
+                </div>
+                <span class="fill-bar-label">{{ row.avg_capacity_use }}%</span>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <div class="empty-state-icon"><i class="bi bi-door-open-fill"></i></div>
+      <p class="empty-state-text">Aucune salle active.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script src="{% static 'reporting/js/reporting.js' %}"></script>
+{% if usage_chart %}
+<script>
+buildBarChart(
+  "roomUsageChart",
+  [{% for r in usage_chart %}"{{ r.label|truncatechars:18|escapejs }}"{% if not forloop.last %},{% endif %}{% endfor %}],
+  [{% for r in usage_chart %}{{ r.value }}{% if not forloop.last %},{% endif %}{% endfor %}],
+  "rgba(59,130,246,0.75)"
+);
+</script>
+{% endif %}
+{% if booking_trend %}
+<script>
+buildLineChart(
+  "bookingTrendChart",
+  [{% for t in booking_trend %}"{{ t.month|date:"M Y" }}"{% if not forloop.last %},{% endif %}{% endfor %}],
+  [{% for t in booking_trend %}{{ t.count }}{% if not forloop.last %},{% endif %}{% endfor %}],
+  "#3b82f6"
+);
+</script>
+{% endif %}
+{% endblock %}

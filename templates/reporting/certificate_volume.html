@@ -118,6 +118,37 @@
     </div>
 
   </div>
+
+  {% if formation_chart or attestation_chart %}
+  <div class="row g-4 mt-1">
+    <div class="col-lg-7">
+      <div class="isi-card">
+        <div class="isi-card-header">
+          <div class="card-icon purple"><i class="bi bi-bar-chart-line-fill"></i></div>
+          <h3>Top formations émettrices</h3>
+        </div>
+        <div class="chart-container" style="height:240px;">
+          {% if formation_chart %}<canvas id="formationCertChart"></canvas>{% else %}
+          <div class="empty-state"><p class="empty-state-text">—</p></div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-5">
+      <div class="isi-card">
+        <div class="isi-card-header">
+          <div class="card-icon amber"><i class="bi bi-pie-chart-fill"></i></div>
+          <h3>Par type d'attestation</h3>
+        </div>
+        <div class="chart-container" style="height:240px;">
+          {% if attestation_chart %}<canvas id="attestationTypeChart"></canvas>{% else %}
+          <div class="empty-state"><p class="empty-state-text">—</p></div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
 </div>
 {% endblock %}
 
@@ -131,6 +162,26 @@ buildLineChart(
   [{% for e in by_month %}"{{ e.month|date:'M Y' }}"{% if not forloop.last %},{% endif %}{% endfor %}],
   [{% for e in by_month %}{{ e.count }}{% if not forloop.last %},{% endif %}{% endfor %}],
   "#8b5cf6"
+);
+</script>
+{% endif %}
+{% if formation_chart %}
+<script>
+buildBarChart(
+  "formationCertChart",
+  [{% for f in formation_chart %}"{{ f.label|escapejs }}"{% if not forloop.last %},{% endif %}{% endfor %}],
+  [{% for f in formation_chart %}{{ f.value }}{% if not forloop.last %},{% endif %}{% endfor %}],
+  "rgba(139,92,246,0.75)"
+);
+</script>
+{% endif %}
+{% if attestation_chart %}
+<script>
+buildDoughnut(
+  "attestationTypeChart",
+  [{% for a in attestation_chart %}"{{ a.label|escapejs }}"{% if not forloop.last %},{% endif %}{% endfor %}],
+  [{% for a in attestation_chart %}{{ a.value }}{% if not forloop.last %},{% endif %}{% endfor %}],
+  ["#8b5cf6", "#f59e0b", "#94a3b8"]
 );
 </script>
 {% endif %}

@@ -256,3 +256,72 @@ Distinct from `Equipment` (reusable machines/tools/safety gear that get checked 
 ```
 resources/migrations/0003_assetcategory_pedagogicalasset_assetmovement.py
 ```
+
+## 14. Pricing (unit ↔ total autocalc) + quantity-aware reservations/deliveries/returns
+
+Equipment and pedagogical assets are owned/stocked in quantities and now carry
+a price. Only one of unit price / total price needs to be entered — the other
+is inferred automatically, and stays consistent whenever the underlying
+quantity changes.
+
+- `resources/models.py` — `autocalc_price_pair()` helper: given a quantity,
+  infers the missing side of unit/total price (or recomputes total from unit
+  if both are given).
+- `Equipment.unit_price` / `total_price` — autocalced on save against
+  `quantity` (total units owned).
+- `PedagogicalAsset.unit_price` / `total_price` — autocalced on save against
+  `quantity_in_stock` (current stock value); updated as movements happen so
+  it always reflects the latest known price and current stock.
+- **Quantity-aware equipment reservations (spec §new):** `EquipmentAllocation`
+  gained `quantity` (units reserved), `returned_quantity` (partial returns),
+  and a price snapshot (`unit_price`/`total_price`) taken at reservation time
+  so later price edits on the equipment don't rewrite history. The guardrail
+  moved from "whole item locked/unlocked" to "not enough free units":
+  `Equipment.active_allocations()`, `quantity_reserved`, `quantity_available`,
+  and `is_locked_elsewhere(quantity=...)` now all reason in units, so e.g. 2
+  of 3 owned units can be reserved for one session while 1 stays free for
+  another.
+- **Partial/surplus returns:** `EquipmentAllocation.return_partial(quantity)`
+  returns some of the reserved units without releasing the whole checkout;
+  auto-releases once everything reserved has come back. `outstanding_quantity`
+  exposes what's still held.
+- **Asset deliveries/returns adhere to the same pricing:** `PedagogicalAsset.
+  restock()` / `.deliver()` gained an optional `unit_price` override (e.g. a
+  supplier price change), snapshotted onto the `AssetMovement`; a new
+  `PedagogicalAsset.return_stock()` (and `AssetMovement` type `"return"`)
+  handles surplus/incorrect deliveries coming back to stock, distinct from a
+  fresh `"restock"`. The hard "can't exceed physical stock" guardrail on
+  `deliver()` is unchanged.
+- `resources/forms.py` — `EquipmentForm` and `PedagogicalAssetForm` expose the
+  new price fields; `AssetRestockForm` and new `AssetReturnForm` accept an
+  optional unit price per movement.
+- `formations/forms.py` — `SessionAssetDeliveryForm` gained an optional
+  `unit_price`; new `SessionAssetReturnForm` for returning part of what was
+  delivered to a session.
+- `resources/views.py` — new `asset_return` view; `asset_restock` passes
+  through the optional unit price.
+- `formations/views.py` — new `session_asset_return` view; `session_asset_deliver`
+  passes through the optional unit price; `session_detail` context enriched
+  with delivered/returned quantities, delivered value, and the session's
+  `equipment_allocations` (for per-item reserved cost).
+- `resources/urls.py` — `assets/<pk>/return/`; `formations/urls.py` —
+  `sessions/<pk>/assets/return/`.
+- `templates/resources/asset_detail.html` — shows unit/total price, adds a
+  "Retour" form next to "Réapprovisionner", movement history now shows a
+  price column and a distinct "Retour" badge.
+- `templates/formations/session_detail.html` — equipment checkboxes show unit
+  price, a reserved-value summary line is shown under the equipment card, the
+  asset-deliveries table shows returned quantity and delivered value, and a
+  "Retourner" form was added next to "Livrer".
+- Seeds: equipment and pedagogical assets now seeded with realistic unit
+  prices (`core/management/commands/seed_db.py`).
+- **Migration:** `resources/migrations/0004_assetmovement_total_price_assetmovement_unit_price_and_more.py`
+
+*Verified end-to-end: `manage.py check` clean, fresh migrate from empty DB,
+idempotent re-seed, and live shell/request tests — bidirectional unit↔total
+autocalc (both directions), quantity-aware reservation blocking/availability,
+partial equipment return (auto-release on full return), asset delivery with
+a price override, asset/session surplus return increasing stock and logging
+a distinct `"return"` movement, and the hard stock-overflow guard on
+`deliver()` — all passed. Existing regressions (room save, equipment
+guardrail, asset CRUD/restock, permissions) re-verified — no breakage.*

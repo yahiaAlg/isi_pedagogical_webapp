@@ -20,6 +20,7 @@ from .forms import (
     EquipmentForm,
     PedagogicalAssetForm,
     AssetRestockForm,
+    AssetReturnForm,
 )
 
 # 'sessions_total' avoids clash with @property session_count on Trainer model
@@ -586,10 +587,16 @@ def asset_detail(request, pk):
     asset = get_object_or_404(PedagogicalAsset, pk=pk)
     movements = asset.movements.select_related("session", "performed_by")[:50]
     restock_form = AssetRestockForm()
+    return_form = AssetReturnForm()
     return render(
         request,
         "resources/asset_detail.html",
-        {"asset": asset, "movements": movements, "restock_form": restock_form},
+        {
+            "asset": asset,
+            "movements": movements,
+            "restock_form": restock_form,
+            "return_form": return_form,
+        },
     )
 
 
@@ -668,11 +675,40 @@ def asset_restock(request, pk):
                 form.cleaned_data["quantity"],
                 by=request.user,
                 note=form.cleaned_data.get("note", ""),
+                unit_price=form.cleaned_data.get("unit_price"),
             )
             messages.success(
                 request,
                 f'{form.cleaned_data["quantity"]} {asset.get_unit_display()} '
                 f'ajouté(s) au stock de "{asset.name}".',
+            )
+        else:
+            messages.error(request, "Quantité invalide.")
+    return redirect("resources:asset_detail", pk=asset.pk)
+
+
+@login_required
+def asset_return(request, pk):
+    """Spec §new — return previously delivered stock (surplus not used,
+    wrong item, etc.). Increases stock back and logs a distinct 'return'
+    movement so it's never confused with a fresh supplier restock."""
+    asset = get_object_or_404(PedagogicalAsset, pk=pk)
+    if not request.user.profile.can_manage_sessions():
+        messages.error(request, "Vous n'avez pas les permissions nécessaires.")
+        return redirect("resources:asset_detail", pk=asset.pk)
+    if request.method == "POST":
+        form = AssetReturnForm(request.POST)
+        if form.is_valid():
+            asset.return_stock(
+                form.cleaned_data["quantity"],
+                by=request.user,
+                note=form.cleaned_data.get("note", ""),
+                unit_price=form.cleaned_data.get("unit_price"),
+            )
+            messages.success(
+                request,
+                f'{form.cleaned_data["quantity"]} {asset.get_unit_display()} '
+                f'retourné(s) au stock de "{asset.name}".',
             )
         else:
             messages.error(request, "Quantité invalide.")

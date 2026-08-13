@@ -21,6 +21,36 @@
     </div>
   </div>
 
+  <!-- ── Filter bar ─────────────────────────────────────────── -->
+  <div class="isi-card mb-4">
+    <div class="report-filter-bar">
+      <form method="get" novalidate>
+        <div class="row g-3 align-items-end">
+          <div class="col-sm-5 col-md-3">
+            <label class="form-label">Du</label>
+            <input type="date" name="date_from" class="form-control" value="{{ form.date_from.value|default_if_none:'' }}" />
+          </div>
+          <div class="col-sm-5 col-md-3">
+            <label class="form-label">Au</label>
+            <input type="date" name="date_to" class="form-control" value="{{ form.date_to.value|default_if_none:'' }}" />
+          </div>
+          <div class="col-sm-2 d-flex gap-2 align-items-end">
+            <button type="submit" class="btn btn-amber" style="justify-content:center;"><i class="bi bi-funnel-fill"></i> Filtrer</button>
+            <a href="{% url 'reporting:dashboard' %}" class="btn btn-ghost"><i class="bi bi-x-lg"></i></a>
+          </div>
+        </div>
+      </form>
+    </div>
+    <div style="padding:10px 24px;font-size:12px;color:var(--text-muted);border-top:1px solid var(--card-border);">
+      <i class="bi bi-info-circle-fill" style="color:var(--accent);"></i>
+      {% if is_filtered %}
+      Les indicateurs ci-dessous sont calculés sur la période sélectionnée.
+      {% else %}
+      Sans filtre, les indicateurs affichent par défaut le mois en cours (attestations : année en cours).
+      {% endif %}
+    </div>
+  </div>
+
   <!-- ── KPI row ───────────────────────────────────────────── -->
   <div class="row g-3 mb-4">
     <div class="col-sm-6 col-lg-4 fade-up-delay-1">
@@ -29,7 +59,7 @@
           <div class="card-icon amber" style="width:44px;height:44px;font-size:20px;border-radius:12px;flex-shrink:0;"><i class="bi bi-calendar3-fill"></i></div>
           <div>
             <div class="stat-value">{{ sessions_this_month }}</div>
-            <div class="stat-label">Sessions ce mois</div>
+            <div class="stat-label">{% if is_filtered %}Sessions (période){% else %}Sessions ce mois{% endif %}</div>
           </div>
         </div>
       </div>
@@ -40,7 +70,7 @@
           <div class="card-icon blue" style="width:44px;height:44px;font-size:20px;border-radius:12px;flex-shrink:0;"><i class="bi bi-people-fill"></i></div>
           <div>
             <div class="stat-value">{{ participants_this_month }}</div>
-            <div class="stat-label">Participants ce mois</div>
+            <div class="stat-label">{% if is_filtered %}Participants (période){% else %}Participants ce mois{% endif %}</div>
           </div>
         </div>
       </div>
@@ -51,7 +81,7 @@
           <div class="card-icon purple" style="width:44px;height:44px;font-size:20px;border-radius:12px;flex-shrink:0;"><i class="bi bi-patch-check-fill"></i></div>
           <div>
             <div class="stat-value">{{ attestations_ytd }}</div>
-            <div class="stat-label">Attestations (YTD)</div>
+            <div class="stat-label">{% if is_filtered %}Attestations (période){% else %}Attestations (YTD){% endif %}</div>
           </div>
         </div>
       </div>
@@ -96,6 +126,38 @@
       </div>
     </div>
   </div>
+
+  <!-- ── Overview mini charts ─────────────────────────────────── -->
+  {% if sessions_trend or status_snapshot_chart %}
+  <div class="row g-4 mb-4">
+    <div class="col-lg-8">
+      <div class="isi-card">
+        <div class="isi-card-header">
+          <div class="card-icon amber"><i class="bi bi-graph-up"></i></div>
+          <h3>{% if is_filtered %}Sessions — période sélectionnée{% else %}Sessions — 6 derniers mois{% endif %}</h3>
+        </div>
+        <div class="chart-container" style="height:200px;">
+          {% if sessions_trend %}<canvas id="dashTrendChart"></canvas>{% else %}
+          <div class="empty-state"><p class="empty-state-text">—</p></div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-4">
+      <div class="isi-card">
+        <div class="isi-card-header">
+          <div class="card-icon blue"><i class="bi bi-pie-chart-fill"></i></div>
+          <h3>Sessions par statut</h3>
+        </div>
+        <div class="chart-container" style="height:200px;">
+          {% if status_snapshot_chart %}<canvas id="dashStatusChart"></canvas>{% else %}
+          <div class="empty-state"><p class="empty-state-text">—</p></div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
 
   <!-- ── Report navigation cards ───────────────────────────── -->
   <div class="isi-card mb-4">
@@ -169,6 +231,42 @@
           </a>
         </div>
 
+        <div class="col-sm-6 col-lg-4">
+          <a href="{% url 'reporting:cost_utilization' %}" class="report-nav-card">
+            <div class="report-nav-card-icon red"><i class="bi bi-cash-coin"></i></div>
+            <div class="report-nav-card-title">Coûts & utilisation</div>
+            <div class="report-nav-card-desc">Valeur et utilisation des équipements/actifs, revenus et marge par formation, occupation des salles.</div>
+            <div class="report-nav-card-arrow"><i class="bi bi-arrow-right"></i></div>
+          </a>
+        </div>
+
+        <div class="col-sm-6 col-lg-4">
+          <a href="{% url 'reporting:client_activity' %}" class="report-nav-card">
+            <div class="report-nav-card-icon green"><i class="bi bi-cash-stack"></i></div>
+            <div class="report-nav-card-title">Activité clients</div>
+            <div class="report-nav-card-desc">Revenu estimé, sessions et participants par entreprise cliente, classement et répartition géographique.</div>
+            <div class="report-nav-card-arrow"><i class="bi bi-arrow-right"></i></div>
+          </a>
+        </div>
+
+        <div class="col-sm-6 col-lg-4">
+          <a href="{% url 'reporting:room_utilization' %}" class="report-nav-card">
+            <div class="report-nav-card-icon amber"><i class="bi bi-door-open-fill"></i></div>
+            <div class="report-nav-card-title">Occupation des salles</div>
+            <div class="report-nav-card-desc">Réservations, taux de remplissage et usage de la capacité par salle, tendance sur 6 mois.</div>
+            <div class="report-nav-card-arrow"><i class="bi bi-arrow-right"></i></div>
+          </a>
+        </div>
+
+        <div class="col-sm-6 col-lg-4">
+          <a href="{% url 'reporting:activity_trends' %}" class="report-nav-card">
+            <div class="report-nav-card-icon purple"><i class="bi bi-graph-up"></i></div>
+            <div class="report-nav-card-title">Tendances d'activité</div>
+            <div class="report-nav-card-desc">Évolution mensuelle des sessions et participants sur 12 mois, répartition par statut et par lieu.</div>
+            <div class="report-nav-card-arrow"><i class="bi bi-arrow-right"></i></div>
+          </a>
+        </div>
+
       </div>
     </div>
   </div>
@@ -199,4 +297,29 @@
   </div>
 
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script src="{% static 'reporting/js/reporting.js' %}"></script>
+{% if sessions_trend %}
+<script>
+buildLineChart(
+  "dashTrendChart",
+  [{% for t in sessions_trend %}"{{ t.month|date:"M Y" }}"{% if not forloop.last %},{% endif %}{% endfor %}],
+  [{% for t in sessions_trend %}{{ t.count }}{% if not forloop.last %},{% endif %}{% endfor %}],
+  "#f59e0b"
+);
+</script>
+{% endif %}
+{% if status_snapshot_chart %}
+<script>
+buildDoughnut(
+  "dashStatusChart",
+  [{% for s in status_snapshot_chart %}"{{ s.label|escapejs }}"{% if not forloop.last %},{% endif %}{% endfor %}],
+  [{% for s in status_snapshot_chart %}{{ s.value }}{% if not forloop.last %},{% endif %}{% endfor %}],
+  ["#f59e0b", "#3b82f6", "#10b981", "#8b5cf6", "#ef4444"]
+);
+</script>
+{% endif %}
 {% endblock %}

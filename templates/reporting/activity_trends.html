@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Tendances d'activité — Rapports — ISI Gestion Pédagogique{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'reporting/css/reporting.css' %}" />{% endblock %}
+
+{% block breadcrumb %}
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="{% url 'reporting:dashboard' %}">Rapports</a>
+<i class="bi bi-chevron-right bc-sep"></i>
+{% endblock %}
+{% block breadcrumb_active %}<span class="bc-active">Tendances d'activité</span>{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% url 'reporting:dashboard' %}" class="topbar-btn"><i class="bi bi-arrow-left"></i> Rapports</a>
+{% endblock %}
+
+{% block content %}
+<div class="fade-up">
+  <div class="page-header">
+    <div class="page-header-left">
+      <h1>Tendances d'activité</h1>
+      <p class="page-subtitle">Évolution des sessions et participants, répartition par statut et par lieu</p>
+    </div>
+  </div>
+
+  <!-- ── Filter bar ─────────────────────────────────────────── -->
+  <div class="isi-card mb-4">
+    <div class="report-filter-bar">
+      <form method="get" novalidate>
+        <div class="row g-3 align-items-end">
+          <div class="col-sm-5 col-md-3">
+            <label class="form-label">Du</label>
+            <input type="date" name="date_from" class="form-control" value="{{ form.date_from.value|default_if_none:date_from|date:'Y-m-d' }}" />
+          </div>
+          <div class="col-sm-5 col-md-3">
+            <label class="form-label">Au</label>
+            <input type="date" name="date_to" class="form-control" value="{{ form.date_to.value|default_if_none:date_to|date:'Y-m-d' }}" />
+          </div>
+          <div class="col-sm-2 d-flex gap-2 align-items-end">
+            <button type="submit" class="btn btn-amber" style="justify-content:center;"><i class="bi bi-funnel-fill"></i> Filtrer</button>
+            <a href="{% url 'reporting:activity_trends' %}" class="btn btn-ghost"><i class="bi bi-x-lg"></i></a>
+          </div>
+        </div>
+      </form>
+    </div>
+    <div style="padding:10px 24px;font-size:12px;color:var(--text-muted);border-top:1px solid var(--card-border);">
+      <i class="bi bi-info-circle-fill" style="color:var(--accent);"></i>
+      Par défaut, ce rapport couvre les <strong>12 derniers mois</strong> ({{ date_from|date:"d/m/Y" }} → {{ date_to|date:"d/m/Y" }}).
+    </div>
+  </div>
+
+  <!-- ── KPI row ───────────────────────────────────────────── -->
+  <div class="row g-3 mb-4">
+    <div class="col-sm-6 col-lg-4">
+      <div class="isi-card">
+        <div class="isi-card-body" style="display:flex;align-items:center;gap:14px;padding:14px 18px;">
+          <div class="card-icon amber" style="width:44px;height:44px;font-size:20px;border-radius:12px;flex-shrink:0;"><i class="bi bi-calendar3-fill"></i></div>
+          <div>
+            <div class="stat-value">{{ total_sessions_period }}</div>
+            <div class="stat-label">Sessions (hors annulées)</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-sm-6 col-lg-4">
+      <div class="isi-card">
+        <div class="isi-card-body" style="display:flex;align-items:center;gap:14px;padding:14px 18px;">
+          <div class="card-icon blue" style="width:44px;height:44px;font-size:20px;border-radius:12px;flex-shrink:0;"><i class="bi bi-people-fill"></i></div>
+          <div>
+            <div class="stat-value">{{ total_participants_period }}</div>
+            <div class="stat-label">Participants</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-sm-6 col-lg-4">
+      <div class="isi-card">
+        <div class="isi-card-body" style="display:flex;align-items:center;gap:14px;padding:14px 18px;">
+          <div class="card-icon red" style="width:44px;height:44px;font-size:20px;border-radius:12px;flex-shrink:0;"><i class="bi bi-x-circle-fill"></i></div>
+          <div>
+            <div class="stat-value">{{ cancelled_period }}</div>
+            <div class="stat-label">Sessions annulées</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="isi-card mb-4">
+    <div class="isi-card-header">
+      <div class="card-icon amber"><i class="bi bi-graph-up"></i></div>
+      <h3>Volume mensuel — sessions & participants</h3>
+    </div>
+    <div class="chart-container" style="height:300px;">
+      {% if sessions_trend %}<canvas id="volumeTrendChart"></canvas>{% else %}
+      <div class="empty-state"><p class="empty-state-text">Aucune donnée pour la période sélectionnée.</p></div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-lg-6">
+      <div class="isi-card">
+        <div class="isi-card-header">
+          <div class="card-icon green"><i class="bi bi-pie-chart-fill"></i></div>
+          <h3>Répartition par statut</h3>
+        </div>
+        <div class="chart-container" style="height:260px;">
+          {% if status_chart %}<canvas id="statusChart"></canvas>{% else %}
+          <div class="empty-state"><p class="empty-state-text">—</p></div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="isi-card">
+        <div class="isi-card-header">
+          <div class="card-icon purple"><i class="bi bi-geo-alt-fill"></i></div>
+          <h3>Répartition par lieu</h3>
+        </div>
+        <div class="chart-container" style="height:260px;">
+          {% if location_chart %}<canvas id="locationChart"></canvas>{% else %}
+          <div class="empty-state"><p class="empty-state-text">—</p></div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script src="{% static 'reporting/js/reporting.js' %}"></script>
+{% if sessions_trend %}
+<script>
+(function () {
+  var months = [{% for t in sessions_trend %}"{{ t.month|date:"M Y" }}"{% if not forloop.last %},{% endif %}{% endfor %}];
+  var sessionCounts = [{% for t in sessions_trend %}{{ t.count }}{% if not forloop.last %},{% endif %}{% endfor %}];
+  var partsByMonth = {};
+  {% for t in participants_trend %}partsByMonth["{{ t.month|date:"M Y" }}"] = {{ t.count }};{% endfor %}
+  var participantCounts = months.map(function (m) { return partsByMonth[m] || 0; });
+
+  buildMultiBarChart("volumeTrendChart", months, [
+    { label: "Sessions", data: sessionCounts, color: "rgba(245,158,11,0.75)" },
+    { label: "Participants", data: participantCounts, color: "rgba(59,130,246,0.75)" }
+  ]);
+})();
+</script>
+{% endif %}
+{% if status_chart %}
+<script>
+buildDoughnut(
+  "statusChart",
+  [{% for s in status_chart %}"{{ s.label|escapejs }}"{% if not forloop.last %},{% endif %}{% endfor %}],
+  [{% for s in status_chart %}{{ s.value }}{% if not forloop.last %},{% endif %}{% endfor %}],
+  ["#f59e0b", "#3b82f6", "#10b981", "#8b5cf6", "#ef4444"]
+);
+</script>
+{% endif %}
+{% if location_chart %}
+<script>
+buildDoughnut(
+  "locationChart",
+  [{% for l in location_chart %}"{{ l.label|escapejs }}"{% if not forloop.last %},{% endif %}{% endfor %}],
+  [{% for l in location_chart %}{{ l.value }}{% if not forloop.last %},{% endif %}{% endfor %}],
+  ["#10b981", "#f59e0b"]
+);
+</script>
+{% endif %}
+{% endblock %}

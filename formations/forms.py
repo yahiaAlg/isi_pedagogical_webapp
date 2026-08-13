@@ -287,9 +287,49 @@ class SessionAssetDeliveryForm(forms.Form):
         label="Quantité livrée",
         widget=forms.NumberInput(attrs={"class": "form-control", "min": 1}),
     )
+    unit_price = forms.DecimalField(
+        required=False,
+        min_value=0,
+        max_digits=10,
+        decimal_places=2,
+        label="Prix unitaire (optionnel)",
+        help_text="Laisser vide pour reprendre le prix unitaire actuel de l'actif.",
+        widget=forms.NumberInput(
+            attrs={"class": "form-control", "min": 0, "step": "0.01"}
+        ),
+    )
     note = forms.CharField(
         required=False,
         label="Note",
+        widget=forms.TextInput(attrs={"class": "form-control"}),
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["asset"].queryset = PedagogicalAsset.objects.filter(
+            is_active=True
+        ).select_related("category")
+
+
+class SessionAssetReturnForm(forms.Form):
+    """Spec §new — return part of what was delivered to this session
+    (surplus not consumed, wrong item...). Increases the asset's stock
+    back and is logged as a distinct 'return' movement tied to the
+    session."""
+
+    asset = forms.ModelChoiceField(
+        queryset=PedagogicalAsset.objects.none(),
+        label="Actif pédagogique",
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+    quantity = forms.IntegerField(
+        min_value=1,
+        label="Quantité retournée",
+        widget=forms.NumberInput(attrs={"class": "form-control", "min": 1}),
+    )
+    note = forms.CharField(
+        required=False,
+        label="Motif du retour",
         widget=forms.TextInput(attrs={"class": "form-control"}),
     )
 

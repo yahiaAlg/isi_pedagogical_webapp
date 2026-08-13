@@ -407,6 +407,7 @@
                     id="sess-equip-{{ eq.pk }}" {% if eq.checked %}checked{% endif %} />
                   <label class="form-check-label" for="sess-equip-{{ eq.pk }}">
                     {{ eq.name }}{% if eq.inventory_code %} ({{ eq.inventory_code }}){% endif %}
+                    {% if eq.unit_price %}<span class="isi-badge gray" style="font-size:10px;">{{ eq.unit_price }} DA/u.</span>{% endif %}
                   </label>
                 </div>
               </div>
@@ -440,6 +441,11 @@
 
             <button type="submit" class="btn btn-amber btn-sm"><i class="bi bi-check2"></i> Mettre à jour</button>
           </form>
+          {% if equipment_allocations %}
+          <div style="font-size:12px;color:var(--text-muted);margin-top:10px;">
+            Valeur réservée : {% for alloc in equipment_allocations %}{% if alloc.is_active %}{{ alloc.equipment.name }} ({{ alloc.outstanding_quantity }} × {{ alloc.unit_price|default:"0" }} DA = {{ alloc.total_price|default:"0" }} DA){% if not forloop.last %}, {% endif %}{% endif %}{% endfor %}
+          </div>
+          {% endif %}
           {% else %}
           <ul class="detail-meta" style="font-size:13px;">
             {% for eq in room_equipment %}
@@ -473,6 +479,8 @@
                   <th>Actif</th>
                   <th>Catégorie</th>
                   <th>Quantité livrée</th>
+                  <th>Retourné</th>
+                  <th>Valeur livrée</th>
                 </tr>
               </thead>
               <tbody>
@@ -481,9 +489,11 @@
                   <td><a href="{% url 'resources:asset_detail' asset.pk %}" style="color:var(--accent);">{{ asset.name }}</a></td>
                   <td>{{ asset.category.name }}</td>
                   <td>{{ asset.delivered_qty }} {{ asset.get_unit_display }}</td>
+                  <td>{% if asset.returned_qty %}{{ asset.returned_qty }} {{ asset.get_unit_display }}{% else %}—{% endif %}</td>
+                  <td>{% if asset.delivered_value %}{{ asset.delivered_value }} DA{% else %}—{% endif %}</td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="3" style="text-align:center;color:var(--text-muted);padding:16px;">Aucun actif livré pour le moment.</td></tr>
+                <tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:16px;">Aucun actif livré pour le moment.</td></tr>
                 {% endfor %}
               </tbody>
             </table>
@@ -494,7 +504,7 @@
           <form method="post" action="{% url 'formations:session_asset_deliver' session.pk %}">
             {% csrf_token %}
             <div class="row g-2 align-items-end">
-              <div class="col-sm-5">
+              <div class="col-sm-4">
                 <label class="form-label">Actif</label>
                 <select name="asset" class="form-select">
                   {% for a in asset_delivery_form.fields.asset.queryset %}
@@ -508,12 +518,44 @@
                 <label class="form-label">Quantité</label>
                 <input type="number" min="1" name="quantity" class="form-control" value="1" required />
               </div>
-              <div class="col-sm-3">
+              <div class="col-sm-2">
+                <label class="form-label">Prix unit.</label>
+                <input type="number" min="0" step="0.01" name="unit_price" class="form-control" placeholder="Optionnel" />
+              </div>
+              <div class="col-sm-2">
                 <label class="form-label">Note</label>
                 <input type="text" name="note" class="form-control" placeholder="Optionnel" />
               </div>
               <div class="col-sm-2">
                 <button type="submit" class="btn btn-amber btn-sm w-100"><i class="bi bi-truck"></i> Livrer</button>
+              </div>
+            </div>
+          </form>
+
+          <div class="section-divider" style="margin:14px 0;"></div>
+          <form method="post" action="{% url 'formations:session_asset_return' session.pk %}">
+            {% csrf_token %}
+            <div class="row g-2 align-items-end">
+              <div class="col-sm-5">
+                <label class="form-label">Actif à retourner</label>
+                <select name="asset" class="form-select">
+                  {% for a in asset_return_form.fields.asset.queryset %}
+                  <option value="{{ a.pk }}">{{ a.name }}</option>
+                  {% empty %}
+                  <option value="" disabled>Aucun actif actif disponible</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-sm-2">
+                <label class="form-label">Quantité</label>
+                <input type="number" min="1" name="quantity" class="form-control" value="1" required />
+              </div>
+              <div class="col-sm-3">
+                <label class="form-label">Motif</label>
+                <input type="text" name="note" class="form-control" placeholder="Ex : surplus non utilisé" />
+              </div>
+              <div class="col-sm-2">
+                <button type="submit" class="btn btn-outline-secondary btn-sm w-100"><i class="bi bi-arrow-counterclockwise"></i> Retourner</button>
               </div>
             </div>
           </form>

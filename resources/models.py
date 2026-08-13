@@ -1,5 +1,37 @@
+from decimal import Decimal, ROUND_HALF_UP
+
 from django.conf import settings
 from django.db import models
+
+
+def autocalc_price_pair(unit_price, total_price, qty):
+    """Spec §new — bidirectional price autocalc shared by Equipment and
+    PedagogicalAsset (and their allocation/movement snapshots): given a
+    quantity, if only one of unit/total price is provided the other is
+    inferred; if both are provided, unit_price wins and total is
+    recomputed from it (keeps the pair consistent). Returns (unit, total).
+    """
+    qty = qty or 0
+    if unit_price in (None, "") and total_price in (None, ""):
+        return None, None
+    if unit_price not in (None, "") and total_price in (None, ""):
+        unit_price = Decimal(unit_price)
+        total_price = (unit_price * qty).quantize(
+            Decimal("0.01"), rounding=ROUND_HALF_UP
+        )
+        return unit_price, total_price
+    if total_price not in (None, "") and unit_price in (None, ""):
+        total_price = Decimal(total_price)
+        unit_price = (
+            (total_price / qty).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+            if qty
+            else Decimal("0.00")
+        )
+        return unit_price, total_price
+    # Both given — trust unit_price as the source of truth, recompute total.
+    unit_price = Decimal(unit_price)
+    total_price = (unit_price * qty).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    return unit_price, total_price
 
 
 class Room(models.Model):
@@ -118,6 +150,23 @@ class Equipment(models.Model):
     acquisition_date = models.DateField(
         null=True, blank=True, verbose_name="Date d'acquisition"
     )
+    # Spec §new — bidirectional price autocalc: give either the unit price
+    # or the total price for the whole `quantity` owned, the other is
+    # inferred automatically on save (see `autocalc_price_pair`).
+    unit_price = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Prix unitaire",
+    )
+    total_price = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Prix total (pour la quantité)",
+    )
     notes = models.TextField(blank=True, verbose_name="Notes")
 
     class Meta:
@@ -136,27 +185,53 @@ class Equipment(models.Model):
                 "Un équipement ne peut être assigné qu'à une salle OU un local, pas les deux."
             )
 
+    def save(self, *args, **kwargs):
+        unit, total = autocalc_price_pair(
+            self.unit_price, self.total_price, self.quantity
+        )
+        self.unit_price, self.total_price = unit, total
+        super().save(*args, **kwargs)
+
     # ------------------------------------------------------- allocation guardrails
-    def active_allocation(self):
-        """Spec §new — the active *session-based* checkout currently
-        holding this equipment, if any. Guardrail: an equipment item can't
-        be put to use in another session while it still has one of these
-        (unreleased), until it's released there. A plain home-room
-        assignment (no session) doesn't lock the item — it's exactly what
-        makes it available/idle for other rooms to borrow."""
+    def active_allocations(self):
+        """Spec §new — all active (unreleased / not fully-returned)
+        *session-based* checkouts currently holding units of this
+        equipment. A plain home-room assignment (no session) doesn't
+        lock the item — it's exactly what makes it available/idle for
+        other rooms to borrow."""
         return self.allocations.filter(
             released_at__isnull=True, session__isnull=False
-        ).first()
+        )
 
-    def is_locked_elsewhere(self, room=None, session=None):
-        """True if this equipment has an active session checkout other
-        than the given session (or no session given at all)."""
-        alloc = self.active_allocation()
-        if not alloc:
-            return False
-        if session is not None and alloc.session_id == session.pk:
-            return False
-        return True
+    def active_allocation(self):
+        """Back-compat single-result accessor (first active allocation)."""
+        return self.active_allocations().first()
+
+    @property
+    def quantity_reserved(self):
+        """Spec §new — units currently held by active session checkouts
+        (accounting for partial returns)."""
+        return sum(
+            max(alloc.quantity - alloc.returned_quantity, 0)
+            for alloc in self.active_allocations()
+        )
+
+    @property
+    def quantity_available(self):
+        """Spec §new — units still free to reserve for a new session."""
+        return max(self.quantity - self.quantity_reserved, 0)
+
+    def is_locked_elsewhere(self, room=None, session=None, quantity=1):
+        """True if reserving `quantity` unit(s) of this equipment for
+        `session` is blocked because not enough units are free — other
+        active session checkouts (excluding `session` itself) already
+        hold the rest."""
+        reserved_elsewhere = 0
+        for alloc in self.active_allocations():
+            if session is not None and alloc.session_id == session.pk:
+                continue
+            reserved_elsewhere += max(alloc.quantity - alloc.returned_quantity, 0)
+        return (self.quantity - reserved_elsewhere) < (quantity or 1)
 
 
 class EquipmentAllocation(models.Model):
@@ -186,6 +261,30 @@ class EquipmentAllocation(models.Model):
         related_name="equipment_allocations",
         verbose_name="Session",
         help_text="Vide = affectation permanente à la salle (hors session).",
+    )
+    # Spec §new — how many units of `equipment` this allocation reserves.
+    # Together with the unit-price snapshot below, this makes the
+    # reservation/return cost auditable even if the equipment's own price
+    # changes later.
+    quantity = models.PositiveIntegerField(default=1, verbose_name="Quantité réservée")
+    returned_quantity = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Quantité retournée",
+        help_text="Retours partiels (ex : surplus rendu avant la fin de session).",
+    )
+    unit_price = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Prix unitaire (au moment de l'allocation)",
+    )
+    total_price = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Prix total réservé",
     )
     allocated_at = models.DateTimeField(auto_now_add=True, verbose_name="Alloué le")
     allocated_by = models.ForeignKey(
@@ -221,14 +320,49 @@ class EquipmentAllocation(models.Model):
     def is_active(self):
         return self.released_at is None
 
+    def save(self, *args, **kwargs):
+        # Snapshot the equipment's current unit price at reservation time
+        # (only while still active/unpriced) so later price changes on
+        # the equipment don't rewrite history.
+        if self.unit_price is None and self.equipment_id:
+            self.unit_price = self.equipment.unit_price
+        unit, total = autocalc_price_pair(self.unit_price, None, self.quantity)
+        if unit is not None:
+            self.unit_price, self.total_price = unit, total
+        super().save(*args, **kwargs)
+
+    def return_partial(self, quantity, by=None):
+        """Spec §new — return part of the reserved quantity (e.g. a
+        surplus no longer needed) without releasing the whole allocation.
+        Auto-releases once everything reserved has been returned."""
+        if quantity is None or quantity <= 0:
+            raise ValueError("La quantité retournée doit être positive.")
+        if self.returned_quantity + quantity > self.quantity:
+            raise ValueError(
+                "La quantité retournée dépasse la quantité réservée."
+            )
+        self.returned_quantity += quantity
+        if self.returned_quantity >= self.quantity:
+            self.release(by=by)
+        else:
+            self.save(update_fields=["returned_quantity"])
+
     def release(self, by=None):
         from django.utils import timezone
 
         if self.released_at:
             return
+        self.returned_quantity = self.quantity
         self.released_at = timezone.now()
         self.released_by = by
-        self.save(update_fields=["released_at", "released_by"])
+        self.save(
+            update_fields=["returned_quantity", "released_at", "released_by"]
+        )
+
+    @property
+    def outstanding_quantity(self):
+        """Units still held (not yet returned)."""
+        return max(self.quantity - self.returned_quantity, 0)
 
 
 class AssetCategory(models.Model):
@@ -290,6 +424,23 @@ class PedagogicalAsset(models.Model):
         help_text="En dessous de ce seuil, l'actif est signalé comme stock bas.",
     )
     is_active = models.BooleanField(default=True, verbose_name="Actif")
+    # Spec §new — bidirectional price autocalc: give either the unit price
+    # or the total value of the current stock, the other is inferred
+    # automatically on save (see `autocalc_price_pair`).
+    unit_price = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Prix unitaire",
+    )
+    total_price = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Valeur totale du stock",
+    )
     notes = models.TextField(blank=True, verbose_name="Notes")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -302,6 +453,13 @@ class PedagogicalAsset(models.Model):
     def __str__(self):
         return f"{self.name} ({self.quantity_in_stock} {self.get_unit_display()})"
 
+    def save(self, *args, **kwargs):
+        unit, total = autocalc_price_pair(
+            self.unit_price, self.total_price, self.quantity_in_stock
+        )
+        self.unit_price, self.total_price = unit, total
+        super().save(*args, **kwargs)
+
     # --------------------------------------------------------------- stock
     @property
     def is_exhausted(self):
@@ -311,17 +469,35 @@ class PedagogicalAsset(models.Model):
     def is_low_stock(self):
         return 0 < self.quantity_in_stock <= self.minimum_stock
 
-    def restock(self, quantity, by=None, note=""):
-        """Refill stock (spec §new). Returns the created `AssetMovement`."""
+    def _movement_price(self, quantity, unit_price=None):
+        """Spec §new — resolve the (unit, total) price to snapshot on a
+        movement: an explicit `unit_price` wins, otherwise the asset's
+        current unit price is used."""
+        price = unit_price if unit_price is not None else self.unit_price
+        return autocalc_price_pair(price, None, quantity)
+
+    def restock(self, quantity, by=None, note="", unit_price=None):
+        """Refill stock (spec §new). Returns the created `AssetMovement`.
+        `unit_price` optionally overrides the asset's current price for
+        this specific delivery/movement (e.g. a supplier price change);
+        total is inferred from quantity."""
         if quantity is None or quantity <= 0:
             raise ValueError("La quantité doit être positive.")
+        u_price, t_price = self._movement_price(quantity, unit_price)
+        if u_price is not None:
+            self.unit_price = u_price
         self.quantity_in_stock += quantity
-        self.save(update_fields=["quantity_in_stock", "updated_at"])
+        self.save(update_fields=["quantity_in_stock", "unit_price", "total_price", "updated_at"])
         return self.movements.create(
-            movement_type="restock", quantity=quantity, performed_by=by, note=note
+            movement_type="restock",
+            quantity=quantity,
+            unit_price=u_price,
+            total_price=t_price,
+            performed_by=by,
+            note=note,
         )
 
-    def deliver(self, quantity, session=None, by=None, note=""):
+    def deliver(self, quantity, session=None, by=None, note="", unit_price=None):
         """Deliver/consume stock, optionally against a session (spec §new).
         Hard guardrail (unlike the equipment soft warnings): a delivery
         can never exceed what's physically in stock.
@@ -333,12 +509,39 @@ class PedagogicalAsset(models.Model):
                 f"Stock insuffisant : {self.quantity_in_stock} "
                 f"{self.get_unit_display()} disponible(s)."
             )
+        u_price, t_price = self._movement_price(quantity, unit_price)
+        if u_price is not None:
+            self.unit_price = u_price
         self.quantity_in_stock -= quantity
-        self.save(update_fields=["quantity_in_stock", "updated_at"])
+        self.save(update_fields=["quantity_in_stock", "unit_price", "total_price", "updated_at"])
         return self.movements.create(
             movement_type="delivery",
             quantity=quantity,
             session=session,
+            unit_price=u_price,
+            total_price=t_price,
+            performed_by=by,
+            note=note,
+        )
+
+    def return_stock(self, quantity, session=None, by=None, note="", unit_price=None):
+        """Spec §new — return previously delivered stock (surplus not
+        used, wrong item, etc.). Increases stock back like `restock` but
+        is logged as its own movement type and can be tied to the
+        session it came back from."""
+        if quantity is None or quantity <= 0:
+            raise ValueError("La quantité doit être positive.")
+        u_price, t_price = self._movement_price(quantity, unit_price)
+        if u_price is not None:
+            self.unit_price = u_price
+        self.quantity_in_stock += quantity
+        self.save(update_fields=["quantity_in_stock", "unit_price", "total_price", "updated_at"])
+        return self.movements.create(
+            movement_type="return",
+            quantity=quantity,
+            session=session,
+            unit_price=u_price,
+            total_price=t_price,
             performed_by=by,
             note=note,
         )
@@ -354,6 +557,7 @@ class AssetMovement(models.Model):
     MOVEMENT_TYPE_CHOICES = [
         ("restock", "Réapprovisionnement"),
         ("delivery", "Livraison / Consommation"),
+        ("return", "Retour (surplus / autre)"),
     ]
 
     asset = models.ForeignKey(
@@ -375,6 +579,20 @@ class AssetMovement(models.Model):
         max_length=20, choices=MOVEMENT_TYPE_CHOICES, verbose_name="Type"
     )
     quantity = models.PositiveIntegerField(verbose_name="Quantité")
+    unit_price = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Prix unitaire (au moment du mouvement)",
+    )
+    total_price = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Prix total du mouvement",
+    )
     performed_at = models.DateTimeField(auto_now_add=True, verbose_name="Effectué le")
     performed_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -392,7 +610,7 @@ class AssetMovement(models.Model):
         ordering = ["-performed_at"]
 
     def __str__(self):
-        sign = "+" if self.movement_type == "restock" else "-"
+        sign = "-" if self.movement_type == "delivery" else "+"
         return f"{self.asset.name} {sign}{self.quantity}"
 
 

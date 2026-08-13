@@ -176,6 +176,7 @@ class Command(BaseCommand):
                 name="Vidéoprojecteur Epson",
                 category="machine",
                 inventory_code="EQ-001",
+                unit_price=45000,
                 quantity=3,
                 status="available",
                 room=rooms.get("Salle A"),
@@ -184,6 +185,7 @@ class Command(BaseCommand):
                 name="Extincteurs CO2 (lot)",
                 category="safety_gear",
                 inventory_code="EQ-002",
+                unit_price=8000,
                 quantity=10,
                 status="available",
                 local=locals_.get("Entrepôt Matériel"),
@@ -192,6 +194,7 @@ class Command(BaseCommand):
                 name="Chariot élévateur d'entraînement",
                 category="machine",
                 inventory_code="EQ-003",
+                unit_price=350000,
                 quantity=1,
                 status="available",
                 local=locals_.get("Atelier Pratique"),
@@ -204,6 +207,7 @@ class Command(BaseCommand):
                 name="Écran tactile interactif",
                 category="machine",
                 inventory_code="EQ-004",
+                unit_price=180000,
                 quantity=1,
                 status="available",
                 room=rooms.get("Salle B"),
@@ -212,6 +216,7 @@ class Command(BaseCommand):
                 name="Système de sonorisation",
                 category="tool",
                 inventory_code="EQ-005",
+                unit_price=60000,
                 quantity=1,
                 status="available",
                 room=rooms.get("Salle C"),
@@ -220,6 +225,7 @@ class Command(BaseCommand):
                 name="Casques anti-bruit (lot de 15)",
                 category="safety_gear",
                 inventory_code="EQ-006",
+                unit_price=2500,
                 quantity=15,
                 status="available",
                 room=rooms.get("Atelier 1"),
@@ -228,6 +234,7 @@ class Command(BaseCommand):
                 name="Ordinateur portable formateur",
                 category="machine",
                 inventory_code="EQ-007",
+                unit_price=95000,
                 quantity=2,
                 status="available",
                 room=rooms.get("Salle B"),
@@ -300,30 +307,36 @@ class Command(BaseCommand):
         admin_user = users.get("admin")
         data = [
             # -- IT
-            dict(name="Clé USB 16 Go", category="IT", unit="piece", reference="AST-IT-001", initial_stock=25, minimum_stock=5),
-            dict(name="Câble HDMI", category="IT", unit="piece", reference="AST-IT-002", initial_stock=15, minimum_stock=3),
-            dict(name="Souris USB", category="IT", unit="piece", reference="AST-IT-003", initial_stock=20, minimum_stock=4),
-            dict(name="Adaptateur secteur ordinateur portable", category="IT", unit="piece", reference="AST-IT-004", initial_stock=6, minimum_stock=2),
+            dict(name="Clé USB 16 Go", category="IT", unit="piece", reference="AST-IT-001", initial_stock=25, minimum_stock=5, unit_price="500"),
+            dict(name="Câble HDMI", category="IT", unit="piece", reference="AST-IT-002", initial_stock=15, minimum_stock=3, unit_price="800"),
+            dict(name="Souris USB", category="IT", unit="piece", reference="AST-IT-003", initial_stock=20, minimum_stock=4, unit_price="600"),
+            dict(name="Adaptateur secteur ordinateur portable", category="IT", unit="piece", reference="AST-IT-004", initial_stock=6, minimum_stock=2, unit_price="1500"),
             # -- Bureautique
-            dict(name="Ramette papier A4", category="Bureautique", unit="ream", reference="AST-BU-001", initial_stock=40, minimum_stock=10),
-            dict(name="Marqueurs tableau blanc (lot)", category="Bureautique", unit="pack", reference="AST-BU-002", initial_stock=18, minimum_stock=4),
-            dict(name="Stylos bille (boîte)", category="Bureautique", unit="box", reference="AST-BU-003", initial_stock=30, minimum_stock=6),
-            dict(name="Chemises cartonnées", category="Bureautique", unit="piece", reference="AST-BU-004", initial_stock=50, minimum_stock=10),
+            dict(name="Ramette papier A4", category="Bureautique", unit="ream", reference="AST-BU-001", initial_stock=40, minimum_stock=10, unit_price="450"),
+            dict(name="Marqueurs tableau blanc (lot)", category="Bureautique", unit="pack", reference="AST-BU-002", initial_stock=18, minimum_stock=4, unit_price="700"),
+            dict(name="Stylos bille (boîte)", category="Bureautique", unit="box", reference="AST-BU-003", initial_stock=30, minimum_stock=6, unit_price="350"),
+            dict(name="Chemises cartonnées", category="Bureautique", unit="piece", reference="AST-BU-004", initial_stock=50, minimum_stock=10, unit_price="30"),
             # -- Autre
-            dict(name="Gants de protection (paire)", category="Autre", unit="piece", reference="AST-AU-001", initial_stock=40, minimum_stock=10),
-            dict(name="Gel hydroalcoolique", category="Autre", unit="liter", reference="AST-AU-002", initial_stock=8, minimum_stock=2),
-            dict(name="Kit premiers secours", category="Autre", unit="box", reference="AST-AU-003", initial_stock=3, minimum_stock=1),
+            dict(name="Gants de protection (paire)", category="Autre", unit="piece", reference="AST-AU-001", initial_stock=40, minimum_stock=10, unit_price="120"),
+            dict(name="Gel hydroalcoolique", category="Autre", unit="liter", reference="AST-AU-002", initial_stock=8, minimum_stock=2, unit_price="900"),
+            dict(name="Kit premiers secours", category="Autre", unit="box", reference="AST-AU-003", initial_stock=3, minimum_stock=1, unit_price="4000"),
         ]
         objs = {}
         for d in data:
             initial_stock = d.pop("initial_stock")
+            unit_price = d.pop("unit_price", None)
             category = categories[d.pop("category")]
             obj, new = PedagogicalAsset.objects.get_or_create(
                 reference=d["reference"],
                 defaults=dict(category=category, quantity_in_stock=0, **d),
             )
             if new:
-                obj.restock(initial_stock, by=admin_user, note="Stock initial")
+                obj.restock(
+                    initial_stock,
+                    by=admin_user,
+                    note="Stock initial",
+                    unit_price=unit_price,
+                )
                 self._ok(f"PedagogicalAsset {obj.name}")
             objs[obj.name] = obj
         return objs

@@ -15,6 +15,21 @@
 <a href="{% url 'reporting:dashboard' %}" class="topbar-btn"><i class="bi bi-arrow-left"></i> Rapports</a>
 {% endblock %}
 
+{% block extra_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script src="{% static 'reporting/js/reporting.js' %}"></script>
+{% if rows|length > 1 %}
+<script>
+buildBarChart(
+  "trainerSessionsChart",
+  [{% for row in rows|slice:":15" %}"{{ row.trainer.full_name|truncatechars:20|escapejs }}"{% if not forloop.last %},{% endif %}{% endfor %}],
+  [{% for row in rows|slice:":15" %}{{ row.session_count }}{% if not forloop.last %},{% endif %}{% endfor %}],
+  "rgba(59,130,246,0.75)"
+);
+</script>
+{% endif %}
+{% endblock %}
+
 {% block content %}
 <div class="fade-up">
   <div class="page-header">
@@ -44,6 +59,18 @@
       </form>
     </div>
   </div>
+
+  {% if rows|length > 1 %}
+  <div class="isi-card mb-4">
+    <div class="isi-card-header">
+      <div class="card-icon blue"><i class="bi bi-bar-chart-line-fill"></i></div>
+      <h3>Sessions par formateur</h3>
+    </div>
+    <div class="chart-container" style="height:{% if rows|length > 8 %}380px{% else %}240px{% endif %};">
+      <canvas id="trainerSessionsChart"></canvas>
+    </div>
+  </div>
+  {% endif %}
 
   <div class="isi-card">
     <div class="isi-card-header">

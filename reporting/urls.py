@@ -17,4 +17,12 @@ urlpatterns = [
     path('pass-rate/',     views.pass_rate_by_formation, name='pass_rate'),
     path('certificates/',  views.certificate_volume,     name='certificate_volume'),
     path('trainer-activity/', views.trainer_activity,   name='trainer_activity'),
+
+    # Spec §14.4 — costs & resource utilization (business decisions)
+    path('costs-utilization/', views.cost_utilization_report, name='cost_utilization'),
+
+    # Spec §14.5-14.7 — additional business/infographic reports
+    path('clients/',    views.client_activity_report, name='client_activity'),
+    path('rooms/',      views.room_utilization_report, name='room_utilization'),
+    path('trends/',     views.activity_trends_report,  name='activity_trends'),
 ]

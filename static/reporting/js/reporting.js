@@ -135,6 +135,40 @@
         }
       });
     };
+    /* ── Grouped multi-dataset bar chart (e.g. revenue vs cost) ─── */
+    window.buildMultiBarChart = function (canvasId, labels, datasets) {
+      var ctx = document.getElementById(canvasId);
+      if (!ctx) return;
+      new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels: labels,
+          datasets: datasets.map(function (d) {
+            return {
+              label: d.label,
+              data: d.data,
+              backgroundColor: d.color,
+              borderRadius: 5,
+            };
+          }),
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              display: true,
+              position: "top",
+              labels: { boxWidth: 12, padding: 14, font: { size: 12 } },
+            },
+          },
+          scales: {
+            y: { beginAtZero: true, grid: { color: "#e2e8f0" } },
+            x: { grid: { display: false } },
+          },
+        },
+      });
+    };
   }
 
 })();

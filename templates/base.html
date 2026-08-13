@@ -193,6 +193,10 @@
          href="{% url 'reporting:trainer_activity' %}" data-path="/reporting/trainer-activity/">
         <i class="bi bi-person-lines-fill"></i> Activité formateurs
       </a>
+      <a class="nav-item-link {% if request.resolver_match.url_name == 'cost_utilization' %}active{% endif %}"
+         href="{% url 'reporting:cost_utilization' %}" data-path="/reporting/costs-utilization/">
+        <i class="bi bi-cash-coin"></i> Coûts & utilisation
+      </a>
     </div>
     {% endif %}
 

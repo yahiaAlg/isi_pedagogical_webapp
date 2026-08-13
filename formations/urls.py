@@ -58,6 +58,11 @@ urlpatterns = [
         views.session_asset_deliver,
         name="session_asset_deliver",
     ),
+    path(
+        "sessions/<int:pk>/assets/return/",
+        views.session_asset_return,
+        name="session_asset_return",
+    ),
     path("sessions/<int:pk>/status/", views.session_status, name="session_status"),
     path(
         "sessions/<int:pk>/attendance/",

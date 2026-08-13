@@ -116,6 +116,8 @@ class EquipmentForm(forms.ModelForm):
             "category",
             "inventory_code",
             "quantity",
+            "unit_price",
+            "total_price",
             "status",
             "room",
             "local",
@@ -127,6 +129,14 @@ class EquipmentForm(forms.ModelForm):
             "category": forms.Select(attrs={"class": "form-select"}),
             "inventory_code": forms.TextInput(attrs={"class": "form-control"}),
             "quantity": forms.NumberInput(attrs={"class": "form-control", "min": 0}),
+            "unit_price": forms.NumberInput(
+                attrs={"class": "form-control", "min": 0, "step": "0.01",
+                       "placeholder": "Prix unitaire"}
+            ),
+            "total_price": forms.NumberInput(
+                attrs={"class": "form-control", "min": 0, "step": "0.01",
+                       "placeholder": "Prix total (quantité entière)"}
+            ),
             "status": forms.Select(attrs={"class": "form-select"}),
             "room": forms.Select(attrs={"class": "form-select"}),
             "local": forms.Select(attrs={"class": "form-select"}),
@@ -160,6 +170,8 @@ class PedagogicalAssetForm(forms.ModelForm):
             "unit",
             "quantity_in_stock",
             "minimum_stock",
+            "unit_price",
+            "total_price",
             "is_active",
             "notes",
         ]
@@ -173,6 +185,14 @@ class PedagogicalAssetForm(forms.ModelForm):
             ),
             "minimum_stock": forms.NumberInput(
                 attrs={"class": "form-control", "min": 0}
+            ),
+            "unit_price": forms.NumberInput(
+                attrs={"class": "form-control", "min": 0, "step": "0.01",
+                       "placeholder": "Prix unitaire"}
+            ),
+            "total_price": forms.NumberInput(
+                attrs={"class": "form-control", "min": 0, "step": "0.01",
+                       "placeholder": "Valeur totale du stock"}
             ),
             "is_active": forms.CheckboxInput(attrs={"class": "form-check-input"}),
             "notes": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
@@ -200,10 +220,50 @@ class AssetRestockForm(forms.Form):
         label="Quantité à ajouter",
         widget=forms.NumberInput(attrs={"class": "form-control", "min": 1}),
     )
+    unit_price = forms.DecimalField(
+        required=False,
+        min_value=0,
+        max_digits=10,
+        decimal_places=2,
+        label="Prix unitaire (optionnel)",
+        help_text="Laisser vide pour reprendre le prix unitaire actuel de l'actif.",
+        widget=forms.NumberInput(
+            attrs={"class": "form-control", "min": 0, "step": "0.01"}
+        ),
+    )
     note = forms.CharField(
         required=False,
         label="Note",
         widget=forms.TextInput(
             attrs={"class": "form-control", "placeholder": "Ex : livraison fournisseur"}
+        ),
+    )
+
+
+class AssetReturnForm(forms.Form):
+    """Spec §new — return previously delivered stock (surplus, wrong
+    item...). Increases stock back, logged as its own 'return' movement,
+    optionally tied to the session it came back from."""
+
+    quantity = forms.IntegerField(
+        min_value=1,
+        label="Quantité retournée",
+        widget=forms.NumberInput(attrs={"class": "form-control", "min": 1}),
+    )
+    unit_price = forms.DecimalField(
+        required=False,
+        min_value=0,
+        max_digits=10,
+        decimal_places=2,
+        label="Prix unitaire (optionnel)",
+        widget=forms.NumberInput(
+            attrs={"class": "form-control", "min": 0, "step": "0.01"}
+        ),
+    )
+    note = forms.CharField(
+        required=False,
+        label="Motif du retour",
+        widget=forms.TextInput(
+            attrs={"class": "form-control", "placeholder": "Ex : surplus non utilisé"}
         ),
     )
