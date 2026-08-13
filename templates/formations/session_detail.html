@@ -646,6 +646,32 @@
       {% endif %}
 
       <!-- Règlement formateur panel -->
+      {% if session.is_primary and session.status in 'completed,archived' and session.trainer_cost_mode and session.trainer_cost is None %}
+      <div class="isi-card mb-4">
+        <div class="isi-card-header">
+          <div class="card-icon amber"><i class="bi bi-cash-coin"></i></div>
+          <h3>Règlement du formateur</h3>
+        </div>
+        <div class="isi-card-body">
+          <div class="alert alert-warning mb-0" style="display:flex;gap:10px;align-items:flex-start;">
+            <i class="bi bi-exclamation-triangle-fill" style="margin-top:2px;"></i>
+            <div>
+              Le mode de rémunération du formateur est défini
+              ({% if session.trainer_cost_mode == 'percentage' %}{{ session.trainer_cost_percentage|default:"?" }} % du prix total{% else %}montant direct{% endif %}),
+              mais le montant ne peut pas encore être calculé.
+              {% if session.trainer_cost_mode == 'percentage' %}
+              Renseignez le <strong>« Prix de base »</strong> de ce cycle (onglet Tarification du formulaire de session) pour que le prix total, et donc la part du formateur, puissent être calculés.
+              {% endif %}
+              <div class="mt-2">
+                <a href="{% url 'formations:session_edit' session.pk %}" class="btn btn-outline-amber btn-sm">
+                  <i class="bi bi-pencil-fill"></i> Modifier la tarification
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endif %}
       {% if session.is_primary and session.status in 'completed,archived' and session.trainer_cost is not None %}
       <div class="isi-card mb-4">
         <div class="isi-card-header">
