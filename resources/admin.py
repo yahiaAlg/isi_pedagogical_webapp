@@ -1,7 +1,50 @@
 from django.contrib import admin
 from import_export.admin import ImportExportModelAdmin
-from .models import Room, Trainer, Local, Equipment, EquipmentAllocation
-from .resources import EquipmentResource, LocalResource, RoomResource, TrainerResource
+from .models import (
+    Room,
+    Trainer,
+    Local,
+    Equipment,
+    EquipmentAllocation,
+    AssetCategory,
+    PedagogicalAsset,
+    AssetMovement,
+)
+from .resources import (
+    EquipmentResource,
+    LocalResource,
+    RoomResource,
+    TrainerResource,
+    PedagogicalAssetResource,
+)
+
+
+@admin.register(AssetCategory)
+class AssetCategoryAdmin(admin.ModelAdmin):
+    list_display = ["name", "description"]
+    search_fields = ["name"]
+
+
+@admin.register(PedagogicalAsset)
+class PedagogicalAssetAdmin(ImportExportModelAdmin, admin.ModelAdmin):
+    resource_classes = [PedagogicalAssetResource]
+    list_display = [
+        "name",
+        "category",
+        "unit",
+        "quantity_in_stock",
+        "minimum_stock",
+        "is_active",
+    ]
+    list_filter = ["category", "is_active"]
+    search_fields = ["name", "reference"]
+
+
+@admin.register(AssetMovement)
+class AssetMovementAdmin(admin.ModelAdmin):
+    list_display = ["asset", "movement_type", "quantity", "session", "performed_at"]
+    list_filter = ["movement_type"]
+    search_fields = ["asset__name", "note"]
 
 
 @admin.register(EquipmentAllocation)

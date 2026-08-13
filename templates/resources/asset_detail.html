@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ asset.name }} — Actifs pédagogiques — ISI Gestion Pédagogique{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'resources/css/resources.css' %}" />
+{% endblock %}
+
+{% block breadcrumb %}
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="#">Ressources</a>
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="{% url 'resources:asset_list' %}">Actifs pédagogiques</a>
+<i class="bi bi-chevron-right bc-sep"></i>
+{% endblock %}
+{% block breadcrumb_active %}<span class="bc-active">{{ asset.name }}</span>{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% url 'resources:asset_list' %}" class="topbar-btn">
+  <i class="bi bi-arrow-left"></i> Retour
+</a>
+{% if request.user.profile.is_admin %}
+<a href="{% url 'resources:asset_edit' asset.pk %}" class="topbar-btn primary">
+  <i class="bi bi-pencil-fill"></i> Modifier
+</a>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="fade-up">
+
+  <div class="page-header">
+    <div class="page-header-left">
+      <h1>{{ asset.name }}</h1>
+      <p class="page-subtitle">
+        {{ asset.category.name }} &bull;
+        {% if asset.is_exhausted %}<span class="isi-badge red">Épuisé</span>
+        {% elif asset.is_low_stock %}<span class="isi-badge amber">Stock bas</span>
+        {% else %}<span class="isi-badge green">Disponible</span>{% endif %}
+        {% if not asset.is_active %} &bull; <span class="isi-badge gray">Inactif</span>{% endif %}
+      </p>
+    </div>
+  </div>
+
+  <div class="row">
+    <!-- Stock summary + restock -->
+    <div class="col-lg-5">
+      <div class="isi-card mb-4">
+        <div class="isi-card-header">
+          <div class="card-icon amber"><i class="bi bi-box-seam-fill"></i></div>
+          <h3>Stock</h3>
+        </div>
+        <div class="isi-card-body">
+          <ul class="detail-meta" style="font-size:13.5px;">
+            <li><span class="meta-label">Quantité en stock</span><span class="meta-value">{{ asset.quantity_in_stock }} {{ asset.get_unit_display }}</span></li>
+            <li><span class="meta-label">Seuil d'alerte</span><span class="meta-value">{{ asset.minimum_stock }} {{ asset.get_unit_display }}</span></li>
+            <li><span class="meta-label">Référence</span><span class="meta-value">{{ asset.reference|default:"—" }}</span></li>
+          </ul>
+          {% if asset.notes %}
+          <div class="section-divider" style="margin:14px 0;"></div>
+          <div style="font-size:12.5px;color:var(--text-muted);">
+            <i class="bi bi-sticky-fill"></i> {{ asset.notes }}
+          </div>
+          {% endif %}
+
+          {% if request.user.profile.can_manage_sessions %}
+          <div class="section-divider" style="margin:16px 0;"></div>
+          <form method="post" action="{% url 'resources:asset_restock' asset.pk %}">
+            {% csrf_token %}
+            <label class="form-label" style="font-weight:600;">
+              <i class="bi bi-arrow-repeat"></i> Réapprovisionner
+            </label>
+            <div class="d-flex gap-2 mb-2">
+              <input type="number" min="1" name="quantity" class="form-control" placeholder="Quantité" required />
+            </div>
+            <input type="text" name="note" class="form-control mb-2" placeholder="Note (optionnel)" />
+            <button type="submit" class="btn btn-amber btn-sm w-100">
+              <i class="bi bi-plus-lg"></i> Ajouter au stock
+            </button>
+          </form>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Movement history -->
+    <div class="col-lg-7">
+      <div class="isi-card mb-4">
+        <div class="isi-card-header">
+          <div class="card-icon blue"><i class="bi bi-clock-history"></i></div>
+          <h3>Historique des mouvements</h3>
+        </div>
+        <div class="table-responsive">
+          <table class="isi-table">
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>Quantité</th>
+                <th>Session</th>
+                <th>Date</th>
+                <th>Par</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for mv in movements %}
+              <tr>
+                <td>
+                  {% if mv.movement_type == 'restock' %}
+                  <span class="isi-badge green"><i class="bi bi-arrow-up-circle-fill"></i> Réapprovisionnement</span>
+                  {% else %}
+                  <span class="isi-badge amber"><i class="bi bi-arrow-down-circle-fill"></i> Livraison</span>
+                  {% endif %}
+                </td>
+                <td>{% if mv.movement_type == 'restock' %}+{% else %}-{% endif %}{{ mv.quantity }}</td>
+                <td>
+                  {% if mv.session %}
+                  <a href="{% url 'formations:session_detail' mv.session.pk %}" style="color:var(--accent);">{{ mv.session.reference }}</a>
+                  {% else %}<span style="color:var(--text-muted);">—</span>{% endif %}
+                </td>
+                <td style="font-size:12.5px;color:var(--text-muted);">{{ mv.performed_at|date:"d/m/Y H:i" }}</td>
+                <td style="font-size:12.5px;color:var(--text-muted);">{{ mv.performed_by|default:"—" }}</td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:24px;">Aucun mouvement enregistré.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

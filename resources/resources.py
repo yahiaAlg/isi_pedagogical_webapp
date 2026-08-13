@@ -4,7 +4,7 @@ from import_export import fields, resources
 from import_export.widgets import ForeignKeyWidget, ManyToManyWidget
 
 from formations.models import Formation
-from .models import Equipment, Local, Room, Trainer
+from .models import Equipment, Local, Room, Trainer, PedagogicalAsset, AssetCategory
 
 
 class RoomResource(resources.ModelResource):
@@ -58,6 +58,32 @@ class EquipmentResource(resources.ModelResource):
             "room",
             "local",
             "acquisition_date",
+            "notes",
+        )
+        export_order = fields
+        import_id_fields = ("id",)
+        skip_unchanged = True
+        report_skipped = True
+
+
+class PedagogicalAssetResource(resources.ModelResource):
+    category = fields.Field(
+        attribute="category",
+        column_name="category_id",
+        widget=ForeignKeyWidget(AssetCategory, "pk"),
+    )
+
+    class Meta:
+        model = PedagogicalAsset
+        fields = (
+            "id",
+            "name",
+            "category",
+            "reference",
+            "unit",
+            "quantity_in_stock",
+            "minimum_stock",
+            "is_active",
             "notes",
         )
         export_order = fields

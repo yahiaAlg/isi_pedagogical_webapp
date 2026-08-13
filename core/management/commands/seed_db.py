@@ -48,6 +48,8 @@ class Command(BaseCommand):
             locals_ = self._seed_locals()
             equipment = self._seed_equipment(rooms, locals_)
             self._seed_equipment_allocations(equipment, rooms, users)
+            asset_categories = self._seed_asset_categories()
+            assets = self._seed_pedagogical_assets(asset_categories, users)
             trainers = self._seed_trainers()
             branches = self._seed_branches()
             specialties = self._seed_specialties(branches)
@@ -56,6 +58,7 @@ class Command(BaseCommand):
             self._seed_trainer_qualifications(trainers, formations)
             sessions = self._seed_sessions(formations, clients, trainers, rooms, equipment)
             self._seed_participants(sessions)
+            self._seed_asset_deliveries(assets, users)
 
         self.stdout.write(self.style.SUCCESS("\n✓ Database seeded successfully."))
 
@@ -77,7 +80,9 @@ class Command(BaseCommand):
         # Remove non-superuser users
         User.objects.filter(is_superuser=False).delete()
 
-        from resources.models import Equipment, Local
+        from resources.models import Equipment, Local, PedagogicalAsset, AssetCategory
+        PedagogicalAsset.objects.all().delete()  # cascades AssetMovement
+        AssetCategory.objects.all().delete()
         from formations.models import Branch, Specialty
         from core.models import PVDefaultSignatory
 
@@ -262,6 +267,99 @@ class Command(BaseCommand):
             created += 1
         if created:
             self._ok(f"EquipmentAllocation history ({created} entries)")
+
+    # ------------------------------------------------------------------
+    # Pedagogical asset categories (spec §new) — seeded as a distinct step
+    # from the assets themselves, since categorisation is data (not a
+    # hardcoded choices list) and may be extended independently.
+    # ------------------------------------------------------------------
+    def _seed_asset_categories(self):
+        from resources.models import AssetCategory
+
+        data = [
+            dict(name="IT", description="Matériel et consommables informatiques (câbles, clés USB, accessoires...)."),
+            dict(name="Bureautique", description="Fournitures de bureau (papier, stylos, classeurs...)."),
+            dict(name="Autre", description="Consommables divers non couverts par les autres catégories (protection, hygiène...)."),
+        ]
+        objs = {}
+        for d in data:
+            obj, new = AssetCategory.objects.get_or_create(name=d["name"], defaults=d)
+            if new:
+                self._ok(f"AssetCategory {obj.name}")
+            objs[obj.name] = obj
+        return objs
+
+    # ------------------------------------------------------------------
+    # Pedagogical assets (spec §new) — consumable supplies delivered to
+    # sessions/trainings and tracked for stock (refilled/exhausted), as
+    # opposed to `Equipment` which is reusable and checked in/out.
+    # ------------------------------------------------------------------
+    def _seed_pedagogical_assets(self, categories, users):
+        from resources.models import PedagogicalAsset
+
+        admin_user = users.get("admin")
+        data = [
+            # -- IT
+            dict(name="Clé USB 16 Go", category="IT", unit="piece", reference="AST-IT-001", initial_stock=25, minimum_stock=5),
+            dict(name="Câble HDMI", category="IT", unit="piece", reference="AST-IT-002", initial_stock=15, minimum_stock=3),
+            dict(name="Souris USB", category="IT", unit="piece", reference="AST-IT-003", initial_stock=20, minimum_stock=4),
+            dict(name="Adaptateur secteur ordinateur portable", category="IT", unit="piece", reference="AST-IT-004", initial_stock=6, minimum_stock=2),
+            # -- Bureautique
+            dict(name="Ramette papier A4", category="Bureautique", unit="ream", reference="AST-BU-001", initial_stock=40, minimum_stock=10),
+            dict(name="Marqueurs tableau blanc (lot)", category="Bureautique", unit="pack", reference="AST-BU-002", initial_stock=18, minimum_stock=4),
+            dict(name="Stylos bille (boîte)", category="Bureautique", unit="box", reference="AST-BU-003", initial_stock=30, minimum_stock=6),
+            dict(name="Chemises cartonnées", category="Bureautique", unit="piece", reference="AST-BU-004", initial_stock=50, minimum_stock=10),
+            # -- Autre
+            dict(name="Gants de protection (paire)", category="Autre", unit="piece", reference="AST-AU-001", initial_stock=40, minimum_stock=10),
+            dict(name="Gel hydroalcoolique", category="Autre", unit="liter", reference="AST-AU-002", initial_stock=8, minimum_stock=2),
+            dict(name="Kit premiers secours", category="Autre", unit="box", reference="AST-AU-003", initial_stock=3, minimum_stock=1),
+        ]
+        objs = {}
+        for d in data:
+            initial_stock = d.pop("initial_stock")
+            category = categories[d.pop("category")]
+            obj, new = PedagogicalAsset.objects.get_or_create(
+                reference=d["reference"],
+                defaults=dict(category=category, quantity_in_stock=0, **d),
+            )
+            if new:
+                obj.restock(initial_stock, by=admin_user, note="Stock initial")
+                self._ok(f"PedagogicalAsset {obj.name}")
+            objs[obj.name] = obj
+        return objs
+
+    # ------------------------------------------------------------------
+    # Pedagogical asset deliveries (spec §new) — demo consumption against
+    # the seeded sessions so the "Actifs pédagogiques" card and the stock
+    # history have real data out of the box.
+    # ------------------------------------------------------------------
+    def _seed_asset_deliveries(self, assets, users):
+        from resources.models import AssetMovement
+        from formations.models import Session
+
+        admin_user = users.get("admin")
+        deliveries = [
+            # session status, [(asset name, qty), ...]
+            ("in_progress", [("Ramette papier A4", 4), ("Marqueurs tableau blanc (lot)", 2), ("Clé USB 16 Go", 3)]),
+            ("completed", [("Câble HDMI", 1), ("Chemises cartonnées", 12), ("Gants de protection (paire)", 10)]),
+        ]
+        for status, items in deliveries:
+            session = Session.objects.filter(status=status).order_by("date_start").first()
+            if not session:
+                continue
+            for name, qty in items:
+                asset = assets.get(name)
+                if not asset:
+                    continue
+                if AssetMovement.objects.filter(
+                    asset=asset, session=session, movement_type="delivery"
+                ).exists():
+                    continue
+                try:
+                    asset.deliver(qty, session=session, by=admin_user, note="Livraison de démonstration")
+                except ValueError:
+                    continue
+                self._ok(f"AssetMovement delivery — {asset.name} → {session.reference}")
 
     # ------------------------------------------------------------------
     def _seed_users(self):

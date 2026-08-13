@@ -22,4 +22,10 @@ urlpatterns = [
     path("equipment/create/", views.equipment_create, name="equipment_create"),
     path("equipment/<int:pk>/edit/", views.equipment_edit, name="equipment_edit"),
     path("equipment/<int:pk>/delete/", views.equipment_delete, name="equipment_delete"),
+    path("assets/", views.asset_list, name="asset_list"),
+    path("assets/create/", views.asset_create, name="asset_create"),
+    path("assets/<int:pk>/", views.asset_detail, name="asset_detail"),
+    path("assets/<int:pk>/edit/", views.asset_edit, name="asset_edit"),
+    path("assets/<int:pk>/delete/", views.asset_delete, name="asset_delete"),
+    path("assets/<int:pk>/restock/", views.asset_restock, name="asset_restock"),
 ]

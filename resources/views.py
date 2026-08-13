@@ -4,8 +4,23 @@ from django.contrib import messages
 from django.core.paginator import Paginator
 from django.db.models import Count, Q
 
-from .models import Trainer, Room, Local, Equipment, EquipmentAllocation
-from .forms import TrainerForm, RoomForm, LocalForm, EquipmentForm
+from .models import (
+    Trainer,
+    Room,
+    Local,
+    Equipment,
+    EquipmentAllocation,
+    AssetCategory,
+    PedagogicalAsset,
+)
+from .forms import (
+    TrainerForm,
+    RoomForm,
+    LocalForm,
+    EquipmentForm,
+    PedagogicalAssetForm,
+    AssetRestockForm,
+)
 
 # 'sessions_total' avoids clash with @property session_count on Trainer model
 TRAINER_SORT_MAP = {
@@ -18,6 +33,11 @@ TRAINER_SORT_MAP = {
 ROOM_SORT = {"name": "name", "capacity": "capacity", "is_active": "is_active"}
 LOCAL_SORT = {"name": "name", "local_type": "local_type", "is_active": "is_active"}
 EQUIPMENT_SORT = {"name": "name", "category": "category", "status": "status"}
+ASSET_SORT = {
+    "name": "name",
+    "category": "category__name",
+    "quantity_in_stock": "quantity_in_stock",
+}
 
 
 @login_required
@@ -512,3 +532,148 @@ def equipment_delete(request, pk):
         equipment.delete()
         messages.success(request, f'Équipement "{name}" supprimé.')
     return redirect("resources:equipment_list")
+
+
+# ---------------------------------------------------------------------------
+# Pedagogical assets — spec §new (consumable IT/office/other supplies,
+# refilled via `restock` and depleted via `deliver` — tracked in
+# `AssetMovement`, mirroring the `EquipmentAllocation` audit-trail pattern
+# used for reusable equipment).
+# ---------------------------------------------------------------------------
+
+
+@login_required
+def asset_list(request):
+    sort_key = request.GET.get("sort", "name")
+    dir_ = request.GET.get("dir", "asc")
+    if sort_key not in ASSET_SORT:
+        sort_key = "name"
+    db_field = ASSET_SORT[sort_key]
+    assets = PedagogicalAsset.objects.select_related("category").filter(is_active=True)
+
+    q = request.GET.get("q", "").strip()
+    if q:
+        assets = assets.filter(
+            Q(name__icontains=q) | Q(reference__icontains=q) | Q(notes__icontains=q)
+        )
+    category = request.GET.get("category", "").strip()
+    if category.isdigit():
+        assets = assets.filter(category_id=int(category))
+    stock_state = request.GET.get("stock_state", "").strip()
+    if stock_state == "exhausted":
+        assets = assets.filter(quantity_in_stock=0)
+    elif stock_state == "low":
+        assets = assets.filter(
+            quantity_in_stock__gt=0, quantity_in_stock__lte=models.F("minimum_stock")
+        )
+
+    assets = assets.order_by(db_field if dir_ == "asc" else "-" + db_field)
+    return render(
+        request,
+        "resources/asset_list.html",
+        {
+            "assets": list(assets),
+            "sort": sort_key,
+            "dir": dir_,
+            "categories": AssetCategory.objects.all(),
+            "filters": {"q": q, "category": category, "stock_state": stock_state},
+        },
+    )
+
+
+@login_required
+def asset_detail(request, pk):
+    asset = get_object_or_404(PedagogicalAsset, pk=pk)
+    movements = asset.movements.select_related("session", "performed_by")[:50]
+    restock_form = AssetRestockForm()
+    return render(
+        request,
+        "resources/asset_detail.html",
+        {"asset": asset, "movements": movements, "restock_form": restock_form},
+    )
+
+
+@login_required
+def asset_create(request):
+    if not request.user.profile.is_admin():
+        messages.error(request, "Vous n'avez pas les permissions nécessaires.")
+        return redirect("resources:asset_list")
+    if request.method == "POST":
+        form = PedagogicalAssetForm(request.POST)
+        if form.is_valid():
+            asset = form.save(commit=False)
+            asset.quantity_in_stock = 0
+            asset.save()
+            initial_qty = request.POST.get("initial_stock", "").strip()
+            if initial_qty.isdigit() and int(initial_qty) > 0:
+                asset.restock(
+                    int(initial_qty), by=request.user, note="Stock initial"
+                )
+            messages.success(request, f'Actif "{asset.name}" créé avec succès.')
+            return redirect("resources:asset_detail", pk=asset.pk)
+    else:
+        form = PedagogicalAssetForm()
+    return render(
+        request,
+        "resources/asset_form.html",
+        {"form": form, "title": "Nouvel actif pédagogique"},
+    )
+
+
+@login_required
+def asset_edit(request, pk):
+    asset = get_object_or_404(PedagogicalAsset, pk=pk)
+    if not request.user.profile.is_admin():
+        messages.error(request, "Vous n'avez pas les permissions nécessaires.")
+        return redirect("resources:asset_detail", pk=asset.pk)
+    if request.method == "POST":
+        form = PedagogicalAssetForm(request.POST, instance=asset)
+        if form.is_valid():
+            asset = form.save()
+            messages.success(request, f'Actif "{asset.name}" modifié avec succès.')
+            return redirect("resources:asset_detail", pk=asset.pk)
+    else:
+        form = PedagogicalAssetForm(instance=asset)
+    return render(
+        request,
+        "resources/asset_form.html",
+        {"form": form, "asset": asset, "title": "Modifier l'actif"},
+    )
+
+
+@login_required
+def asset_delete(request, pk):
+    if not request.user.profile.is_admin():
+        messages.error(request, "Accès réservé aux administrateurs.")
+        return redirect("resources:asset_list")
+    asset = get_object_or_404(PedagogicalAsset, pk=pk)
+    if request.method == "POST":
+        name = asset.name
+        asset.delete()
+        messages.success(request, f'Actif "{name}" supprimé.')
+    return redirect("resources:asset_list")
+
+
+@login_required
+def asset_restock(request, pk):
+    """Spec §new — refill an asset's stock (hard-tracked via AssetMovement)."""
+    asset = get_object_or_404(PedagogicalAsset, pk=pk)
+    if not request.user.profile.can_manage_sessions():
+        messages.error(request, "Vous n'avez pas les permissions nécessaires.")
+        return redirect("resources:asset_detail", pk=asset.pk)
+    if request.method == "POST":
+        form = AssetRestockForm(request.POST)
+        if form.is_valid():
+            asset.restock(
+                form.cleaned_data["quantity"],
+                by=request.user,
+                note=form.cleaned_data.get("note", ""),
+            )
+            messages.success(
+                request,
+                f'{form.cleaned_data["quantity"]} {asset.get_unit_display()} '
+                f'ajouté(s) au stock de "{asset.name}".',
+            )
+        else:
+            messages.error(request, "Quantité invalide.")
+    return redirect("resources:asset_detail", pk=asset.pk)

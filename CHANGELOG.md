@@ -217,3 +217,42 @@ Run `python manage.py migrate` after deploying this version.
   - Room ↔ equipment multi-select save, home-room reassignment, and allocation-history logging
   - Cross-room equipment guardrail (block/skip while actively checked out elsewhere; allowed again once released)
   - Idle-equipment suggestions on the session detail page
+
+---
+
+## 13. Pedagogical assets — consumable stock, categorisation, delivery to sessions
+
+Distinct from `Equipment` (reusable machines/tools/safety gear that get checked in/out but never run out), the institute also deals with **consumable pedagogical assets** — IT and office supplies, and other consumables — that are physically handed out during sessions/trainings and eventually run out. This adds full stock tracking for that category of resource, in the Resources section and wired into the session workflow.
+
+- **New model:** `resources.AssetCategory` — categorisation (IT, Bureautique, Autre) stored as data rather than a hardcoded choices list, so it can be extended without a migration. Seeded via a dedicated `_seed_asset_categories()` step, separate from the assets themselves.
+- **New model:** `resources.PedagogicalAsset` — a consumable (name, category, unit, reference, `quantity_in_stock`, `minimum_stock`, active flag, notes). Exposes `is_exhausted` / `is_low_stock` and two stock operations, both logged to `AssetMovement`:
+  - `restock(quantity, by, note)` — refill (e.g. new supplier delivery).
+  - `deliver(quantity, session=None, by=None, note=…)` — consume stock, optionally tied to the session it was handed out for. **Hard guardrail** (unlike the equipment soft-warning pattern): a delivery can never exceed what's physically `quantity_in_stock` — it raises instead of going negative.
+- **New model:** `resources.AssetMovement` — full audit trail of every restock/delivery (type, quantity, session if any, who, when, note). Mirrors the role `EquipmentAllocation` plays for reusable equipment, but for consumables.
+- **Resources section:** new "Actifs pédagogiques" page — list (filterable by category and stock state: low/exhausted), create/edit/delete, and a detail page showing current stock plus the full movement history, with an inline "Réapprovisionner" (restock) form.
+- **Session section:** `session_detail` gained an "Actifs pédagogiques livrés" card — shows everything delivered to that session (aggregated per asset) and a delivery form (asset + quantity + note) that consumes stock immediately on submit; blocked with a clear error if the requested quantity exceeds what's in stock. Available while the session is editable (not archived/cancelled), same rule as the equipment toggle.
+- **Seeds:** 3 categories, 11 assets spread across IT/Bureautique/Autre with realistic initial stock (seeded as a first "restock" movement each), and a handful of demo deliveries against the seeded in-progress and completed sessions so the stock history and session card aren't empty out of the box.
+
+**New/changed:**
+- `resources/models.py` — `AssetCategory`, `PedagogicalAsset`, `AssetMovement`
+- `resources/forms.py` — `PedagogicalAssetForm`, `AssetRestockForm`
+- `resources/views.py` — `asset_list`, `asset_detail`, `asset_create`, `asset_edit`, `asset_delete`, `asset_restock`
+- `resources/urls.py` — `assets/`, `assets/create/`, `assets/<pk>/`, `assets/<pk>/edit/`, `assets/<pk>/delete/`, `assets/<pk>/restock/`
+- `resources/admin.py` — `AssetCategoryAdmin`, `PedagogicalAssetAdmin`, `AssetMovementAdmin`
+- `resources/resources.py` — `PedagogicalAssetResource` (import-export)
+- `formations/forms.py` — `SessionAssetDeliveryForm`
+- `formations/views.py` — `session_detail` (asset-deliveries context), `session_asset_deliver`
+- `formations/urls.py` — `sessions/<pk>/assets/deliver/`
+- `templates/resources/asset_list.html`, `asset_form.html`, `asset_detail.html` — new templates
+- `templates/formations/session_detail.html` — new "Actifs pédagogiques livrés" card
+- `templates/base.html` — new "Actifs pédagogiques" sidebar entry under Ressources
+- `core/management/commands/seed_db.py` — `_seed_asset_categories()`, `_seed_pedagogical_assets()`, `_seed_asset_deliveries()`; `_flush()` updated to clear the new tables
+- **Migration:** `resources/migrations/0003_assetcategory_pedagogicalasset_assetmovement.py`
+
+*Verified end-to-end (Django test client, live DB, fresh migrate from empty DB, idempotent re-seed): asset CRUD, restock, session delivery reducing stock, hard block (with stock left unchanged) when a delivery exceeds current stock, and non-admin/permission checks on create/restock — all passed.*
+
+## Migrations added this session (cont'd)
+
+```
+resources/migrations/0003_assetcategory_pedagogicalasset_assetmovement.py
+```

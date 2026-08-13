@@ -231,6 +231,171 @@ class EquipmentAllocation(models.Model):
         self.save(update_fields=["released_at", "released_by"])
 
 
+class AssetCategory(models.Model):
+    """Spec §new — categorisation for pedagogical assets (IT, Bureautique,
+    Autre...). Kept as data (not a hardcoded choices list) so the
+    classification can be extended without a migration; seeded once via
+    the dedicated `_seed_asset_categories` step in `seed_db`.
+    """
+
+    name = models.CharField(max_length=100, unique=True, verbose_name="Nom")
+    description = models.TextField(blank=True, verbose_name="Description")
+
+    class Meta:
+        verbose_name = "Catégorie d'actif pédagogique"
+        verbose_name_plural = "Catégories d'actifs pédagogiques"
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
+class PedagogicalAsset(models.Model):
+    """Spec §new — consumable/refillable pedagogical supplies (IT, office,
+    and other categories) that are delivered to sessions/trainings and
+    consumed there, as opposed to `Equipment` which is reusable and
+    checked in/out. Stock is refilled (`restock`) and depleted
+    (`deliver`) through `AssetMovement`, which keeps a full audit trail.
+    """
+
+    UNIT_CHOICES = [
+        ("piece", "Pièce"),
+        ("pack", "Lot / Pack"),
+        ("box", "Boîte"),
+        ("ream", "Rame"),
+        ("liter", "Litre"),
+        ("kg", "Kilogramme"),
+        ("other", "Autre"),
+    ]
+
+    name = models.CharField(max_length=150, verbose_name="Nom")
+    category = models.ForeignKey(
+        AssetCategory,
+        on_delete=models.PROTECT,
+        related_name="assets",
+        verbose_name="Catégorie",
+    )
+    reference = models.CharField(
+        max_length=50, blank=True, verbose_name="Référence"
+    )
+    unit = models.CharField(
+        max_length=20, choices=UNIT_CHOICES, default="piece", verbose_name="Unité"
+    )
+    quantity_in_stock = models.PositiveIntegerField(
+        default=0, verbose_name="Quantité en stock"
+    )
+    minimum_stock = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Seuil d'alerte",
+        help_text="En dessous de ce seuil, l'actif est signalé comme stock bas.",
+    )
+    is_active = models.BooleanField(default=True, verbose_name="Actif")
+    notes = models.TextField(blank=True, verbose_name="Notes")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Actif pédagogique"
+        verbose_name_plural = "Actifs pédagogiques"
+        ordering = ["category__name", "name"]
+
+    def __str__(self):
+        return f"{self.name} ({self.quantity_in_stock} {self.get_unit_display()})"
+
+    # --------------------------------------------------------------- stock
+    @property
+    def is_exhausted(self):
+        return self.quantity_in_stock <= 0
+
+    @property
+    def is_low_stock(self):
+        return 0 < self.quantity_in_stock <= self.minimum_stock
+
+    def restock(self, quantity, by=None, note=""):
+        """Refill stock (spec §new). Returns the created `AssetMovement`."""
+        if quantity is None or quantity <= 0:
+            raise ValueError("La quantité doit être positive.")
+        self.quantity_in_stock += quantity
+        self.save(update_fields=["quantity_in_stock", "updated_at"])
+        return self.movements.create(
+            movement_type="restock", quantity=quantity, performed_by=by, note=note
+        )
+
+    def deliver(self, quantity, session=None, by=None, note=""):
+        """Deliver/consume stock, optionally against a session (spec §new).
+        Hard guardrail (unlike the equipment soft warnings): a delivery
+        can never exceed what's physically in stock.
+        """
+        if quantity is None or quantity <= 0:
+            raise ValueError("La quantité doit être positive.")
+        if quantity > self.quantity_in_stock:
+            raise ValueError(
+                f"Stock insuffisant : {self.quantity_in_stock} "
+                f"{self.get_unit_display()} disponible(s)."
+            )
+        self.quantity_in_stock -= quantity
+        self.save(update_fields=["quantity_in_stock", "updated_at"])
+        return self.movements.create(
+            movement_type="delivery",
+            quantity=quantity,
+            session=session,
+            performed_by=by,
+            note=note,
+        )
+
+
+class AssetMovement(models.Model):
+    """Spec §new — audit log of stock movements for a `PedagogicalAsset`:
+    `restock` (refill, no session) or `delivery` (consumed, usually tied
+    to the session it was delivered to). Mirrors `EquipmentAllocation`'s
+    role for the (reusable) `Equipment` model, but for consumables.
+    """
+
+    MOVEMENT_TYPE_CHOICES = [
+        ("restock", "Réapprovisionnement"),
+        ("delivery", "Livraison / Consommation"),
+    ]
+
+    asset = models.ForeignKey(
+        PedagogicalAsset,
+        on_delete=models.CASCADE,
+        related_name="movements",
+        verbose_name="Actif",
+    )
+    session = models.ForeignKey(
+        "formations.Session",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="asset_movements",
+        verbose_name="Session",
+        help_text="Renseigné uniquement pour une livraison consommée dans une session.",
+    )
+    movement_type = models.CharField(
+        max_length=20, choices=MOVEMENT_TYPE_CHOICES, verbose_name="Type"
+    )
+    quantity = models.PositiveIntegerField(verbose_name="Quantité")
+    performed_at = models.DateTimeField(auto_now_add=True, verbose_name="Effectué le")
+    performed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+        verbose_name="Effectué par",
+    )
+    note = models.CharField(max_length=255, blank=True, verbose_name="Note")
+
+    class Meta:
+        verbose_name = "Mouvement de stock"
+        verbose_name_plural = "Historique des mouvements de stock"
+        ordering = ["-performed_at"]
+
+    def __str__(self):
+        sign = "+" if self.movement_type == "restock" else "-"
+        return f"{self.asset.name} {sign}{self.quantity}"
+
+
 class Trainer(models.Model):
     EMPLOYMENT_CHOICES = [
         ("internal", "Interne"),

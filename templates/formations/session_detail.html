@@ -456,6 +456,71 @@
       </div>
       {% endif %}
 
+      <!-- Pedagogical assets (consumables) card (spec §new) -->
+      <div class="isi-card mb-4" id="session-assets">
+        <div class="isi-card-header">
+          <div class="card-icon amber"><i class="bi bi-box-seam-fill"></i></div>
+          <h3>Actifs pédagogiques livrés</h3>
+        </div>
+        <div class="isi-card-body">
+          <div style="font-size:12.5px;color:var(--text-muted);margin-bottom:10px;">
+            Fournitures IT, bureautique et autres consommées/distribuées durant cette session (stock déduit à la livraison).
+          </div>
+          <div class="table-responsive mb-3">
+            <table class="isi-table">
+              <thead>
+                <tr>
+                  <th>Actif</th>
+                  <th>Catégorie</th>
+                  <th>Quantité livrée</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for asset in asset_deliveries %}
+                <tr>
+                  <td><a href="{% url 'resources:asset_detail' asset.pk %}" style="color:var(--accent);">{{ asset.name }}</a></td>
+                  <td>{{ asset.category.name }}</td>
+                  <td>{{ asset.delivered_qty }} {{ asset.get_unit_display }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="3" style="text-align:center;color:var(--text-muted);padding:16px;">Aucun actif livré pour le moment.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+
+          {% if request.user.profile.can_manage_sessions and session.can_edit %}
+          <div class="section-divider" style="margin-bottom:14px;"></div>
+          <form method="post" action="{% url 'formations:session_asset_deliver' session.pk %}">
+            {% csrf_token %}
+            <div class="row g-2 align-items-end">
+              <div class="col-sm-5">
+                <label class="form-label">Actif</label>
+                <select name="asset" class="form-select">
+                  {% for a in asset_delivery_form.fields.asset.queryset %}
+                  <option value="{{ a.pk }}">{{ a.name }} — {{ a.quantity_in_stock }} {{ a.get_unit_display }} en stock</option>
+                  {% empty %}
+                  <option value="" disabled>Aucun actif actif disponible</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-sm-2">
+                <label class="form-label">Quantité</label>
+                <input type="number" min="1" name="quantity" class="form-control" value="1" required />
+              </div>
+              <div class="col-sm-3">
+                <label class="form-label">Note</label>
+                <input type="text" name="note" class="form-control" placeholder="Optionnel" />
+              </div>
+              <div class="col-sm-2">
+                <button type="submit" class="btn btn-amber btn-sm w-100"><i class="bi bi-truck"></i> Livrer</button>
+              </div>
+            </div>
+          </form>
+          {% endif %}
+        </div>
+      </div>
+
       <!-- Child sessions panel -->
       {% if session.is_primary and child_sessions %}
       <div class="isi-card mb-4" id="child-sessions">

@@ -53,6 +53,11 @@ urlpatterns = [
         views.room_equipment_api,
         name="room_equipment_api",
     ),
+    path(
+        "sessions/<int:pk>/assets/deliver/",
+        views.session_asset_deliver,
+        name="session_asset_deliver",
+    ),
     path("sessions/<int:pk>/status/", views.session_status, name="session_status"),
     path(
         "sessions/<int:pk>/attendance/",

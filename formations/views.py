@@ -4,7 +4,7 @@ from django.contrib import messages
 from django.http import JsonResponse
 from django.core.paginator import Paginator
 from django.views.decorators.http import require_POST
-from django.db.models import Count, Q
+from django.db.models import Count, Q, Sum
 from django.utils import timezone
 
 from .models import Category, Branch, Specialty, Formation, Session, Participant
@@ -22,6 +22,7 @@ from .forms import (
     ScoreForm,
     ExamScoreForm,
     ParticipantImportForm,
+    SessionAssetDeliveryForm,
 )
 from .utils import (
     validate_session_transition,
@@ -683,6 +684,20 @@ def session_detail(request, pk):
         if session.status not in ["cancelled", "archived"]:
             idle_equipment = get_idle_equipment(session)
 
+    # Spec §new — pedagogical assets (consumables) delivered to this
+    # session so far, aggregated by asset, plus the delivery form.
+    from resources.models import PedagogicalAsset
+
+    delivery_filter = Q(movements__session=session, movements__movement_type="delivery")
+    asset_deliveries = (
+        PedagogicalAsset.objects.filter(delivery_filter)
+        .annotate(delivered_qty=Sum("movements__quantity", filter=delivery_filter))
+        .select_related("category")
+        .distinct()
+        .order_by("name")
+    )
+    asset_delivery_form = SessionAssetDeliveryForm()
+
     return render(
         request,
         "formations/session_detail.html",
@@ -693,6 +708,8 @@ def session_detail(request, pk):
             "room_equipment": room_equipment,
             "idle_equipment": idle_equipment,
             "selected_equipment_ids": selected_ids,
+            "asset_deliveries": asset_deliveries,
+            "asset_delivery_form": asset_delivery_form,
         },
     )
 
@@ -761,6 +778,43 @@ def session_equipment_update(request, pk):
             "Non ajoutés (déjà alloués ailleurs, à libérer d'abord) : "
             + ", ".join(blocked),
         )
+    return redirect("formations:session_detail", pk=pk)
+
+
+@login_required
+@require_POST
+def session_asset_deliver(request, pk):
+    """Spec §new — deliver (consume) a pedagogical asset to this session.
+    Hard-blocked if the requested quantity exceeds current stock (unlike
+    the equipment soft-warning guardrail, this is a physical constraint)."""
+    session = get_object_or_404(Session, pk=pk)
+    if not request.user.profile.can_manage_sessions():
+        messages.error(request, "Vous n'avez pas les permissions nécessaires.")
+        return redirect("formations:session_detail", pk=pk)
+    if not session.can_edit():
+        messages.error(
+            request,
+            "Cette session est archivée ou annulée et ne peut pas être modifiée.",
+        )
+        return redirect("formations:session_detail", pk=pk)
+
+    form = SessionAssetDeliveryForm(request.POST)
+    if form.is_valid():
+        asset = form.cleaned_data["asset"]
+        quantity = form.cleaned_data["quantity"]
+        note = form.cleaned_data.get("note", "")
+        try:
+            asset.deliver(quantity, session=session, by=request.user, note=note)
+        except ValueError as e:
+            messages.error(request, str(e))
+        else:
+            messages.success(
+                request,
+                f"{quantity} {asset.get_unit_display()} de \"{asset.name}\" livré(s) à la session.",
+            )
+    else:
+        for err in form.errors.values():
+            messages.error(request, "; ".join(err))
     return redirect("formations:session_detail", pk=pk)
 
 

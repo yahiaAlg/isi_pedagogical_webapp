@@ -1,7 +1,7 @@
 from django import forms
 from django.core.exceptions import ValidationError
 from .models import Formation, Category, Branch, Specialty, Session, Participant
-from resources.models import Trainer, Room, Equipment
+from resources.models import Trainer, Room, Equipment, PedagogicalAsset
 from clients.models import Client
 
 
@@ -270,6 +270,34 @@ class SessionForm(forms.ModelForm):
         if date_start and date_end and date_end < date_start:
             raise ValidationError("La date de fin doit être après la date de début.")
         return cleaned_data
+
+
+class SessionAssetDeliveryForm(forms.Form):
+    """Spec §new — deliver (consume) pedagogical assets (IT/office/other
+    consumables) to a session. Hard-guarded against insufficient stock in
+    the view (`PedagogicalAsset.deliver`)."""
+
+    asset = forms.ModelChoiceField(
+        queryset=PedagogicalAsset.objects.none(),
+        label="Actif pédagogique",
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+    quantity = forms.IntegerField(
+        min_value=1,
+        label="Quantité livrée",
+        widget=forms.NumberInput(attrs={"class": "form-control", "min": 1}),
+    )
+    note = forms.CharField(
+        required=False,
+        label="Note",
+        widget=forms.TextInput(attrs={"class": "form-control"}),
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["asset"].queryset = PedagogicalAsset.objects.filter(
+            is_active=True
+        ).select_related("category")
 
 
 class ParticipantForm(forms.ModelForm):

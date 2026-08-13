@@ -1,6 +1,6 @@
 from django import forms
 from django.db import models
-from .models import Trainer, Room, Local, Equipment
+from .models import Trainer, Room, Local, Equipment, AssetCategory, PedagogicalAsset
 
 
 class TrainerForm(forms.ModelForm):
@@ -143,3 +143,67 @@ class EquipmentForm(forms.ModelForm):
                 "Un équipement ne peut être assigné qu'à une salle OU un local, pas les deux."
             )
         return cleaned
+
+
+# ---------------------------------------------------------------------------
+# Pedagogical assets — spec §new (consumable supplies, refilled/exhausted)
+# ---------------------------------------------------------------------------
+
+
+class PedagogicalAssetForm(forms.ModelForm):
+    class Meta:
+        model = PedagogicalAsset
+        fields = [
+            "name",
+            "category",
+            "reference",
+            "unit",
+            "quantity_in_stock",
+            "minimum_stock",
+            "is_active",
+            "notes",
+        ]
+        widgets = {
+            "name": forms.TextInput(attrs={"class": "form-control"}),
+            "category": forms.Select(attrs={"class": "form-select"}),
+            "reference": forms.TextInput(attrs={"class": "form-control"}),
+            "unit": forms.Select(attrs={"class": "form-select"}),
+            "quantity_in_stock": forms.NumberInput(
+                attrs={"class": "form-control", "min": 0}
+            ),
+            "minimum_stock": forms.NumberInput(
+                attrs={"class": "form-control", "min": 0}
+            ),
+            "is_active": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+            "notes": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["category"].queryset = AssetCategory.objects.all()
+        # Stock is set via restock()/deliver() movements, never edited
+        # directly here — that would desync the audit trail. On create it
+        # simply starts at 0 (optionally seeded via the separate
+        # "initial stock" input handled in the view); on edit it's shown
+        # read-only.
+        self.fields["quantity_in_stock"].required = False
+        if self.instance.pk:
+            self.fields["quantity_in_stock"].disabled = True
+            self.fields["quantity_in_stock"].help_text = (
+                "Utilisez « Réapprovisionner » pour ajuster le stock."
+            )
+
+
+class AssetRestockForm(forms.Form):
+    quantity = forms.IntegerField(
+        min_value=1,
+        label="Quantité à ajouter",
+        widget=forms.NumberInput(attrs={"class": "form-control", "min": 1}),
+    )
+    note = forms.CharField(
+        required=False,
+        label="Note",
+        widget=forms.TextInput(
+            attrs={"class": "form-control", "placeholder": "Ex : livraison fournisseur"}
+        ),
+    )

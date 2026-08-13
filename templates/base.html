@@ -157,6 +157,12 @@
       Équipements
     </a>
 
+    <a class="nav-item-link {% if request.resolver_match.app_name == 'resources' and request.resolver_match.url_name in 'asset_list,asset_detail,asset_create,asset_edit' %}active{% endif %}"
+       href="{% url 'resources:asset_list' %}" data-path="/resources/assets/">
+      <i class="bi bi-box-seam-fill"></i>
+      Actifs pédagogiques
+    </a>
+
     <!-- Analytique -->
     {% if request.user.profile.is_staff_or_admin %}
     <span class="nav-label">Analytique</span>
