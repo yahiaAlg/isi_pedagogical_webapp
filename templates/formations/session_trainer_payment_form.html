@@ -60,7 +60,10 @@
           </div>
           {% endif %}
 
-          <form method="post" enctype="multipart/form-data" novalidate>
+          <form method="post" enctype="multipart/form-data" novalidate
+                data-mode="{% if payment %}edit{% else %}create{% endif %}"
+                data-balance="{{ primary.trainer_payment_balance|default_if_none:'' }}"
+                data-due="{{ primary.trainer_cost|default_if_none:'' }}">
             {% csrf_token %}
             {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}" />{% endif %}
 
@@ -70,6 +73,11 @@
                 value="{{ form.amount.value|default_if_none:'' }}"
                 class="form-control {% if form.amount.errors %}is-invalid{% endif %}" step="0.01" min="0" required />
               {% if form.amount.errors %}<div class="invalid-feedback d-block">{{ form.amount.errors|join:", " }}</div>{% endif %}
+              {% if not payment %}
+              <div style="font-size:11.5px;color:var(--text-muted);margin-top:4px;">
+                Pré-rempli avec le solde restant ({{ primary.trainer_payment_balance|floatformat:2 }} DA) — modifiable pour un règlement partiel.
+              </div>
+              {% endif %}
             </div>
 
             <div class="mb-3">
@@ -144,11 +152,46 @@
 (function () {
   const modeSel = document.getElementById("{{ form.payment_mode.id_for_label }}");
   const hint = document.getElementById("espece-hint");
-  function toggle() {
+  function toggleEspeceHint() {
     if (!modeSel || !hint) return;
     hint.style.display = modeSel.value === "espece" ? "" : "none";
   }
-  if (modeSel) { modeSel.addEventListener("change", toggle); toggle(); }
+  if (modeSel) { modeSel.addEventListener("change", toggleEspeceHint); toggleEspeceHint(); }
+
+  // Spec §new — default the amount to the full remaining balance and
+  // auto-suggest a matching internal note, but only when *creating* a
+  // new installment. Editing an existing payment must keep showing its
+  // own saved values untouched.
+  const form = document.querySelector("form[data-mode]");
+  const amountInput = document.getElementById("{{ form.amount.id_for_label }}");
+  const notesInput = document.getElementById("{{ form.notes.id_for_label }}");
+  if (!form || form.dataset.mode !== "create" || !amountInput) return;
+
+  const balance = parseFloat(form.dataset.balance);
+  let notesAutoValue = ""; // tracks the last value *we* wrote, to detect manual edits
+
+  function suggestedNote(amount) {
+    if (isNaN(amount) || isNaN(balance)) return "";
+    if (Math.abs(amount - balance) < 0.005) return "Paiement complet";
+    return "Paiement partielle N° ";
+  }
+
+  function applySuggestedNote() {
+    if (!notesInput) return;
+    // Only overwrite the note if it's still exactly what we auto-filled
+    // last time (or empty) — never clobber something the user typed.
+    if (notesInput.value !== "" && notesInput.value !== notesAutoValue) return;
+    const amount = parseFloat(amountInput.value);
+    notesAutoValue = suggestedNote(amount);
+    notesInput.value = notesAutoValue;
+  }
+
+  if (!isNaN(balance) && balance > 0 && !amountInput.value) {
+    amountInput.value = balance.toFixed(2);
+  }
+
+  applySuggestedNote();
+  amountInput.addEventListener("input", applySuggestedNote);
 })();
 </script>
 {% endblock %}
