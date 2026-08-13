@@ -54,6 +54,11 @@ urlpatterns = [
         name="room_equipment_api",
     ),
     path(
+        "api/trainer/<int:pk>/default-cost/",
+        views.trainer_default_cost_api,
+        name="trainer_default_cost_api",
+    ),
+    path(
         "sessions/<int:pk>/assets/deliver/",
         views.session_asset_deliver,
         name="session_asset_deliver",
@@ -64,6 +69,11 @@ urlpatterns = [
         name="session_asset_return",
     ),
     path("sessions/<int:pk>/status/", views.session_status, name="session_status"),
+    path(
+        "sessions/<int:pk>/trainer-payment/",
+        views.session_trainer_payment,
+        name="session_trainer_payment",
+    ),
     path(
         "sessions/<int:pk>/attendance/",
         views.session_attendance,

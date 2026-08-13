@@ -2,7 +2,11 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.utils import timezone
-from decimal import Decimal
+from django.utils.text import slugify
+from django.conf import settings
+from django.core.validators import FileExtensionValidator
+from decimal import Decimal, ROUND_HALF_UP
+import uuid
 
 
 class Category(models.Model):
@@ -416,6 +420,36 @@ class Session(models.Model):
         help_text="Référence/séquence de facture associée à ce cycle de session.",
     )
 
+    # Spec §new — the formateur's share of this cycle, defaulted from the
+    # trainer's own default (Trainer.default_cost_mode/…) when the cycle is
+    # created, but fully editable per cycle. Set on the primary session and
+    # read from there for the whole group, same pattern as base_price above.
+    TRAINER_COST_MODE_CHOICES = [
+        ("percentage", "Pourcentage du prix total"),
+        ("direct", "Montant direct"),
+    ]
+    trainer_cost_mode = models.CharField(
+        max_length=20,
+        choices=TRAINER_COST_MODE_CHOICES,
+        default="percentage",
+        verbose_name="Mode de rémunération du formateur",
+    )
+    trainer_cost_percentage = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Pourcentage formateur (%)",
+        help_text="Part (%) du prix total de ce cycle revenant au formateur.",
+    )
+    trainer_cost_amount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Montant direct formateur (DA)",
+    )
+
     # Spec §new — session group support
     is_primary = models.BooleanField(
         default=True,
@@ -568,6 +602,50 @@ class Session(models.Model):
         return price * persons  # by_person (default)
 
     @property
+    def trainer_cost(self):
+        """Spec §new — the formateur's share of this cycle's `total_price`,
+        per the cycle's own `trainer_cost_mode` (set on the primary session,
+        same read pattern as `total_price`/`base_price` above):
+          - direct:     a flat `trainer_cost_amount`, regardless of total_price
+          - percentage: `trainer_cost_percentage`% of `total_price`
+        Returns None while the inputs it needs aren't available yet (e.g.
+        total_price isn't final until the cycle is completed/archived).
+        """
+        primary = self if self.is_primary else (self.parent_session or self)
+        mode = primary.trainer_cost_mode
+        if mode == "direct":
+            return primary.trainer_cost_amount
+        total = self.total_price
+        pct = primary.trainer_cost_percentage
+        if total is None or pct is None:
+            return None
+        return (Decimal(total) * pct / Decimal("100")).quantize(
+            Decimal("0.01"), rounding=ROUND_HALF_UP
+        )
+
+    @property
+    def net_revenue(self):
+        """Spec §new — this cycle's `total_price` minus the formateur's
+        `trainer_cost`: what the institute actually nets from the formation
+        once the trainer's part is deducted. None until both are known."""
+        total = self.total_price
+        cost = self.trainer_cost
+        if total is None or cost is None:
+            return None
+        return total - cost
+
+    @property
+    def trainer_payment_confirmed(self):
+        """True once a TrainerPayment has been recorded for this cycle."""
+        primary = self if self.is_primary else (self.parent_session or self)
+        return TrainerPayment.objects.filter(session_id=primary.pk).exists()
+
+    @property
+    def trainer_payment(self):
+        primary = self if self.is_primary else (self.parent_session or self)
+        return TrainerPayment.objects.filter(session_id=primary.pk).first()
+
+    @property
     def group_sessions_count(self):
         """Total sessions in this group (primary + children)."""
         if self.is_primary:
@@ -614,6 +692,85 @@ class Session(models.Model):
             "completed": ["archived"],
         }
         return new_status in valid_transitions.get(self.status, [])
+
+
+def trainer_payment_proof_path(instance, filename):
+    """MEDIA_ROOT/trainer_payments/{uuid}_{filename} — uuid avoids relying
+    on a pk that doesn't exist yet on first save, and prevents collisions."""
+    return f"trainer_payments/{uuid.uuid4().hex}_{filename}"
+
+
+class TrainerPayment(models.Model):
+    """Spec §new — confirms that a session cycle's formateur share
+    (`Session.trainer_cost`) has actually been paid out, once the cycle is
+    terminated. One record per cycle (tied to the *primary* session, same
+    pattern as base_price/trainer_cost), with the settlement mode, a
+    transaction reference, and an optional scanned proof of payment."""
+
+    MODE_CHOICES = [
+        ("espece", "Espèce"),
+        ("cheque", "Chèque"),
+        ("virement_bancaire", "Virement bancaire"),
+        ("ccp", "Virement CCP"),
+    ]
+
+    session = models.OneToOneField(
+        Session,
+        on_delete=models.CASCADE,
+        related_name="trainer_payment_record",
+        verbose_name="Cycle de session",
+    )
+    amount = models.DecimalField(
+        max_digits=10, decimal_places=2, verbose_name="Montant réglé (DA)"
+    )
+    payment_mode = models.CharField(
+        max_length=20, choices=MODE_CHOICES, verbose_name="Mode de règlement"
+    )
+    reference = models.CharField(
+        max_length=100,
+        verbose_name="Référence de transaction",
+        help_text="Auto-générée (ESP-{formateur}-{date}-{heure}) pour un règlement en espèce.",
+    )
+    proof_document = models.FileField(
+        upload_to=trainer_payment_proof_path,
+        blank=True,
+        null=True,
+        validators=[
+            FileExtensionValidator(allowed_extensions=["pdf", "jpg", "jpeg", "png", "webp"])
+        ],
+        verbose_name="Justificatif (scan)",
+        help_text="Image ou PDF, optionnel.",
+    )
+    paid_at = models.DateTimeField(auto_now_add=True, verbose_name="Réglé le")
+    confirmed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+        verbose_name="Confirmé par",
+    )
+
+    class Meta:
+        verbose_name = "Paiement formateur"
+        verbose_name_plural = "Paiements formateurs"
+        ordering = ["-paid_at"]
+
+    def __str__(self):
+        return f"{self.session.reference} — {self.amount} DA ({self.get_payment_mode_display()})"
+
+    @staticmethod
+    def generate_espece_reference(trainer):
+        """ESP-{FORMATEUR}-{YYYYMMDD}-{HHMMSS}, the default transaction
+        reference used when the settlement mode is espèce and no reference
+        was supplied."""
+        now = timezone.localtime()
+        slug = slugify(trainer.last_name).upper() if trainer and trainer.last_name else "FORMATEUR"
+        return f"ESP-{slug}-{now.strftime('%Y%m%d')}-{now.strftime('%H%M%S')}"
+
+    @property
+    def proof_is_pdf(self):
+        return bool(self.proof_document) and self.proof_document.name.lower().endswith(".pdf")
 
 
 class Participant(models.Model):

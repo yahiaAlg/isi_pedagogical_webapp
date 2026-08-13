@@ -220,6 +220,39 @@
               </div>
             </div>
 
+            <!-- ── Section: Rémunération par défaut ───────────── -->
+            <div class="section-divider"></div>
+            <div class="form-section-title">
+              Rémunération par défaut
+              <span style="font-size:12px;font-weight:400;color:var(--text-muted);">(pré-remplit chaque nouveau cycle de session — modifiable au cas par cas)</span>
+            </div>
+            <div class="row g-3 mb-1">
+              <div class="col-sm-4">
+                <label class="form-label" for="{{ form.default_cost_mode.id_for_label }}">Mode</label>
+                <select id="{{ form.default_cost_mode.id_for_label }}" name="{{ form.default_cost_mode.html_name }}"
+                  class="form-select {% if form.default_cost_mode.errors %}is-invalid{% endif %}">
+                  {% for val, label in form.fields.default_cost_mode.choices %}
+                  <option value="{{ val }}" {% if form.default_cost_mode.value == val %}selected{% endif %}>{{ label }}</option>
+                  {% endfor %}
+                </select>
+                {% if form.default_cost_mode.errors %}<div class="invalid-feedback d-block">{{ form.default_cost_mode.errors|join:", " }}</div>{% endif %}
+              </div>
+              <div class="col-sm-4">
+                <label class="form-label" for="{{ form.default_cost_percentage.id_for_label }}">Pourcentage par défaut (%)</label>
+                <input type="number" id="{{ form.default_cost_percentage.id_for_label }}" name="{{ form.default_cost_percentage.html_name }}"
+                  value="{{ form.default_cost_percentage.value|default_if_none:'' }}"
+                  class="form-control {% if form.default_cost_percentage.errors %}is-invalid{% endif %}" step="0.01" min="0" max="100" placeholder="Ex : 30" />
+                {% if form.default_cost_percentage.errors %}<div class="invalid-feedback d-block">{{ form.default_cost_percentage.errors|join:", " }}</div>{% endif %}
+              </div>
+              <div class="col-sm-4">
+                <label class="form-label" for="{{ form.default_cost_amount.id_for_label }}">Montant direct par défaut (DA)</label>
+                <input type="number" id="{{ form.default_cost_amount.id_for_label }}" name="{{ form.default_cost_amount.html_name }}"
+                  value="{{ form.default_cost_amount.value|default_if_none:'' }}"
+                  class="form-control {% if form.default_cost_amount.errors %}is-invalid{% endif %}" step="0.01" min="0" placeholder="Ex : 15000" />
+                {% if form.default_cost_amount.errors %}<div class="invalid-feedback d-block">{{ form.default_cost_amount.errors|join:", " }}</div>{% endif %}
+              </div>
+            </div>
+
             <!-- ── Section: Formations qualifiées ─────────────── -->
             <div class="section-divider"></div>
             <div class="form-section-title">Formations qualifiées</div>

@@ -295,6 +295,42 @@
               </div>
             </div>
 
+            <!-- ── Rémunération formateur ────────────────────── -->
+            <div class="section-divider"></div>
+            <div class="form-section-title">
+              Rémunération du formateur
+              <span style="font-size:12px;font-weight:400;color:var(--text-muted);">(pré-remplie depuis la fiche formateur — modifiable pour ce cycle)</span>
+            </div>
+            <div class="row g-3 mb-3">
+              <div class="col-sm-4">
+                <label class="form-label" for="{{ form.trainer_cost_mode.id_for_label }}">Mode</label>
+                <select id="{{ form.trainer_cost_mode.id_for_label }}" name="{{ form.trainer_cost_mode.html_name }}"
+                  class="form-select {% if form.trainer_cost_mode.errors %}is-invalid{% endif %}">
+                  {% for val, label in form.fields.trainer_cost_mode.choices %}
+                  <option value="{{ val }}" {% if form.trainer_cost_mode.value == val %}selected{% endif %}>{{ label }}</option>
+                  {% endfor %}
+                </select>
+                {% if form.trainer_cost_mode.errors %}<div class="invalid-feedback d-block">{{ form.trainer_cost_mode.errors|join:", " }}</div>{% endif %}
+              </div>
+              <div class="col-sm-4">
+                <label class="form-label" for="{{ form.trainer_cost_percentage.id_for_label }}">Pourcentage (%)</label>
+                <input type="number" id="{{ form.trainer_cost_percentage.id_for_label }}" name="{{ form.trainer_cost_percentage.html_name }}"
+                  value="{{ form.trainer_cost_percentage.value|default_if_none:'' }}"
+                  class="form-control {% if form.trainer_cost_percentage.errors %}is-invalid{% endif %}" step="0.01" min="0" max="100" placeholder="Ex : 30" />
+                {% if form.trainer_cost_percentage.errors %}<div class="invalid-feedback d-block">{{ form.trainer_cost_percentage.errors|join:", " }}</div>{% endif %}
+              </div>
+              <div class="col-sm-4">
+                <label class="form-label" for="{{ form.trainer_cost_amount.id_for_label }}">Montant direct (DA)</label>
+                <input type="number" id="{{ form.trainer_cost_amount.id_for_label }}" name="{{ form.trainer_cost_amount.html_name }}"
+                  value="{{ form.trainer_cost_amount.value|default_if_none:'' }}"
+                  class="form-control {% if form.trainer_cost_amount.errors %}is-invalid{% endif %}" step="0.01" min="0" placeholder="Ex : 15000" />
+                {% if form.trainer_cost_amount.errors %}<div class="invalid-feedback d-block">{{ form.trainer_cost_amount.errors|join:", " }}</div>{% endif %}
+              </div>
+              <div class="col-12" style="font-size:11.5px;color:var(--text-muted);">
+                Part du formateur, déduite du prix total du cycle une fois terminé pour obtenir le revenu net.
+              </div>
+            </div>
+
             <div class="section-divider"></div>
             <div style="display:flex;gap:12px;">
               <button type="submit" class="btn btn-amber"><i class="bi bi-check-lg"></i> {% if session %}Enregistrer{% else %}Créer la session{% endif %}</button>
@@ -498,6 +534,35 @@
           const cb = document.getElementById("equip-" + id);
           if (cb) cb.checked = true;
         });
+      })
+      .catch(() => {});
+  });
+})();
+</script>
+<script>
+// ── Trainer → default cost autofill (spec §new) ────────────────────────────
+// When a trainer is picked, their default remuneration mode/amount is used
+// to pre-fill the cost fields — only while they're still empty, so it never
+// overwrites values the user (or an existing session) already set.
+(function () {
+  const TRAINER_COST_API = "{% url 'formations:trainer_default_cost_api' pk=0 %}".replace('/0/', '/');
+  const trainerSel = document.getElementById("{{ form.trainer.id_for_label }}");
+  const modeSel = document.getElementById("{{ form.trainer_cost_mode.id_for_label }}");
+  const pctInput = document.getElementById("{{ form.trainer_cost_percentage.id_for_label }}");
+  const amtInput = document.getElementById("{{ form.trainer_cost_amount.id_for_label }}");
+  if (!trainerSel || !modeSel) return;
+
+  trainerSel.addEventListener("change", function () {
+    const pk = this.value;
+    if (!pk) return;
+    const fieldsEmpty = !pctInput.value && !amtInput.value;
+    if (!fieldsEmpty) return; // don't clobber a value already entered for this cycle
+    fetch(TRAINER_COST_API + pk + "/")
+      .then(r => r.json())
+      .then(data => {
+        if (data.cost_mode) modeSel.value = data.cost_mode;
+        if (data.cost_percentage !== null && !pctInput.value) pctInput.value = data.cost_percentage;
+        if (data.cost_amount !== null && !amtInput.value) amtInput.value = data.cost_amount;
       })
       .catch(() => {});
   });

@@ -1,6 +1,6 @@
 from django import forms
 from django.core.exceptions import ValidationError
-from .models import Formation, Category, Branch, Specialty, Session, Participant
+from .models import Formation, Category, Branch, Specialty, Session, Participant, TrainerPayment
 from resources.models import Trainer, Room, Equipment, PedagogicalAsset
 from clients.models import Client
 
@@ -212,6 +212,9 @@ class SessionForm(forms.ModelForm):
             "base_price",
             "price_mode",
             "invoice_reference",
+            "trainer_cost_mode",
+            "trainer_cost_percentage",
+            "trainer_cost_amount",
             "committee_members",
         ]
         widgets = {
@@ -237,6 +240,13 @@ class SessionForm(forms.ModelForm):
             "price_mode": forms.Select(attrs={"class": "form-select"}),
             "invoice_reference": forms.TextInput(
                 attrs={"class": "form-control", "placeholder": "Ex : FA-2026-010"}
+            ),
+            "trainer_cost_mode": forms.Select(attrs={"class": "form-select"}),
+            "trainer_cost_percentage": forms.NumberInput(
+                attrs={"class": "form-control", "step": "0.01", "min": "0", "max": "100"}
+            ),
+            "trainer_cost_amount": forms.NumberInput(
+                attrs={"class": "form-control", "step": "0.01", "min": "0"}
             ),
         }
 
@@ -278,6 +288,66 @@ class SessionForm(forms.ModelForm):
         if date_start and date_end and date_end < date_start:
             raise ValidationError("La date de fin doit être après la date de début.")
         return cleaned_data
+
+
+class TrainerPaymentForm(forms.ModelForm):
+    """Spec §new — confirms the formateur's part has been paid out for a
+    terminated session cycle: settlement mode, transaction reference
+    (auto-defaulted for espèce if left blank), amount, and an optional
+    scanned proof of payment."""
+
+    class Meta:
+        model = TrainerPayment
+        fields = ["amount", "payment_mode", "reference", "proof_document"]
+        widgets = {
+            "amount": forms.NumberInput(
+                attrs={"class": "form-control", "step": "0.01", "min": "0"}
+            ),
+            "payment_mode": forms.Select(attrs={"class": "form-select"}),
+            "reference": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "Ex : ESP-DUPONT-20260813-143000",
+                    "style": "font-family:monospace;",
+                }
+            ),
+            "proof_document": forms.ClearableFileInput(
+                attrs={"class": "form-control", "accept": ".pdf,.jpg,.jpeg,.png,.webp"}
+            ),
+        }
+
+    def __init__(self, *args, session=None, **kwargs):
+        self.session = session
+        super().__init__(*args, **kwargs)
+        self.fields["reference"].required = False
+        if session is not None and not self.instance.pk:
+            cost = session.trainer_cost
+            if cost is not None:
+                self.fields["amount"].initial = cost
+
+    def clean(self):
+        cleaned_data = super().clean()
+        mode = cleaned_data.get("payment_mode")
+        reference = (cleaned_data.get("reference") or "").strip()
+        if mode == "espece" and not reference:
+            trainer = self.session.trainer if self.session else None
+            reference = TrainerPayment.generate_espece_reference(trainer)
+        elif not reference:
+            self.add_error(
+                "reference",
+                "La référence de transaction est requise pour ce mode de règlement.",
+            )
+        cleaned_data["reference"] = reference
+        return cleaned_data
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        instance.reference = self.cleaned_data["reference"]
+        if self.session is not None:
+            instance.session = self.session
+        if commit:
+            instance.save()
+        return instance
 
 
 class SessionAssetDeliveryForm(forms.Form):

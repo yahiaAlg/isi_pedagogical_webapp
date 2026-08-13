@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Règlement formateur — {{ session.reference }} — ISI Gestion Pédagogique{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'formations/css/formations.css' %}" />{% endblock %}
+
+{% block breadcrumb %}
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="{% url 'formations:session_list' %}">Sessions</a>
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="{% url 'formations:session_detail' session.pk %}">{{ session.reference }}</a>
+<i class="bi bi-chevron-right bc-sep"></i>
+{% endblock %}
+{% block breadcrumb_active %}<span class="bc-active">Règlement formateur</span>{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% url 'formations:session_detail' session.pk %}" class="topbar-btn"><i class="bi bi-arrow-left"></i> Retour</a>
+{% endblock %}
+
+{% block content %}
+<div class="fade-up">
+  <div class="page-header">
+    <div class="page-header-left">
+      <h1>Confirmer le règlement du formateur</h1>
+      <p class="page-subtitle">{{ session.reference }} — {{ session.formation.title }} — {{ primary.trainer.full_name }}</p>
+    </div>
+  </div>
+
+  <div class="row justify-content-center">
+    <div class="col-lg-6 col-md-8">
+      <div class="isi-card">
+        <div class="isi-card-header">
+          <div class="card-icon green"><i class="bi bi-cash-coin"></i></div>
+          <h3>Détails du règlement</h3>
+        </div>
+        <div class="isi-card-body">
+
+          <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:#f8fafc;border-radius:8px;border:1px solid var(--card-border);margin-bottom:20px;">
+            <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);min-width:90px;">Part due</div>
+            <span style="font-weight:700;color:var(--success);">{{ primary.trainer_cost|floatformat:2 }} DA</span>
+            <span style="font-size:12px;color:var(--text-muted);">
+              ({% if primary.trainer_cost_mode == 'direct' %}montant direct{% else %}{{ primary.trainer_cost_percentage|floatformat:0 }} % du montant total{% endif %})
+            </span>
+          </div>
+
+          {% if form.non_field_errors %}
+          <div class="alert alert-danger mb-4">
+            <i class="bi bi-exclamation-circle-fill"></i>
+            <div>{% for e in form.non_field_errors %}<div>{{ e }}</div>{% endfor %}</div>
+          </div>
+          {% endif %}
+
+          <form method="post" enctype="multipart/form-data" novalidate>
+            {% csrf_token %}
+
+            <div class="mb-3">
+              <label class="form-label" for="{{ form.amount.id_for_label }}">Montant réglé (DA) <span style="color:var(--danger);">*</span></label>
+              <input type="number" id="{{ form.amount.id_for_label }}" name="{{ form.amount.html_name }}"
+                value="{{ form.amount.value|default_if_none:'' }}"
+                class="form-control {% if form.amount.errors %}is-invalid{% endif %}" step="0.01" min="0" required />
+              {% if form.amount.errors %}<div class="invalid-feedback d-block">{{ form.amount.errors|join:", " }}</div>{% endif %}
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label" for="{{ form.payment_mode.id_for_label }}">Mode de règlement <span style="color:var(--danger);">*</span></label>
+              <select id="{{ form.payment_mode.id_for_label }}" name="{{ form.payment_mode.html_name }}"
+                class="form-select {% if form.payment_mode.errors %}is-invalid{% endif %}" required>
+                <option value="">— Sélectionner —</option>
+                {% for val, label in form.fields.payment_mode.choices %}
+                <option value="{{ val }}" {% if form.payment_mode.value == val %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+              {% if form.payment_mode.errors %}<div class="invalid-feedback d-block">{{ form.payment_mode.errors|join:", " }}</div>{% endif %}
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label" for="{{ form.reference.id_for_label }}">Référence de transaction</label>
+              <input type="text" id="{{ form.reference.id_for_label }}" name="{{ form.reference.html_name }}"
+                value="{{ form.reference.value|default_if_none:'' }}"
+                class="form-control {% if form.reference.errors %}is-invalid{% endif %}"
+                placeholder="Auto-générée si Espèce et laissée vide" style="font-family:monospace;" />
+              {% if form.reference.errors %}<div class="invalid-feedback d-block">{{ form.reference.errors|join:", " }}</div>{% endif %}
+              <div id="espece-hint" style="font-size:11.5px;color:var(--text-muted);margin-top:4px;display:none;">
+                <i class="bi bi-info-circle-fill"></i> Laissée vide, la référence sera générée automatiquement : ESP-{{ primary.trainer.last_name|upper }}-{DATE}-{HEURE}.
+              </div>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label" for="{{ form.proof_document.id_for_label }}">Justificatif (scan) <span style="font-weight:400;color:var(--text-muted);">— optionnel</span></label>
+              <input type="file" id="{{ form.proof_document.id_for_label }}" name="{{ form.proof_document.html_name }}"
+                class="form-control {% if form.proof_document.errors %}is-invalid{% endif %}" accept=".pdf,.jpg,.jpeg,.png,.webp" />
+              {% if form.proof_document.errors %}<div class="invalid-feedback d-block">{{ form.proof_document.errors|join:", " }}</div>{% endif %}
+              <div style="font-size:11.5px;color:var(--text-muted);margin-top:4px;">Image ou PDF scanné du reçu / avis de virement.</div>
+            </div>
+
+            <div class="section-divider"></div>
+            <div style="display:flex;gap:12px;">
+              <button type="submit" class="btn btn-amber"><i class="bi bi-check-lg"></i> Confirmer le règlement</button>
+              <a href="{% url 'formations:session_detail' session.pk %}" class="btn btn-ghost"><i class="bi bi-arrow-left"></i> Annuler</a>
+            </div>
+          </form>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+(function () {
+  const modeSel = document.getElementById("{{ form.payment_mode.id_for_label }}");
+  const hint = document.getElementById("espece-hint");
+  function toggle() {
+    if (!modeSel || !hint) return;
+    hint.style.display = modeSel.value === "espece" ? "" : "none";
+  }
+  if (modeSel) { modeSel.addEventListener("change", toggle); toggle(); }
+})();
+</script>
+{% endblock %}

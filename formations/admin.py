@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.urls import reverse
 from django.utils.html import format_html
 from import_export.admin import ImportExportModelAdmin
-from .models import Category, Branch, Specialty, Formation, Session, Participant
+from .models import Category, Branch, Specialty, Formation, Session, Participant, TrainerPayment
 from .resources import (
     BranchResource,
     CategoryResource,
@@ -192,6 +192,16 @@ class SessionAdmin(ImportExportModelAdmin, admin.ModelAdmin):
             {"fields": ("base_price", "price_mode", "invoice_reference")},
         ),
         (
+            "Rémunération formateur",
+            {
+                "fields": (
+                    "trainer_cost_mode",
+                    "trainer_cost_percentage",
+                    "trainer_cost_amount",
+                )
+            },
+        ),
+        (
             "Planification",
             {"fields": ("date_start", "date_end", "client", "trainer", "capacity")},
         ),
@@ -240,6 +250,14 @@ class SessionAdmin(ImportExportModelAdmin, admin.ModelAdmin):
                 ]
             )
         return readonly
+
+
+@admin.register(TrainerPayment)
+class TrainerPaymentAdmin(admin.ModelAdmin):
+    list_display = ["session", "amount", "payment_mode", "reference", "paid_at", "confirmed_by"]
+    list_filter = ["payment_mode", "paid_at"]
+    search_fields = ["session__reference", "reference", "session__trainer__last_name"]
+    readonly_fields = ["paid_at"]
 
 
 @admin.register(Participant)

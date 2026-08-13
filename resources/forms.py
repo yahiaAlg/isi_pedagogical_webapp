@@ -17,6 +17,9 @@ class TrainerForm(forms.ModelForm):
             "email",
             "employment_type",
             "qualifications",  # spec §10.5 — M2M added in round 1
+            "default_cost_mode",
+            "default_cost_percentage",
+            "default_cost_amount",
             "cv",
             "contact_document",
             "is_active",
@@ -38,6 +41,13 @@ class TrainerForm(forms.ModelForm):
             "email": forms.EmailInput(attrs={"class": "form-control"}),
             "employment_type": forms.Select(attrs={"class": "form-select"}),
             "qualifications": forms.CheckboxSelectMultiple(),
+            "default_cost_mode": forms.Select(attrs={"class": "form-select"}),
+            "default_cost_percentage": forms.NumberInput(
+                attrs={"class": "form-control", "step": "0.01", "min": "0", "max": "100"}
+            ),
+            "default_cost_amount": forms.NumberInput(
+                attrs={"class": "form-control", "step": "0.01", "min": "0"}
+            ),
             "cv": forms.ClearableFileInput(
                 attrs={"class": "form-control", "accept": ".pdf,.jpg,.jpeg,.png,.webp"}
             ),

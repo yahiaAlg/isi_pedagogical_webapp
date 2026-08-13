@@ -204,6 +204,21 @@
                 <br><small style="font-weight:400;color:var(--text-muted);">{{ session.get_price_mode_display }} — {{ session.base_price|floatformat:0 }} DA / cycle</small>
               </span>
             </li>
+            {% if session.trainer_cost is not None %}
+            <li>
+              <span class="meta-label"><i class="bi bi-person-badge-fill" style="margin-right:4px;"></i>Part formateur</span>
+              <span class="meta-value">
+                {{ session.trainer_cost|floatformat:2 }} DA
+                <br><small style="font-weight:400;color:var(--text-muted);">
+                  {% if session.trainer_cost_mode == 'direct' %}Montant direct{% else %}{{ session.trainer_cost_percentage|floatformat:0 }} % du montant total{% endif %}
+                </small>
+              </span>
+            </li>
+            <li>
+              <span class="meta-label"><i class="bi bi-graph-up-arrow" style="margin-right:4px;"></i>Revenu net</span>
+              <span class="meta-value" style="font-weight:700;color:var(--success);">{{ session.net_revenue|floatformat:2 }} DA</span>
+            </li>
+            {% endif %}
             {% endif %}
             {% if session.invoice_reference %}
             <li>
@@ -626,6 +641,67 @@
               {% endfor %}
             </tbody>
           </table>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Règlement formateur panel -->
+      {% if session.is_primary and session.status in 'completed,archived' and session.trainer_cost is not None %}
+      <div class="isi-card mb-4">
+        <div class="isi-card-header">
+          <div class="card-icon green"><i class="bi bi-cash-coin"></i></div>
+          <h3>Règlement du formateur</h3>
+          {% if session.trainer_payment_confirmed %}
+          <span class="isi-badge green ms-1"><i class="bi bi-check-circle-fill" style="font-size:7px;"></i> Réglé</span>
+          {% else %}
+          <span class="isi-badge amber ms-1"><i class="bi bi-hourglass-split" style="font-size:7px;"></i> En attente</span>
+          {% endif %}
+        </div>
+        <div class="isi-card-body">
+          {% with payment=session.trainer_payment %}
+          {% if payment %}
+          <ul class="meta-list">
+            <li>
+              <span class="meta-label">Montant réglé</span>
+              <span class="meta-value" style="font-weight:700;color:var(--success);">{{ payment.amount|floatformat:2 }} DA</span>
+            </li>
+            <li>
+              <span class="meta-label">Mode de règlement</span>
+              <span class="meta-value">{{ payment.get_payment_mode_display }}</span>
+            </li>
+            <li>
+              <span class="meta-label">Référence transaction</span>
+              <span class="meta-value" style="font-family:monospace;">{{ payment.reference }}</span>
+            </li>
+            <li>
+              <span class="meta-label">Réglé le</span>
+              <span class="meta-value">{{ payment.paid_at|date:"d/m/Y H:i" }}{% if payment.confirmed_by %} — par {{ payment.confirmed_by.get_full_name|default:payment.confirmed_by.username }}{% endif %}</span>
+            </li>
+            {% if payment.proof_document %}
+            <li>
+              <span class="meta-label">Justificatif</span>
+              <span class="meta-value">
+                <a href="{{ payment.proof_document.url }}" target="_blank" rel="noopener">
+                  <i class="bi {% if payment.proof_is_pdf %}bi-file-earmark-pdf-fill{% else %}bi-file-earmark-image-fill{% endif %}"></i>
+                  Voir le document
+                </a>
+              </span>
+            </li>
+            {% endif %}
+          </ul>
+          {% else %}
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+            <div style="font-size:13.5px;color:var(--text-muted);">
+              Part du formateur à régler pour ce cycle : <strong style="color:var(--body-color);">{{ session.trainer_cost|floatformat:2 }} DA</strong>
+            </div>
+            {% if request.user.profile.can_manage_sessions %}
+            <a href="{% url 'formations:session_trainer_payment' session.pk %}" class="btn btn-amber btn-sm">
+              <i class="bi bi-check-lg"></i> Confirmer le règlement
+            </a>
+            {% endif %}
+          </div>
+          {% endif %}
+          {% endwith %}
         </div>
       </div>
       {% endif %}

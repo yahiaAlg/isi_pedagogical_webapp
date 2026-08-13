@@ -7,7 +7,7 @@ from django.views.decorators.http import require_POST
 from django.db.models import Avg, Count, Q, Sum
 from django.utils import timezone
 
-from .models import Category, Branch, Specialty, Formation, Session, Participant
+from .models import Category, Branch, Specialty, Formation, Session, Participant, TrainerPayment
 from clients.models import Client
 from resources.models import Trainer
 from .forms import (
@@ -24,6 +24,7 @@ from .forms import (
     ParticipantImportForm,
     SessionAssetDeliveryForm,
     SessionAssetReturnForm,
+    TrainerPaymentForm,
 )
 from .utils import (
     validate_session_transition,
@@ -909,6 +910,29 @@ def room_equipment_api(request, pk):
 
 
 @login_required
+def trainer_default_cost_api(request, pk):
+    """AJAX — spec §new — this trainer's default remuneration mode/amount,
+    used to auto-fill (only fields left empty by the user) the trainer-cost
+    section when a trainer is picked on the session form."""
+    trainer = get_object_or_404(Trainer, pk=pk)
+    return JsonResponse(
+        {
+            "cost_mode": trainer.default_cost_mode,
+            "cost_percentage": (
+                str(trainer.default_cost_percentage)
+                if trainer.default_cost_percentage is not None
+                else None
+            ),
+            "cost_amount": (
+                str(trainer.default_cost_amount)
+                if trainer.default_cost_amount is not None
+                else None
+            ),
+        }
+    )
+
+
+@login_required
 def session_create(request):
     if not request.user.profile.can_manage_sessions():
         messages.error(request, "Vous n'avez pas les permissions nécessaires.")
@@ -986,6 +1010,11 @@ def session_create(request):
                     trainer = qualified_trainer
                 if trainer:
                     initial["trainer"] = trainer
+                    # Spec §new — default the formateur's part from their
+                    # own default cost mode/amount (still fully editable).
+                    initial["trainer_cost_mode"] = trainer.default_cost_mode
+                    initial["trainer_cost_percentage"] = trainer.default_cost_percentage
+                    initial["trainer_cost_amount"] = trainer.default_cost_amount
                 if last:
                     initial["client"] = last.client
                     initial["location_type"] = last.location_type
@@ -1116,6 +1145,48 @@ def session_status(request, pk):
         request,
         "formations/session_status_form.html",
         {"form": form, "session": session},
+    )
+
+
+@login_required
+def session_trainer_payment(request, pk):
+    """Spec §new — confirm that the formateur's part (Session.trainer_cost)
+    has been paid out for a terminated cycle: settlement mode + transaction
+    reference (auto ESP-… for espèce) + optional scanned proof."""
+    session = get_object_or_404(Session, pk=pk)
+    primary = session if session.is_primary else (session.parent_session or session)
+    if not request.user.profile.can_manage_sessions():
+        messages.error(request, "Vous n'avez pas les permissions nécessaires.")
+        return redirect("formations:session_detail", pk=pk)
+    if primary.status not in ["completed", "archived"]:
+        messages.error(
+            request,
+            "Le règlement du formateur ne peut être confirmé qu'une fois le "
+            "cycle terminé (statut Terminée ou Archivée).",
+        )
+        return redirect("formations:session_detail", pk=pk)
+    if primary.trainer_payment_confirmed:
+        messages.info(request, "Le règlement du formateur a déjà été confirmé.")
+        return redirect("formations:session_detail", pk=pk)
+
+    if request.method == "POST":
+        form = TrainerPaymentForm(request.POST, request.FILES, session=primary)
+        if form.is_valid():
+            payment = form.save(commit=False)
+            payment.session = primary
+            payment.confirmed_by = request.user
+            payment.save()
+            messages.success(
+                request,
+                f"Règlement du formateur confirmé — référence {payment.reference}.",
+            )
+            return redirect("formations:session_detail", pk=pk)
+    else:
+        form = TrainerPaymentForm(session=primary)
+    return render(
+        request,
+        "formations/session_trainer_payment_form.html",
+        {"form": form, "session": session, "primary": primary},
     )
 
 

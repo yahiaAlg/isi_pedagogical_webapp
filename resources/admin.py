@@ -109,6 +109,16 @@ class TrainerAdmin(ImportExportModelAdmin, admin.ModelAdmin):
         ),
         ("Formations qualifiées", {"fields": ("qualifications",)}),
         ("Contact", {"fields": ("phone", "email")}),
+        (
+            "Rémunération par défaut",
+            {
+                "fields": (
+                    "default_cost_mode",
+                    "default_cost_percentage",
+                    "default_cost_amount",
+                )
+            },
+        ),
         ("Documents", {"fields": ("cv", "contact_document")}),
         ("Statut", {"fields": ("is_active",)}),
     )

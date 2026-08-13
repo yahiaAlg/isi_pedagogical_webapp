@@ -633,6 +633,36 @@ class Trainer(models.Model):
         ("external", "Externe"),
     ]
 
+    # Spec §new — default remuneration mode/amount for this trainer, used to
+    # pre-fill (still fully editable) the trainer-cost fields on every new
+    # session cycle created for them (see formations.Session.trainer_cost_*).
+    COST_MODE_CHOICES = [
+        ("percentage", "Pourcentage du prix total"),
+        ("direct", "Montant direct"),
+    ]
+    default_cost_mode = models.CharField(
+        max_length=20,
+        choices=COST_MODE_CHOICES,
+        default="percentage",
+        verbose_name="Mode de rémunération par défaut",
+    )
+    default_cost_percentage = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Pourcentage par défaut (%)",
+        help_text="Part par défaut (%) du prix total de la formation revenant au formateur.",
+    )
+    default_cost_amount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Montant direct par défaut (DA)",
+        help_text="Montant fixe par défaut, utilisé si le mode direct est retenu.",
+    )
+
     # ------------------------------------------------------------------ names
     first_name = models.CharField(max_length=50, verbose_name="Prénom")
     last_name = models.CharField(max_length=50, verbose_name="Nom")
