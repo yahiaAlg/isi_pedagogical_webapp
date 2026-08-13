@@ -1150,9 +1150,11 @@ def session_status(request, pk):
 
 @login_required
 def session_trainer_payment(request, pk):
-    """Spec §new — confirm that the formateur's part (Session.trainer_cost)
-    has been paid out for a terminated cycle: settlement mode + transaction
-    reference (auto ESP-… for espèce) + optional scanned proof."""
+    """Spec §new — record one installment towards the formateur's part
+    (Session.trainer_cost) for a terminated cycle: amount + settlement
+    mode + transaction reference (auto ESP-… for espèce) + optional
+    scanned proof. A cycle can take several installments until its
+    balance reaches zero (see Session.trainer_payment_status)."""
     session = get_object_or_404(Session, pk=pk)
     primary = session if session.is_primary else (session.parent_session or session)
     if not request.user.profile.can_manage_sessions():
@@ -1165,8 +1167,8 @@ def session_trainer_payment(request, pk):
             "cycle terminé (statut Terminée ou Archivée).",
         )
         return redirect("formations:session_detail", pk=pk)
-    if primary.trainer_payment_confirmed:
-        messages.info(request, "Le règlement du formateur a déjà été confirmé.")
+    if primary.trainer_payment_status == "paid":
+        messages.info(request, "Le règlement du formateur est déjà soldé pour ce cycle.")
         return redirect("formations:session_detail", pk=pk)
 
     if request.method == "POST":
@@ -1178,7 +1180,7 @@ def session_trainer_payment(request, pk):
             payment.save()
             messages.success(
                 request,
-                f"Règlement du formateur confirmé — référence {payment.reference}.",
+                f"Règlement enregistré — référence {payment.reference}.",
             )
             return redirect("formations:session_detail", pk=pk)
     else:
@@ -1187,6 +1189,49 @@ def session_trainer_payment(request, pk):
         request,
         "formations/session_trainer_payment_form.html",
         {"form": form, "session": session, "primary": primary},
+    )
+
+
+@login_required
+def trainer_payment_edit(request, pk):
+    """Spec §new — let an administrator correct a previously recorded
+    installment (amount, statut, mode, référence, justificatif, note)
+    from the trainer's payment history. Reachable from both the session
+    page and the trainer detail page."""
+    payment = get_object_or_404(TrainerPayment, pk=pk)
+    if not request.user.profile.is_admin():
+        messages.error(request, "Vous n'avez pas les permissions nécessaires.")
+        return redirect("formations:session_detail", pk=payment.session_id)
+    primary = payment.session
+
+    next_url = request.GET.get("next") or request.POST.get("next")
+
+    if request.method == "POST":
+        form = TrainerPaymentForm(
+            request.POST, request.FILES, instance=payment, session=primary
+        )
+        if form.is_valid():
+            updated = form.save(commit=False)
+            updated.session = primary
+            updated.save()
+            messages.success(
+                request, f"Règlement modifié — référence {updated.reference}."
+            )
+            if next_url:
+                return redirect(next_url)
+            return redirect("formations:session_detail", pk=primary.pk)
+    else:
+        form = TrainerPaymentForm(instance=payment, session=primary)
+    return render(
+        request,
+        "formations/session_trainer_payment_form.html",
+        {
+            "form": form,
+            "session": primary,
+            "primary": primary,
+            "payment": payment,
+            "next_url": next_url,
+        },
     )
 
 

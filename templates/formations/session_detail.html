@@ -651,55 +651,92 @@
         <div class="isi-card-header">
           <div class="card-icon green"><i class="bi bi-cash-coin"></i></div>
           <h3>Règlement du formateur</h3>
-          {% if session.trainer_payment_confirmed %}
+          {% if session.trainer_payment_status == 'paid' %}
           <span class="isi-badge green ms-1"><i class="bi bi-check-circle-fill" style="font-size:7px;"></i> Réglé</span>
+          {% elif session.trainer_payment_status == 'partial' %}
+          <span class="isi-badge blue ms-1"><i class="bi bi-hourglass-split" style="font-size:7px;"></i> Partiel</span>
           {% else %}
           <span class="isi-badge amber ms-1"><i class="bi bi-hourglass-split" style="font-size:7px;"></i> En attente</span>
           {% endif %}
         </div>
         <div class="isi-card-body">
-          {% with payment=session.trainer_payment %}
-          {% if payment %}
-          <ul class="meta-list">
-            <li>
-              <span class="meta-label">Montant réglé</span>
-              <span class="meta-value" style="font-weight:700;color:var(--success);">{{ payment.amount|floatformat:2 }} DA</span>
-            </li>
-            <li>
-              <span class="meta-label">Mode de règlement</span>
-              <span class="meta-value">{{ payment.get_payment_mode_display }}</span>
-            </li>
-            <li>
-              <span class="meta-label">Référence transaction</span>
-              <span class="meta-value" style="font-family:monospace;">{{ payment.reference }}</span>
-            </li>
-            <li>
-              <span class="meta-label">Réglé le</span>
-              <span class="meta-value">{{ payment.paid_at|date:"d/m/Y H:i" }}{% if payment.confirmed_by %} — par {{ payment.confirmed_by.get_full_name|default:payment.confirmed_by.username }}{% endif %}</span>
-            </li>
-            {% if payment.proof_document %}
-            <li>
-              <span class="meta-label">Justificatif</span>
-              <span class="meta-value">
-                <a href="{{ payment.proof_document.url }}" target="_blank" rel="noopener">
-                  <i class="bi {% if payment.proof_is_pdf %}bi-file-earmark-pdf-fill{% else %}bi-file-earmark-image-fill{% endif %}"></i>
-                  Voir le document
-                </a>
-              </span>
-            </li>
-            {% endif %}
-          </ul>
-          {% else %}
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
-            <div style="font-size:13.5px;color:var(--text-muted);">
-              Part du formateur à régler pour ce cycle : <strong style="color:var(--body-color);">{{ session.trainer_cost|floatformat:2 }} DA</strong>
+
+          <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:space-between;padding:12px 16px;background:#f8fafc;border-radius:8px;border:1px solid var(--card-border);margin-bottom:16px;">
+            <div style="display:flex;flex-wrap:wrap;gap:20px;">
+              <div>
+                <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);">Part due</div>
+                <span style="font-weight:700;">{{ session.trainer_cost|floatformat:2 }} DA</span>
+              </div>
+              <div>
+                <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);">Réglé</div>
+                <span style="font-weight:700;color:var(--success);">{{ session.trainer_paid_total|floatformat:2 }} DA</span>
+              </div>
+              <div>
+                <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);">Solde restant</div>
+                <span style="font-weight:700;{% if session.trainer_payment_balance > 0 %}color:var(--danger);{% endif %}">{{ session.trainer_payment_balance|floatformat:2 }} DA</span>
+              </div>
             </div>
-            {% if request.user.profile.can_manage_sessions %}
+            {% if request.user.profile.can_manage_sessions and session.trainer_payment_status != 'paid' %}
             <a href="{% url 'formations:session_trainer_payment' session.pk %}" class="btn btn-amber btn-sm">
-              <i class="bi bi-check-lg"></i> Confirmer le règlement
+              <i class="bi bi-plus-lg"></i> Ajouter un règlement
             </a>
             {% endif %}
           </div>
+
+          {% with payments=session.trainer_payments %}
+          {% if payments %}
+          <div style="overflow-x:auto;">
+            <table class="isi-table">
+              <thead>
+                <tr>
+                  <th>Montant</th>
+                  <th>Statut</th>
+                  <th>Mode</th>
+                  <th>Référence</th>
+                  <th>Réglé le</th>
+                  <th>Justificatif</th>
+                  {% if request.user.profile.is_admin %}<th style="text-align:right;">Actions</th>{% endif %}
+                </tr>
+              </thead>
+              <tbody>
+                {% for p in payments %}
+                <tr>
+                  <td style="font-weight:700;">{{ p.amount|floatformat:2 }} DA</td>
+                  <td>
+                    {% if p.status == 'confirmed' %}
+                    <span class="isi-badge green"><i class="bi bi-circle-fill" style="font-size:7px;"></i> Confirmé</span>
+                    {% elif p.status == 'pending' %}
+                    <span class="isi-badge amber"><i class="bi bi-circle-fill" style="font-size:7px;"></i> En attente</span>
+                    {% else %}
+                    <span class="isi-badge red"><i class="bi bi-circle-fill" style="font-size:7px;"></i> Annulé</span>
+                    {% endif %}
+                  </td>
+                  <td>{{ p.get_payment_mode_display }}</td>
+                  <td style="font-family:monospace;font-size:12.5px;">{{ p.reference }}</td>
+                  <td>{{ p.paid_at|date:"d/m/Y H:i" }}{% if p.confirmed_by %}<br><span class="table-secondary-text">par {{ p.confirmed_by.get_full_name|default:p.confirmed_by.username }}</span>{% endif %}</td>
+                  <td>
+                    {% if p.proof_document %}
+                    <a href="{{ p.proof_document.url }}" target="_blank" rel="noopener">
+                      <i class="bi {% if p.proof_is_pdf %}bi-file-earmark-pdf-fill{% else %}bi-file-earmark-image-fill{% endif %}"></i>
+                    </a>
+                    {% else %}<span style="color:var(--text-muted);">—</span>{% endif %}
+                  </td>
+                  {% if request.user.profile.is_admin %}
+                  <td>
+                    <div style="display:flex;justify-content:flex-end;">
+                      <a href="{% url 'formations:trainer_payment_edit' p.pk %}?next={{ request.path|urlencode }}" class="btn btn-ghost btn-sm">
+                        <i class="bi bi-pencil-fill"></i>
+                      </a>
+                    </div>
+                  </td>
+                  {% endif %}
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div style="font-size:13.5px;color:var(--text-muted);">Aucun règlement enregistré pour ce cycle pour l'instant.</div>
           {% endif %}
           {% endwith %}
         </div>

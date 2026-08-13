@@ -75,6 +75,11 @@ urlpatterns = [
         name="session_trainer_payment",
     ),
     path(
+        "trainer-payments/<int:pk>/edit/",
+        views.trainer_payment_edit,
+        name="trainer_payment_edit",
+    ),
+    path(
         "sessions/<int:pk>/attendance/",
         views.session_attendance,
         name="session_attendance",

@@ -254,10 +254,18 @@ class SessionAdmin(ImportExportModelAdmin, admin.ModelAdmin):
 
 @admin.register(TrainerPayment)
 class TrainerPaymentAdmin(admin.ModelAdmin):
-    list_display = ["session", "amount", "payment_mode", "reference", "paid_at", "confirmed_by"]
-    list_filter = ["payment_mode", "paid_at"]
+    list_display = [
+        "session",
+        "amount",
+        "status",
+        "payment_mode",
+        "reference",
+        "paid_at",
+        "confirmed_by",
+    ]
+    list_filter = ["status", "payment_mode", "paid_at"]
     search_fields = ["session__reference", "reference", "session__trainer__last_name"]
-    readonly_fields = ["paid_at"]
+    readonly_fields = ["updated_at"]
 
 
 @admin.register(Participant)

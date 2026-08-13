@@ -97,10 +97,19 @@ def trainer_list(request):
 def trainer_detail(request, pk):
     trainer = get_object_or_404(Trainer, pk=pk)
     sessions = trainer.session_set.all().order_by("-date_start")[:10]
+    # Spec §new — full règlement (installment) history across all of this
+    # trainer's session cycles, most recent first.
+    from formations.models import TrainerPayment
+
+    payments = (
+        TrainerPayment.objects.filter(session__trainer=trainer)
+        .select_related("session", "session__formation", "confirmed_by")
+        .order_by("-paid_at")
+    )
     return render(
         request,
         "resources/trainer_detail.html",
-        {"trainer": trainer, "sessions": sessions},
+        {"trainer": trainer, "sessions": sessions, "payments": payments},
     )
 
 

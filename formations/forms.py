@@ -1,5 +1,8 @@
+from decimal import Decimal
+
 from django import forms
 from django.core.exceptions import ValidationError
+from django.db.models import Sum
 from .models import Formation, Category, Branch, Specialty, Session, Participant, TrainerPayment
 from resources.models import Trainer, Room, Equipment, PedagogicalAsset
 from clients.models import Client
@@ -291,18 +294,29 @@ class SessionForm(forms.ModelForm):
 
 
 class TrainerPaymentForm(forms.ModelForm):
-    """Spec §new — confirms the formateur's part has been paid out for a
-    terminated session cycle: settlement mode, transaction reference
-    (auto-defaulted for espèce if left blank), amount, and an optional
-    scanned proof of payment."""
+    """Spec §new — records one installment towards the formateur's part
+    for a terminated session cycle: amount, statut, settlement mode,
+    transaction reference (auto-defaulted for espèce if left blank), and
+    an optional scanned proof of payment. Also used, unchanged, to *edit*
+    an existing installment from the trainer's payment history (admin
+    only) — the `session` kwarg is only needed for validating the amount
+    and defaulting the initial one on creation."""
 
     class Meta:
         model = TrainerPayment
-        fields = ["amount", "payment_mode", "reference", "proof_document"]
+        fields = [
+            "amount",
+            "status",
+            "payment_mode",
+            "reference",
+            "proof_document",
+            "notes",
+        ]
         widgets = {
             "amount": forms.NumberInput(
                 attrs={"class": "form-control", "step": "0.01", "min": "0"}
             ),
+            "status": forms.Select(attrs={"class": "form-select"}),
             "payment_mode": forms.Select(attrs={"class": "form-select"}),
             "reference": forms.TextInput(
                 attrs={
@@ -314,16 +328,20 @@ class TrainerPaymentForm(forms.ModelForm):
             "proof_document": forms.ClearableFileInput(
                 attrs={"class": "form-control", "accept": ".pdf,.jpg,.jpeg,.png,.webp"}
             ),
+            "notes": forms.TextInput(
+                attrs={"class": "form-control", "placeholder": "Note interne (optionnel)"}
+            ),
         }
 
     def __init__(self, *args, session=None, **kwargs):
-        self.session = session
+        self.session = session or (kwargs.get("instance").session if kwargs.get("instance") else None)
         super().__init__(*args, **kwargs)
         self.fields["reference"].required = False
+        self.fields["notes"].required = False
         if session is not None and not self.instance.pk:
-            cost = session.trainer_cost
-            if cost is not None:
-                self.fields["amount"].initial = cost
+            balance = session.trainer_payment_balance
+            if balance:
+                self.fields["amount"].initial = balance
 
     def clean(self):
         cleaned_data = super().clean()
@@ -338,12 +356,31 @@ class TrainerPaymentForm(forms.ModelForm):
                 "La référence de transaction est requise pour ce mode de règlement.",
             )
         cleaned_data["reference"] = reference
+
+        amount = cleaned_data.get("amount")
+        status = cleaned_data.get("status")
+        if amount is not None and status == "confirmed" and self.session is not None:
+            cost = self.session.trainer_cost
+            if cost is not None:
+                others_total = (
+                    self.session.trainer_payments.filter(status="confirmed")
+                    .exclude(pk=self.instance.pk)
+                    .aggregate(s=Sum("amount"))["s"]
+                    or Decimal("0.00")
+                )
+                if others_total + amount > cost:
+                    remaining = cost - others_total
+                    self.add_error(
+                        "amount",
+                        f"Le montant dépasse le solde restant dû ({remaining:.2f} DA "
+                        f"sur {cost:.2f} DA au total).",
+                    )
         return cleaned_data
 
     def save(self, commit=True):
         instance = super().save(commit=False)
         instance.reference = self.cleaned_data["reference"]
-        if self.session is not None:
+        if self.session is not None and not instance.session_id:
             instance.session = self.session
         if commit:
             instance.save()

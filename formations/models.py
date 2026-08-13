@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models import Sum
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.utils import timezone
@@ -635,15 +636,57 @@ class Session(models.Model):
         return total - cost
 
     @property
-    def trainer_payment_confirmed(self):
-        """True once a TrainerPayment has been recorded for this cycle."""
+    def trainer_payments(self):
+        """Spec §new — full installment history for this cycle's formateur
+        settlement (most recent first), tied to the *primary* session same
+        as `trainer_cost`."""
         primary = self if self.is_primary else (self.parent_session or self)
-        return TrainerPayment.objects.filter(session_id=primary.pk).exists()
+        return TrainerPayment.objects.filter(session_id=primary.pk).order_by(
+            "-paid_at"
+        )
+
+    @property
+    def trainer_paid_total(self):
+        """Spec §new — sum of confirmed installments only (pending/cancelled
+        installments don't count towards what's actually been settled)."""
+        total = self.trainer_payments.filter(status="confirmed").aggregate(
+            s=Sum("amount")
+        )["s"]
+        return total or Decimal("0.00")
+
+    @property
+    def trainer_payment_balance(self):
+        """Spec §new — remaining amount still owed to the formateur for
+        this cycle. None while `trainer_cost` itself isn't known yet."""
+        cost = self.trainer_cost
+        if cost is None:
+            return None
+        return max(cost - self.trainer_paid_total, Decimal("0.00"))
+
+    @property
+    def trainer_payment_status(self):
+        """Spec §new — 'unpaid' / 'partial' / 'paid' for this cycle's
+        formateur settlement, based on confirmed installments vs the cost."""
+        cost = self.trainer_cost
+        if cost is None:
+            return "unknown"
+        paid = self.trainer_paid_total
+        if paid <= 0:
+            return "unpaid"
+        if paid < cost:
+            return "partial"
+        return "paid"
+
+    @property
+    def trainer_payment_confirmed(self):
+        """True once the formateur's part for this cycle is fully settled
+        (kept for back-compat with existing templates/checks)."""
+        return self.trainer_payment_status == "paid"
 
     @property
     def trainer_payment(self):
-        primary = self if self.is_primary else (self.parent_session or self)
-        return TrainerPayment.objects.filter(session_id=primary.pk).first()
+        """Back-compat single-result accessor (most recent installment)."""
+        return self.trainer_payments.first()
 
     @property
     def group_sessions_count(self):
@@ -701,11 +744,15 @@ def trainer_payment_proof_path(instance, filename):
 
 
 class TrainerPayment(models.Model):
-    """Spec §new — confirms that a session cycle's formateur share
-    (`Session.trainer_cost`) has actually been paid out, once the cycle is
-    terminated. One record per cycle (tied to the *primary* session, same
-    pattern as base_price/trainer_cost), with the settlement mode, a
-    transaction reference, and an optional scanned proof of payment."""
+    """Spec §new — one *installment* towards a session cycle's formateur
+    share (`Session.trainer_cost`), once the cycle is terminated. A cycle
+    can have several installments (règlement en plusieurs tranches) — the
+    running total of `confirmed` installments is compared against
+    `Session.trainer_cost` to know whether the cycle is unpaid / partially
+    paid / fully paid (see `Session.trainer_payment_status`). Each
+    installment carries its own settlement mode, transaction reference,
+    status, and an optional scanned proof of payment, and can be edited
+    later by an administrator (see `resources.trainer_detail` history)."""
 
     MODE_CHOICES = [
         ("espece", "Espèce"),
@@ -714,14 +761,30 @@ class TrainerPayment(models.Model):
         ("ccp", "Virement CCP"),
     ]
 
-    session = models.OneToOneField(
+    # Spec §new — installment status: a règlement can be recorded ahead of
+    # actual settlement (`pending`), settled (`confirmed`, the default —
+    # counts towards `Session.trainer_paid_total`), or voided after the
+    # fact (`cancelled`) without losing the audit trail.
+    STATUS_CHOICES = [
+        ("confirmed", "Confirmé"),
+        ("pending", "En attente"),
+        ("cancelled", "Annulé"),
+    ]
+
+    session = models.ForeignKey(
         Session,
         on_delete=models.CASCADE,
-        related_name="trainer_payment_record",
+        related_name="trainer_payments_set",
         verbose_name="Cycle de session",
     )
     amount = models.DecimalField(
         max_digits=10, decimal_places=2, verbose_name="Montant réglé (DA)"
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default="confirmed",
+        verbose_name="Statut",
     )
     payment_mode = models.CharField(
         max_length=20, choices=MODE_CHOICES, verbose_name="Mode de règlement"
@@ -741,7 +804,11 @@ class TrainerPayment(models.Model):
         verbose_name="Justificatif (scan)",
         help_text="Image ou PDF, optionnel.",
     )
-    paid_at = models.DateTimeField(auto_now_add=True, verbose_name="Réglé le")
+    notes = models.CharField(
+        max_length=255, blank=True, verbose_name="Note interne"
+    )
+    paid_at = models.DateTimeField(default=timezone.now, verbose_name="Réglé le")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Modifié le")
     confirmed_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
