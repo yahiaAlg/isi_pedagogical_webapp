@@ -151,6 +151,16 @@ def generate_child_sessions(primary_session):
     - Daily scores (score_theory / score_practice) pre-filled at max_score / 2
     - Primary participants' exam_score pre-filled at max_score / 2 (if not already set)
     - Existing child sessions are deleted and regenerated (idempotent)
+    - The primary session itself is reset to "Planifiée" (status="planned")
+      and, if it already had one, its PV (محضر مداولات) number is released
+      — regenerating implies redoing the training days from scratch, so a
+      session that had progressed to "Terminée" shouldn't stay there once
+      its days are wiped and recreated. The next time a PV/nominal list is
+      printed for it, assign_pv_number() draws a fresh number straight from
+      whatever the PV sequencer's current counter is set to at that moment
+      (core/sequencing.py — see Numérotation des documents in Paramètres).
+      The released number is never reused (SequenceCounter.next_value only
+      ever increments), so nothing else needs adjusting.
 
     Returns a list of the created Session objects.
     """
@@ -162,6 +172,17 @@ def generate_child_sessions(primary_session):
 
     # Idempotent: wipe existing children
     primary_session.child_sessions.all().delete()
+
+    # Reset the primary session back to "planned" and release its PV
+    # number. A direct queryset .update() is used (not .save()) because
+    # Session.save() deliberately protects pv_number from being cleared
+    # once assigned (see Session.save()) — this regeneration path is the
+    # one intentional exception to that rule.
+    Session.objects.filter(pk=primary_session.pk).update(
+        status="planned", pv_number=""
+    )
+    primary_session.status = "planned"
+    primary_session.pv_number = ""
 
     half_score = (formation.max_score / Decimal("2")).quantize(Decimal("0.01"))
     eval_type = formation.evaluation_type

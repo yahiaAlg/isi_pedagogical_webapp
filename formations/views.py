@@ -1416,7 +1416,10 @@ def generate_session_group(request, pk):
             request,
             f"{len(created)} session(s) générée(s) (jours 2–{n}) avec "
             f"{session.participant_count} participant(s) chacune. "
-            f"Notes d'examen pré-remplies à {session.formation.max_score / 2:g} / {session.formation.max_score:g}.",
+            f"Notes d'examen pré-remplies à {session.formation.max_score / 2:g} / {session.formation.max_score:g}. "
+            f"La session principale est repassée à « Planifiée » et son numéro de "
+            f"PV (le cas échéant) a été libéré — un nouveau sera attribué à partir "
+            f"du compteur en cours au prochain PV imprimé.",
         )
     else:
         messages.info(
