@@ -5,7 +5,13 @@ from .models import Session, Participant
 from django.utils import timezone
 
 
-def sync_evaluation_scores(participant, score_theory=None, score_practice=None, set_theory=False, set_practice=False):
+def sync_evaluation_scores(
+    participant,
+    score_theory=None,
+    score_practice=None,
+    set_theory=False,
+    set_practice=False,
+):
     """
     Save theory/practice marks on the canonical primary-session participant
     and mirror them to every day-copy (`source_participant`), regardless of
@@ -40,7 +46,52 @@ def sync_evaluation_scores(participant, score_theory=None, score_practice=None, 
     return primary
 
 
-def build_session_number(formation_code, trainer_last_name="", date_obj=None, max_len=100):
+def auto_fill_exam_scores(primary_session):
+    """
+    Spec — when a cycle is marked "Terminée" and a participant has no
+    manually-entered final exam score yet, derive one from their daily
+    theory/practice marks so the attestation/result logic (which only
+    reads `exam_score`) isn't left stuck on "pending":
+    - theory_only  -> exam_score = score_theory
+    - practice_only -> exam_score = score_practice
+    - both         -> exam_score = average(score_theory, score_practice)
+    Only participants with exam_score still None are touched — a value
+    entered by hand on the exam-scores page is never overwritten.
+    """
+    if not primary_session.is_primary:
+        return
+
+    eval_type = primary_session.formation.evaluation_type
+    for participant in primary_session.participant_set.filter(exam_score__isnull=True):
+        if eval_type == "theory_only":
+            derived = participant.score_theory
+        elif eval_type == "practice_only":
+            derived = participant.score_practice
+        elif eval_type == "both":
+            if (
+                participant.score_theory is not None
+                and participant.score_practice is not None
+            ):
+                derived = (
+                    participant.score_theory + participant.score_practice
+                ) / Decimal("2")
+            else:
+                derived = (
+                    participant.score_theory
+                    if participant.score_theory is not None
+                    else participant.score_practice
+                )
+        else:
+            derived = None
+
+        if derived is not None:
+            participant.exam_score = derived.quantize(Decimal("0.01"))
+            participant.save(update_fields=["exam_score"])
+
+
+def build_session_number(
+    formation_code, trainer_last_name="", date_obj=None, max_len=100
+):
     """
     Spec §new — session number format: S-{formation}-{formateur}-{date}.
     `session_number` is CharField(max_length=100), so there's room for the
@@ -68,7 +119,9 @@ def build_session_number(formation_code, trainer_last_name="", date_obj=None, ma
     if len(result) > max_len:
         over = len(result) - max_len
         trim_fc = min(over, max(0, len(formation_code) - 2))
-        formation_code = formation_code[: len(formation_code) - trim_fc] or formation_code
+        formation_code = (
+            formation_code[: len(formation_code) - trim_fc] or formation_code
+        )
         over -= trim_fc
         if over > 0 and trainer_tag:
             trim_tt = min(over, len(trainer_tag))
@@ -213,9 +266,7 @@ def generate_child_sessions(primary_session):
     # Session.save() deliberately protects pv_number from being cleared
     # once assigned (see Session.save()) — this regeneration path is the
     # one intentional exception to that rule.
-    Session.objects.filter(pk=primary_session.pk).update(
-        status="planned", pv_number=""
-    )
+    Session.objects.filter(pk=primary_session.pk).update(status="planned", pv_number="")
     primary_session.status = "planned"
     primary_session.pv_number = ""
 
@@ -275,7 +326,9 @@ def generate_child_sessions(primary_session):
                 score_practice=(
                     p.score_practice
                     if p.score_practice is not None
-                    else (half_score if eval_type in ["practice_only", "both"] else None)
+                    else (
+                        half_score if eval_type in ["practice_only", "both"] else None
+                    )
                 ),
                 source_participant=p,
             )
@@ -496,7 +549,9 @@ def has_scheduling_conflicts(conflicts):
 # genuinely unused anywhere on the session's dates is surfaced as "idle" and
 # offered as a soft-warning suggestion.
 # ---------------------------------------------------------------------------
-def equipment_is_blocked(equipment, *, room=None, date_start, date_end, exclude_pk=None):
+def equipment_is_blocked(
+    equipment, *, room=None, date_start, date_end, exclude_pk=None
+):
     """True if `equipment` cannot be attached to a session in `room` for the
     given date range: either it has an active allocation elsewhere, or it's
     already booked on an overlapping, non-cancelled/archived session."""
@@ -522,9 +577,12 @@ def get_idle_equipment(session):
         return []
 
     already_selected = set(session.equipment.values_list("pk", flat=True))
-    candidates = Equipment.objects.filter(
-        status="available", room__isnull=False
-    ).exclude(room=session.room).exclude(pk__in=already_selected).select_related("room")
+    candidates = (
+        Equipment.objects.filter(status="available", room__isnull=False)
+        .exclude(room=session.room)
+        .exclude(pk__in=already_selected)
+        .select_related("room")
+    )
 
     idle = []
     for item in candidates:

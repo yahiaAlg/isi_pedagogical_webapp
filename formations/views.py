@@ -36,6 +36,7 @@ from .forms import (
 )
 from .utils import (
     sync_evaluation_scores,
+    auto_fill_exam_scores,
     validate_session_transition,
     import_participants_from_file,
     check_scheduling_conflicts,
@@ -1173,6 +1174,8 @@ def session_status(request, pk):
                 and session.is_primary
             ):
                 session.child_sessions.update(status=new_status)
+            if new_status == "completed" and session.is_primary:
+                auto_fill_exam_scores(session)
             messages.success(
                 request, f"Statut mis à jour : {session.get_status_display()}."
             )
