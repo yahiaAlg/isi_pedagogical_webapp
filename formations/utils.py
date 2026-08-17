@@ -5,13 +5,7 @@ from .models import Session, Participant
 from django.utils import timezone
 
 
-def sync_evaluation_scores(
-    participant,
-    score_theory=None,
-    score_practice=None,
-    set_theory=False,
-    set_practice=False,
-):
+def sync_evaluation_scores(participant, score_theory=None, score_practice=None, set_theory=False, set_practice=False):
     """
     Save theory/practice marks on the canonical primary-session participant
     and mirror them to every day-copy (`source_participant`), regardless of
@@ -46,50 +40,7 @@ def sync_evaluation_scores(
     return primary
 
 
-def sync_evaluation_scores(
-    participant,
-    score_theory=None,
-    score_practice=None,
-    set_theory=False,
-    set_practice=False,
-):
-    """
-    Save theory/practice marks on the canonical primary-session participant
-    and mirror them to every day-copy (`source_participant`), regardless of
-    which one (primary or a child day) the edit came in on.
-
-    Without this, entering a mark via the per-day inline editor only wrote
-    to that day's copy, so the primary session's bulk "Notes journée" form
-    (which reads only the primary participant) kept showing empty fields
-    even though a value had just been saved.
-
-    `set_theory`/`set_practice` distinguish "leave untouched" from
-    "explicitly clear to None".
-    """
-    primary = participant.source_participant or participant
-
-    changed = []
-    if set_theory:
-        primary.score_theory = score_theory
-        changed.append("score_theory")
-    if set_practice:
-        primary.score_practice = score_practice
-        changed.append("score_practice")
-    if changed:
-        primary.save(update_fields=changed)
-
-    # Mirror onto every day copy so per-day views stay consistent too.
-    if changed:
-        primary.copies.exclude(pk=primary.pk).update(
-            **{field: getattr(primary, field) for field in changed}
-        )
-
-    return primary
-
-
-def build_session_number(
-    formation_code, trainer_last_name="", date_obj=None, max_len=100
-):
+def build_session_number(formation_code, trainer_last_name="", date_obj=None, max_len=100):
     """
     Spec §new — session number format: S-{formation}-{formateur}-{date}.
     `session_number` is CharField(max_length=100), so there's room for the
@@ -117,9 +68,7 @@ def build_session_number(
     if len(result) > max_len:
         over = len(result) - max_len
         trim_fc = min(over, max(0, len(formation_code) - 2))
-        formation_code = (
-            formation_code[: len(formation_code) - trim_fc] or formation_code
-        )
+        formation_code = formation_code[: len(formation_code) - trim_fc] or formation_code
         over -= trim_fc
         if over > 0 and trainer_tag:
             trim_tt = min(over, len(trainer_tag))
@@ -264,7 +213,9 @@ def generate_child_sessions(primary_session):
     # Session.save() deliberately protects pv_number from being cleared
     # once assigned (see Session.save()) — this regeneration path is the
     # one intentional exception to that rule.
-    Session.objects.filter(pk=primary_session.pk).update(status="planned", pv_number="")
+    Session.objects.filter(pk=primary_session.pk).update(
+        status="planned", pv_number=""
+    )
     primary_session.status = "planned"
     primary_session.pv_number = ""
 
@@ -322,7 +273,9 @@ def generate_child_sessions(primary_session):
                     else (half_score if eval_type in ["theory_only", "both"] else None)
                 ),
                 score_practice=(
-                    half_score if eval_type in ["practice_only", "both"] else None
+                    p.score_practice
+                    if p.score_practice is not None
+                    else (half_score if eval_type in ["practice_only", "both"] else None)
                 ),
                 source_participant=p,
             )
@@ -349,56 +302,6 @@ def generate_child_sessions(primary_session):
             p.save(update_fields=update_fields)
 
     return created
-
-
-def get_primary_participant(participant):
-    """Resolve any Participant (primary or a child-day copy) to the
-    canonical primary-session record that holds the values used for
-    exam averaging, results, and certificates."""
-    if participant.session.is_primary:
-        return participant
-    return participant.source_participant or participant
-
-
-def sync_evaluation_scores(participant, *, score_theory=..., score_practice=...):
-    """
-    Save theory/practice marks on `participant` (which may be either the
-    primary participant or a copy living on a child/day session) and keep
-    every related record in sync:
-      - the canonical primary participant always holds the saved value
-      - every child-day copy of that primary participant mirrors it too
-    This is the single entry point both the bulk "Notes journée" form and
-    the inline per-cell AJAX editor should go through, so a mark entered
-    anywhere is visible everywhere (and the exam form's theory/practice
-    average — which only reads the primary record — picks it up).
-
-    `...` (Ellipsis) means "leave this field untouched"; pass an explicit
-    value (including None) to update it.
-    """
-    primary = get_primary_participant(participant)
-
-    update_fields = []
-    if score_theory is not ...:
-        primary.score_theory = score_theory
-        update_fields.append("score_theory")
-    if score_practice is not ...:
-        primary.score_practice = score_practice
-        update_fields.append("score_practice")
-
-    if update_fields:
-        primary.save(update_fields=update_fields)
-
-        mirror_fields = {}
-        if "score_theory" in update_fields:
-            mirror_fields["score_theory"] = primary.score_theory
-        if "score_practice" in update_fields:
-            mirror_fields["score_practice"] = primary.score_practice
-
-        # Mirror onto every child-day copy (including the one that was
-        # actually edited, if it wasn't the primary itself).
-        primary.copies.update(**mirror_fields)
-
-    return primary
 
 
 def import_participants_from_file(session, file):
@@ -593,9 +496,7 @@ def has_scheduling_conflicts(conflicts):
 # genuinely unused anywhere on the session's dates is surfaced as "idle" and
 # offered as a soft-warning suggestion.
 # ---------------------------------------------------------------------------
-def equipment_is_blocked(
-    equipment, *, room=None, date_start, date_end, exclude_pk=None
-):
+def equipment_is_blocked(equipment, *, room=None, date_start, date_end, exclude_pk=None):
     """True if `equipment` cannot be attached to a session in `room` for the
     given date range: either it has an active allocation elsewhere, or it's
     already booked on an overlapping, non-cancelled/archived session."""
@@ -621,12 +522,9 @@ def get_idle_equipment(session):
         return []
 
     already_selected = set(session.equipment.values_list("pk", flat=True))
-    candidates = (
-        Equipment.objects.filter(status="available", room__isnull=False)
-        .exclude(room=session.room)
-        .exclude(pk__in=already_selected)
-        .select_related("room")
-    )
+    candidates = Equipment.objects.filter(
+        status="available", room__isnull=False
+    ).exclude(room=session.room).exclude(pk__in=already_selected).select_related("room")
 
     idle = []
     for item in candidates:
