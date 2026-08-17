@@ -243,7 +243,8 @@ def generate_child_sessions(primary_session):
       whatever the PV sequencer's current counter is set to at that moment
       (core/sequencing.py — see Numérotation des documents in Paramètres).
       The released number is never reused (SequenceCounter.next_value only
-      ever increments), so nothing else needs adjusting.
+      ever increments). Each participant's certificate_number is released
+      the same way, for the same reason (see below).
 
     Returns a list of the created Session objects.
     """
@@ -264,6 +265,18 @@ def generate_child_sessions(primary_session):
     Session.objects.filter(pk=primary_session.pk).update(status="planned", pv_number="")
     primary_session.status = "planned"
     primary_session.pv_number = ""
+
+    # Same reasoning applies to each participant's certificate_number: it's
+    # tied to the training cycle that just got wiped, so it must be released
+    # too — otherwise a participant keeps a stale attestation number drawn
+    # from whatever period/counter was active at the time of the *previous*
+    # run, instead of getting a fresh one from the currently active
+    # "certificate" period the next time their attestation is printed
+    # (assign_certificate_number / core.sequencing.allocate_certificate_number).
+    # A queryset .update() is used for the same reason as pv_number above:
+    # Participant.save() protects certificate_number from being cleared once
+    # assigned, and this regeneration path is the intentional exception.
+    primary_session.participant_set.update(certificate_number="")
 
     # Also clear any previously-saved/auto-filled final exam score. Once a
     # cycle finishes, auto_fill_exam_scores() writes a derived exam_score
