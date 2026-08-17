@@ -18,7 +18,6 @@ from __future__ import annotations
 import re
 from datetime import date
 
-
 # ---------------------------------------------------------------------------
 # Arabic month-count wording, matching the institute's existing convention
 # ("شهر واحد" for 1, "شهرين" for 2, "N أشهر" beyond that). Diplômante
@@ -110,12 +109,20 @@ def build_certificate_data(participant, *, issuance_date: date | None = None) ->
     """
     session = participant.session
     formation = session.formation
-    specialty = getattr(formation, "specialty", None)
 
     annee, mois_serie, num_serie = _parse_certificate_number(
         participant.certificate_number
     )
     months = _months_between(session.date_start, session.date_end)
+
+    # CIP_NUM prints the "وبناءا على محضر نهاية التكوين" line, i.e. the
+    # session's own PV (محضر مداولات) reference — a separate, monthly-reset
+    # sequence from the participant's certificate/attestation number used
+    # for ANNEE/NUM_SERIE/MOIS_SERIE above (see core/sequencing.py). It must
+    # come from session.pv_number (Session.assign_pv_number), never be
+    # derived from the certificate number's own serial — the two counters
+    # are independent and normally hold different values.
+    session.assign_pv_number()
 
     institute = get_institute_info()
 
@@ -123,11 +130,10 @@ def build_certificate_data(participant, *, issuance_date: date | None = None) ->
         "ANNEE": annee,
         "NUM_SERIE": num_serie,
         "MOIS_SERIE": mois_serie,
-        # specialty.code already carries the branch+specialty root (e.g.
-        # "CIP1202"); session.specialty_code is the fallback for sessions
-        # created before the Branch/Specialty link existed.
-        "CIP_NUM": f"{specialty.code if specialty else session.specialty_code}-"
-        f"{num_serie}/{mois_serie}/{annee}",
+        # session.pv_number is already fully formatted, including its own
+        # "{BRANCH}{SPECIALITE}-" prefix (see core.sequencing.allocate_pv_number) —
+        # not reassembled here from the certificate number's serial/month/year.
+        "CIP_NUM": session.pv_number,
         # Spec — dual-mode identity block: FR/latin and AR name pairs are
         # each independently optional (Participant.clean() already
         # enforces that at least one full pair exists). The print
@@ -153,4 +159,3 @@ def build_certificate_data(participant, *, issuance_date: date | None = None) ->
         "IF_NUM": institute.if_number if institute else "",
         "QR_PAYLOAD": participant.qr_code_content,
     }
-
