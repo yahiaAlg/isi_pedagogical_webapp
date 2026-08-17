@@ -229,10 +229,14 @@ def generate_child_sessions(primary_session):
                 notes=p.notes,
                 attended=True,
                 score_theory=(
-                    half_score if eval_type in ["theory_only", "both"] else None
+                    (p.score_theory if p.score_theory is not None else half_score)
+                    if eval_type in ["theory_only", "both"]
+                    else None
                 ),
                 score_practice=(
-                    half_score if eval_type in ["practice_only", "both"] else None
+                    (p.score_practice if p.score_practice is not None else half_score)
+                    if eval_type in ["practice_only", "both"]
+                    else None
                 ),
                 source_participant=p,
             )
@@ -259,6 +263,56 @@ def generate_child_sessions(primary_session):
             p.save(update_fields=update_fields)
 
     return created
+
+
+def get_primary_participant(participant):
+    """Resolve any Participant (primary or a child-day copy) to the
+    canonical primary-session record that holds the values used for
+    exam averaging, results, and certificates."""
+    if participant.session.is_primary:
+        return participant
+    return participant.source_participant or participant
+
+
+def sync_evaluation_scores(participant, *, score_theory=..., score_practice=...):
+    """
+    Save theory/practice marks on `participant` (which may be either the
+    primary participant or a copy living on a child/day session) and keep
+    every related record in sync:
+      - the canonical primary participant always holds the saved value
+      - every child-day copy of that primary participant mirrors it too
+    This is the single entry point both the bulk "Notes journée" form and
+    the inline per-cell AJAX editor should go through, so a mark entered
+    anywhere is visible everywhere (and the exam form's theory/practice
+    average — which only reads the primary record — picks it up).
+
+    `...` (Ellipsis) means "leave this field untouched"; pass an explicit
+    value (including None) to update it.
+    """
+    primary = get_primary_participant(participant)
+
+    update_fields = []
+    if score_theory is not ...:
+        primary.score_theory = score_theory
+        update_fields.append("score_theory")
+    if score_practice is not ...:
+        primary.score_practice = score_practice
+        update_fields.append("score_practice")
+
+    if update_fields:
+        primary.save(update_fields=update_fields)
+
+        mirror_fields = {}
+        if "score_theory" in update_fields:
+            mirror_fields["score_theory"] = primary.score_theory
+        if "score_practice" in update_fields:
+            mirror_fields["score_practice"] = primary.score_practice
+
+        # Mirror onto every child-day copy (including the one that was
+        # actually edited, if it wasn't the primary itself).
+        primary.copies.update(**mirror_fields)
+
+    return primary
 
 
 def import_participants_from_file(session, file):

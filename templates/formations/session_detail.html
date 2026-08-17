@@ -268,6 +268,8 @@
           <div class="ms-auto d-flex gap-2">
             {% if request.user.profile.can_edit_scores and session.status in 'planned,in_progress' %}
             <a href="{% url 'formations:session_attendance' session.pk %}" class="btn btn-ghost btn-sm"><i class="bi bi-person-check-fill"></i> Présences</a>
+            {% endif %}
+            {% if request.user.profile.can_edit_scores and session.status in 'planned,in_progress,completed' %}
             <a href="{% url 'formations:session_scores' session.pk %}" class="btn btn-ghost btn-sm"><i class="bi bi-clipboard2-check-fill"></i> Notes journée</a>
             {% endif %}
             {% if session.is_primary and request.user.profile.can_edit_scores %}
