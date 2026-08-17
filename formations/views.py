@@ -43,6 +43,7 @@ from .utils import (
     equipment_is_blocked,
     get_idle_equipment,
     build_session_number,
+    sync_evaluation_scores,
 )
 
 
