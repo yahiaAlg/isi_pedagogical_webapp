@@ -1,5 +1,6 @@
 from django.db import models
 from django.core.exceptions import ValidationError
+from django.utils import timezone
 
 class InstituteInfo(models.Model):
     """Singleton model for institute configuration"""
@@ -110,6 +111,16 @@ class SequenceCounter(models.Model):
     - "pv" — محضر مداولات (PV) reference, one counter per calendar month.
     - "certificate" — شهادة / attestation number, one counter per year.
     - "mission_order" — ordre de mission archival number, one counter per year.
+
+    Which period actually hands out the NEXT number for a given kind is
+    NOT simply "today's calendar month/year" — it's whichever period row
+    has `is_active=True` for that kind (see `get_active_period_key` /
+    `set_active_period`). An admin can pin the active period to any
+    month/year (e.g. to keep numbering under last month's series a few
+    days into the new month) and it stays pinned indefinitely until they
+    explicitly activate another one. Only when a kind has NO active row
+    yet (fresh install / never touched) does the system fall back to
+    bootstrapping — and then activating — the current calendar period.
     """
 
     KIND_CHOICES = [
@@ -128,6 +139,17 @@ class SequenceCounter(models.Model):
         ),
     )
     last_value = models.PositiveIntegerField(default=0, verbose_name="Dernière valeur")
+    is_active = models.BooleanField(
+        default=False,
+        verbose_name="Période active",
+        help_text=(
+            "Compteur utilisé pour attribuer le PROCHAIN numéro de ce type de "
+            "document. Un seul compteur peut être actif par type — l'activer "
+            "ici remplace le mois/l'année réel jusqu'à ce qu'un autre compteur "
+            "soit activé manuellement (contrôle manuel total, pas de retour "
+            "automatique)."
+        ),
+    )
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -136,11 +158,66 @@ class SequenceCounter(models.Model):
         constraints = [
             models.UniqueConstraint(
                 fields=["kind", "period_key"], name="unique_sequence_kind_period"
-            )
+            ),
+            models.UniqueConstraint(
+                fields=["kind"],
+                condition=models.Q(is_active=True),
+                name="unique_sequence_kind_active",
+            ),
         ]
 
     def __str__(self):
         return f"{self.get_kind_display()} — {self.period_key} → {self.last_value}"
+
+    @staticmethod
+    def default_period_key(kind):
+        """The period key for `kind` as of today's calendar date — monthly
+        for "pv", yearly for everything else. Used only as a bootstrap
+        fallback when a kind has no active period yet."""
+        today = timezone.localdate()
+        if kind == "pv":
+            return f"{today.year:04d}-{today.month:02d}"
+        return f"{today.year:04d}"
+
+    @classmethod
+    def get_active_period_key(cls, kind):
+        """
+        Return the period_key that currently governs numbering for `kind`.
+
+        If an admin has pinned an active period, that one wins — regardless
+        of today's date. Otherwise, bootstrap: create (or reuse) today's
+        calendar-based counter and mark it active, so the app keeps working
+        out of the box on a fresh install / for a kind never touched by an
+        admin.
+        """
+        active = cls.objects.filter(kind=kind, is_active=True).first()
+        if active:
+            return active.period_key
+
+        period_key = cls.default_period_key(kind)
+        counter, _ = cls.objects.get_or_create(kind=kind, period_key=period_key)
+        if not counter.is_active:
+            counter.is_active = True
+            counter.save(update_fields=["is_active"])
+        return counter.period_key
+
+    @classmethod
+    def set_active_period(cls, kind, period_key):
+        """
+        Pin `period_key` as the active counter for `kind`, deactivating
+        whichever one was active before. Creates the target row if it
+        doesn't exist yet (starting at last_value=0). Stays active
+        indefinitely — this is a manual, permanent switch, not a
+        temporary override.
+        """
+        from django.db import transaction
+
+        with transaction.atomic():
+            cls.objects.filter(kind=kind, is_active=True).update(is_active=False)
+            counter, _ = cls.objects.get_or_create(kind=kind, period_key=period_key)
+            counter.is_active = True
+            counter.save(update_fields=["is_active"])
+        return counter
 
     @classmethod
     def next_value(cls, kind, period_key):

@@ -22,7 +22,14 @@
   <div class="page-header">
     <div class="page-header-left">
       <h1>{{ counter.get_kind_display }}</h1>
-      <p class="page-subtitle">Période : {{ counter.period_key }}</p>
+      <p class="page-subtitle">
+        Période : {{ counter.period_key }}
+        {% if counter.is_active %}
+          <span class="isi-badge green" style="margin-left:8px;">
+            <i class="bi bi-check-circle-fill"></i> Période active
+          </span>
+        {% endif %}
+      </p>
     </div>
   </div>
 
@@ -83,6 +90,30 @@
           </form>
         </div>
       </div>
+
+      {% if not counter.is_active %}
+      <div class="isi-card mt-4">
+        <div class="isi-card-body">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;">
+            <div>
+              <div class="form-section-title" style="margin-bottom:2px;">Période active</div>
+              <div style="font-size:12.5px;color:var(--text-muted);">
+                Cette période n'est pas active : les prochains numéros sont actuellement attribués
+                sous une autre période. L'activer ici fait basculer immédiatement et durablement
+                (jusqu'à activation d'une autre période) toute la numérotation « {{ counter.get_kind_display }} »
+                sur « {{ counter.period_key }} ».
+              </div>
+            </div>
+            <form method="post" action="{% url 'core:sequence_counter_activate' counter.pk %}">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-amber">
+                <i class="bi bi-toggle-on"></i> Définir comme période active
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+      {% endif %}
 
     </div>
   </div>

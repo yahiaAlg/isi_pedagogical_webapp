@@ -41,6 +41,11 @@ urlpatterns = [
         views.sequence_counter_period,
         name="sequence_counter_period",
     ),
+    path(
+        "settings/sequences/<int:pk>/activate/",
+        views.sequence_counter_activate,
+        name="sequence_counter_activate",
+    ),
     # Spec §11.6 — public QR verification landing page (no login required)
     path("verify/<int:token>/", views.verify_attestation, name="verify_attestation"),
 ]

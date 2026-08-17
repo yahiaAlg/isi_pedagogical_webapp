@@ -236,7 +236,7 @@ class EmployeeMissionOrder(models.Model):
             return
         from core.sequencing import allocate_mission_order_number
 
-        self.archive_number = allocate_mission_order_number(self.date_start)
+        self.archive_number = allocate_mission_order_number()
         self.save(update_fields=["archive_number"])
 
 

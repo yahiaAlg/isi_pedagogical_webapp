@@ -39,9 +39,16 @@ members printing two different attestations, or generating the nominal
 list and the PV within the same second) can never collide on the same
 number, and a session/month boundary crossed mid-way through can never
 leak the previous period's counter into the new one.
-"""
 
-from django.utils import timezone
+Which period actually receives the number is NOT simply "today's
+month/year" — it's whichever period an admin has pinned as ACTIVE for
+that kind (Paramètres > Numérotation des documents), via
+SequenceCounter.get_active_period_key(). On a fresh install, or for a
+kind an admin has never touched, that resolves to today's calendar
+period automatically; once an admin explicitly activates a period, it
+stays authoritative indefinitely regardless of the real date, until
+they activate a different one.
+"""
 
 from .models import SequenceCounter
 
@@ -50,53 +57,57 @@ CERTIFICATE_KIND = "certificate"
 MISSION_ORDER_KIND = "mission_order"
 
 
-def allocate_pv_number(reference_date=None, code_prefix=""):
+def allocate_pv_number(code_prefix=""):
     """
-    Allocate the next PV (محضر مداولات) number for the month of
-    `reference_date` (defaults to today).
+    Allocate the next PV (محضر مداولات) number under the currently ACTIVE
+    period for the "pv" kind (see SequenceCounter.get_active_period_key —
+    defaults to the current calendar month until an admin pins another one).
 
     Format: "{code_prefix}-{NNN}/{MM}/{YYYY}" when `code_prefix` is given
-    (e.g. "TAG0717-006/07/2026"), otherwise "{NNN}/{MM}/{YYYY}".
-    `code_prefix` is purely cosmetic — it is NOT part of the counter's
-    scope, which stays ONE global counter per calendar month shared by
-    every branch/specialty. The counter resets to 1 on the 1st of every
-    calendar month.
+    (e.g. "TAG0717-006/07/2026"), otherwise "{NNN}/{MM}/{YYYY}". `MM`/`YYYY`
+    in the printed number come from the active period itself, not from
+    today's date. `code_prefix` is purely cosmetic — it is NOT part of the
+    counter's scope, which stays ONE counter per active period shared by
+    every branch/specialty.
     """
-    ref = reference_date or timezone.localdate()
-    period_key = f"{ref.year:04d}-{ref.month:02d}"
+    period_key = SequenceCounter.get_active_period_key(PV_KIND)
+    year_str, month_str = period_key.split("-")
     seq = SequenceCounter.next_value(PV_KIND, period_key)
-    number = f"{seq:03d}/{ref.month:02d}/{ref.year:04d}"
+    number = f"{seq:03d}/{month_str}/{year_str}"
     code_prefix = (code_prefix or "").strip()
     return f"{code_prefix}-{number}" if code_prefix else number
 
 
-def allocate_certificate_number(reference_date=None):
+def allocate_certificate_number():
     """
-    Allocate the next certificate/attestation number for the year of
-    `reference_date` (defaults to today). Format:
-    "{YYYY}/{MM} ت.ح.ط /{NNN}". The counter resets to 1 on Jan 1st of
-    every year (scoped by year only — the month in the printed number is
-    purely informational).
+    Allocate the next certificate/attestation number under the currently
+    ACTIVE period for the "certificate" kind (defaults to the current
+    calendar year until an admin pins another one). Format:
+    "{YYYY}/{MM} ت.ح.ط /{NNN}" — `YYYY` comes from the active period;
+    `MM` is only today's month, shown for information and playing no role
+    in the counter's scope.
     """
-    ref = reference_date or timezone.localdate()
-    period_key = f"{ref.year:04d}"
+    from django.utils import timezone
+
+    period_key = SequenceCounter.get_active_period_key(CERTIFICATE_KIND)
     seq = SequenceCounter.next_value(CERTIFICATE_KIND, period_key)
-    return f"{ref.year:04d}/{ref.month:02d} ت.ح.ط /{seq:03d}"
+    month = timezone.localdate().month
+    return f"{period_key}/{month:02d} ت.ح.ط /{seq:03d}"
 
 
-def allocate_mission_order_number(reference_date=None):
+def allocate_mission_order_number():
     """
-    Allocate the next "ordre de mission" archival number ("N° d'Archivage").
-    Format: "{NNN}/{YYYY}". One counter per calendar YEAR, shared by BOTH
-    kinds of mission order — a session's formateur mission order
-    (Session.assign_mission_order_number, one per session) and a standalone
-    employee mission order (documents.EmployeeMissionOrder) — so the two
-    never collide and together form a single continuous yearly archive,
+    Allocate the next "ordre de mission" archival number ("N° d'Archivage")
+    under the currently ACTIVE period for the "mission_order" kind
+    (defaults to the current calendar year until an admin pins another
+    one). Format: "{NNN}/{YYYY}". Shared by BOTH kinds of mission order —
+    a session's formateur mission order (Session.assign_mission_order_number,
+    one per session) and a standalone employee mission order
+    (documents.EmployeeMissionOrder) — so the two never collide and
+    together form a single continuous archive within the active period,
     the same way a paper "ordre de mission" registry would be kept
-    regardless of who the order is for. The counter resets to 1 on Jan 1st
-    of every year.
+    regardless of who the order is for.
     """
-    ref = reference_date or timezone.localdate()
-    period_key = f"{ref.year:04d}"
+    period_key = SequenceCounter.get_active_period_key(MISSION_ORDER_KIND)
     seq = SequenceCounter.next_value(MISSION_ORDER_KIND, period_key)
-    return f"{seq:03d}/{ref.year:04d}"
+    return f"{seq:03d}/{period_key}"
