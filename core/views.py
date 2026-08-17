@@ -5,8 +5,13 @@ from django.utils import timezone
 
 from formations.models import Session, Participant
 from .models import InstituteInfo, PVDefaultSignatory, SequenceCounter
-from .forms import InstituteInfoForm, PVDefaultSignatoryForm, SequenceCounterForm
-from .sequencing import PV_KIND, CERTIFICATE_KIND
+from .forms import (
+    InstituteInfoForm,
+    PVDefaultSignatoryForm,
+    SequenceCounterForm,
+    SequencePeriodForm,
+)
+from .sequencing import PV_KIND, CERTIFICATE_KIND, MISSION_ORDER_KIND
 
 
 # ---------------------------------------------------------------------------
@@ -179,8 +184,13 @@ def sequence_counter_list(request):
         messages.error(request, "Accès réservé aux administrateurs.")
         return redirect("core:dashboard")
 
+    # Display order: Attestation/Certificat (année) — PV (mois), avec
+    # codification {BRANCH}{SPECIALITE} — Ordre de mission (année).
+    kind_order = [CERTIFICATE_KIND, PV_KIND, MISSION_ORDER_KIND]
+    kind_labels = dict(SequenceCounter.KIND_CHOICES)
+
     counters = {}
-    for kind, label in SequenceCounter.KIND_CHOICES:
+    for kind in kind_order:
         period_key = _current_period_key(kind)
         current, _ = SequenceCounter.objects.get_or_create(
             kind=kind, period_key=period_key
@@ -190,9 +200,58 @@ def sequence_counter_list(request):
             .exclude(pk=current.pk)
             .order_by("-period_key")[:12]
         )
-        counters[kind] = {"label": label, "current": current, "history": history}
+        counters[kind] = {
+            "label": kind_labels[kind],
+            "current": current,
+            "history": history,
+            "is_monthly": kind == PV_KIND,
+            "period_form": SequencePeriodForm(
+                prefix=kind,
+                initial={
+                    "year": timezone.localdate().year,
+                    "month": timezone.localdate().month,
+                },
+            ),
+        }
 
     return render(request, "core/sequence_counter_list.html", {"counters": counters})
+
+
+@login_required
+def sequence_counter_period(request, kind):
+    """
+    Jump to (auto-creating if needed) the counter for an arbitrary period
+    of `kind` — a past month for the PV sequencer, a past year for the
+    certificate/ordre de mission sequencers — and go straight to its edit
+    form. This is how older entries predating the app's current period
+    (e.g. a series resumed mid-year, or historical data entry) get
+    backfilled: the admin picks the period they need instead of only ever
+    seeing/editing the current one.
+    """
+    if not request.user.profile.is_admin():
+        messages.error(request, "Accès réservé aux administrateurs.")
+        return redirect("core:dashboard")
+
+    if kind not in dict(SequenceCounter.KIND_CHOICES):
+        messages.error(request, "Type de compteur inconnu.")
+        return redirect("core:sequence_counter_list")
+
+    form = SequencePeriodForm(request.GET or None, prefix=kind)
+    if not form.is_valid():
+        messages.error(
+            request, "Période invalide — vérifiez l'année (et le mois pour un PV)."
+        )
+        return redirect("core:sequence_counter_list")
+
+    year = form.cleaned_data["year"]
+    if kind == PV_KIND:
+        month = form.cleaned_data["month"] or timezone.localdate().month
+        period_key = f"{year:04d}-{month:02d}"
+    else:
+        period_key = f"{year:04d}"
+
+    counter, _ = SequenceCounter.objects.get_or_create(kind=kind, period_key=period_key)
+    return redirect("core:sequence_counter_edit", pk=counter.pk)
 
 
 @login_required

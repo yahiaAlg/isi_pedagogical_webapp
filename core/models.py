@@ -105,15 +105,17 @@ class SequenceCounter(models.Model):
     if a document is later deleted/regenerated, so numbers stay unique and
     strictly increasing within their own period.
 
-    Two independent sequencers currently use this counter (see
+    Three independent sequencers currently use this counter (see
     core/sequencing.py):
     - "pv" — محضر مداولات (PV) reference, one counter per calendar month.
     - "certificate" — شهادة / attestation number, one counter per year.
+    - "mission_order" — ordre de mission archival number, one counter per year.
     """
 
     KIND_CHOICES = [
         ("pv", "Procès-verbal (PV) de délibération"),
         ("certificate", "Attestation / Certificat"),
+        ("mission_order", "Ordre de mission"),
     ]
 
     kind = models.CharField(max_length=20, choices=KIND_CHOICES, verbose_name="Type")

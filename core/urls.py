@@ -36,6 +36,11 @@ urlpatterns = [
         views.sequence_counter_edit,
         name="sequence_counter_edit",
     ),
+    path(
+        "settings/sequences/<str:kind>/period/",
+        views.sequence_counter_period,
+        name="sequence_counter_period",
+    ),
     # Spec §11.6 — public QR verification landing page (no login required)
     path("verify/<int:token>/", views.verify_attestation, name="verify_attestation"),
 ]

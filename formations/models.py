@@ -352,8 +352,13 @@ class Session(models.Model):
     # happens first), then reused by both documents. Never user-editable and
     # never reassigned once set, same protection pattern as
     # Participant.certificate_number below.
+    # max_length=60 (not 20): the number can now be prefixed with the
+    # session's formation codification ({BRANCH}{SPECIALITE}, e.g.
+    # "TAG0717-006/07/2026" — see core.sequencing.allocate_pv_number), and
+    # Specialty.code alone can be up to 20 chars, so the old 20-char cap
+    # would silently truncate longer codes.
     pv_number = models.CharField(
-        max_length=20, blank=True, verbose_name="Numéro PV"
+        max_length=60, blank=True, verbose_name="Numéro PV"
     )
 
     # mission_order_number: the "ordre de mission" archival number — drawn
@@ -527,12 +532,18 @@ class Session(models.Model):
         print view and the deliberation-report print view — whichever is
         rendered first allocates the number, the other one just reuses it,
         so both documents always show the same reference.
+
+        The number is prefixed with this session's formation's codification
+        ({BRANCH}{SPECIALITE}, e.g. "TAG0717") when a specialty is set — see
+        core.sequencing.allocate_pv_number.
         """
         if self.pv_number:
             return
         from core.sequencing import allocate_pv_number
 
-        self.pv_number = allocate_pv_number()
+        specialty = self.formation.specialty if self.formation_id else None
+        code_prefix = specialty.reference_root if specialty else ""
+        self.pv_number = allocate_pv_number(code_prefix=code_prefix)
         self.save(update_fields=["pv_number"])
 
     def assign_mission_order_number(self):

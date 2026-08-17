@@ -21,20 +21,23 @@
     <div class="page-header-left">
       <h1>Numérotation des documents</h1>
       <p class="page-subtitle">
-        Le numéro de PV se remet à zéro chaque mois, le numéro d'attestation chaque année.
+        Le numéro de PV se remet à zéro chaque mois (codification {BRANCH}{SPECIALITE} en préfixe),
+        les numéros d'attestation et d'ordre de mission chaque année.
         Réglez le « dernier numéro attribué » pour un cas particulier (reprise d'une série papier,
         correction) — la numérotation automatique continue ensuite normalement à partir de cette valeur.
+        Utilisez « Autre période » pour créer ou régler le compteur d'un mois/année antérieur au
+        mois en cours et ainsi combler des saisies plus anciennes.
       </p>
     </div>
   </div>
 
   <div class="row g-4">
     {% for kind, data in counters.items %}
-    <div class="col-lg-6">
+    <div class="col-lg-4">
       <div class="isi-card mb-4">
         <div class="isi-card-header">
-          <div class="card-icon {% if kind == 'pv' %}blue{% else %}amber{% endif %}">
-            <i class="bi {% if kind == 'pv' %}bi-file-earmark-text-fill{% else %}bi-patch-check-fill{% endif %}"></i>
+          <div class="card-icon {% if kind == 'pv' %}blue{% elif kind == 'mission_order' %}green{% else %}amber{% endif %}">
+            <i class="bi {% if kind == 'pv' %}bi-file-earmark-text-fill{% elif kind == 'mission_order' %}bi-signpost-2-fill{% else %}bi-patch-check-fill{% endif %}"></i>
           </div>
           <h3>{{ data.label }}</h3>
         </div>
@@ -50,10 +53,37 @@
               <div style="font-size:12.5px;color:var(--text-muted);">
                 Prochain numéro attribué : n° {{ data.current.last_value|add:1 }}
               </div>
+              {% if data.is_monthly %}
+              <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">
+                Codification PV : préfixe {BRANCH}{SPECIALITE} (ex. TAG0717-006/07/2026)
+              </div>
+              {% endif %}
             </div>
             <a href="{% url 'core:sequence_counter_edit' data.current.pk %}" class="btn btn-amber btn-sm">
               <i class="bi bi-pencil-fill"></i> Régler
             </a>
+          </div>
+
+          <div class="section-divider"></div>
+          <div class="form-section-title">Autre période</div>
+          <form method="get" action="{% url 'core:sequence_counter_period' kind %}" style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:4px;">
+            <div style="flex:1;min-width:90px;">
+              <label class="form-label" style="font-size:11.5px;" for="{{ data.period_form.year.id_for_label }}">{{ data.period_form.year.label }}</label>
+              {{ data.period_form.year }}
+            </div>
+            {% if data.is_monthly %}
+            <div style="flex:1;min-width:90px;">
+              <label class="form-label" style="font-size:11.5px;" for="{{ data.period_form.month.id_for_label }}">{{ data.period_form.month.label }}</label>
+              {{ data.period_form.month }}
+            </div>
+            {% endif %}
+            <button type="submit" class="btn btn-ghost btn-sm">
+              <i class="bi bi-arrow-right-circle"></i> Aller
+            </button>
+          </form>
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">
+            Ouvre (ou crée) le compteur de la période choisie pour la régler — utile pour combler
+            des entrées antérieures au mois en cours.
           </div>
 
           {% if data.history %}

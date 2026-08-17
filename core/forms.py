@@ -118,3 +118,33 @@ class SequenceCounterForm(forms.ModelForm):
         if value < 0:
             raise forms.ValidationError("La valeur doit être positive ou nulle.")
         return value
+
+
+class SequencePeriodForm(forms.Form):
+    """
+    Jump to (and auto-create if needed) the counter for an arbitrary past
+    period — e.g. an earlier month for the PV sequencer, or an earlier
+    year for the certificate/ordre de mission sequencers — so historical
+    entries predating the app's current period can be backfilled without
+    waiting for that period to occur naturally.
+
+    `month` is only meaningful (and only shown) for the monthly PV
+    sequencer; year-scoped sequencers (certificate, mission_order) ignore
+    it entirely.
+    """
+
+    MONTH_CHOICES = [(i, f"{i:02d}") for i in range(1, 13)]
+
+    year = forms.IntegerField(
+        label="Année",
+        min_value=2000,
+        max_value=2100,
+        widget=forms.NumberInput(attrs={"class": "form-control", "min": 2000, "max": 2100}),
+    )
+    month = forms.TypedChoiceField(
+        label="Mois",
+        choices=MONTH_CHOICES,
+        coerce=int,
+        required=False,
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
