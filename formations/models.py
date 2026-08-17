@@ -357,9 +357,7 @@ class Session(models.Model):
     # "TAG0717-006/07/2026" — see core.sequencing.allocate_pv_number), and
     # Specialty.code alone can be up to 20 chars, so the old 20-char cap
     # would silently truncate longer codes.
-    pv_number = models.CharField(
-        max_length=60, blank=True, verbose_name="Numéro PV"
-    )
+    pv_number = models.CharField(max_length=60, blank=True, verbose_name="Numéro PV")
 
     # mission_order_number: the "ordre de mission" archival number — drawn
     # from the SAME yearly counter as documents.EmployeeMissionOrder (see
@@ -535,14 +533,17 @@ class Session(models.Model):
 
         The number is prefixed with this session's formation's codification
         ({BRANCH}{SPECIALITE}, e.g. "TAG0717") when a specialty is set — see
-        core.sequencing.allocate_pv_number.
+        core.sequencing.allocate_pv_number. Falls back to this session's own
+        `specialty_code` when the formation has no Specialty FK linked (legacy
+        sessions created before that link existed), so the codification
+        prefix is never silently dropped just because a session predates it.
         """
         if self.pv_number:
             return
         from core.sequencing import allocate_pv_number
 
         specialty = self.formation.specialty if self.formation_id else None
-        code_prefix = specialty.reference_root if specialty else ""
+        code_prefix = specialty.reference_root if specialty else self.specialty_code
         self.pv_number = allocate_pv_number(code_prefix=code_prefix)
         self.save(update_fields=["pv_number"])
 
@@ -688,9 +689,7 @@ class Session(models.Model):
         settlement (most recent first), tied to the *primary* session same
         as `trainer_cost`."""
         primary = self if self.is_primary else (self.parent_session or self)
-        return TrainerPayment.objects.filter(session_id=primary.pk).order_by(
-            "-paid_at"
-        )
+        return TrainerPayment.objects.filter(session_id=primary.pk).order_by("-paid_at")
 
     @property
     def trainer_paid_total(self):
@@ -846,14 +845,14 @@ class TrainerPayment(models.Model):
         blank=True,
         null=True,
         validators=[
-            FileExtensionValidator(allowed_extensions=["pdf", "jpg", "jpeg", "png", "webp"])
+            FileExtensionValidator(
+                allowed_extensions=["pdf", "jpg", "jpeg", "png", "webp"]
+            )
         ],
         verbose_name="Justificatif (scan)",
         help_text="Image ou PDF, optionnel.",
     )
-    notes = models.CharField(
-        max_length=255, blank=True, verbose_name="Note interne"
-    )
+    notes = models.CharField(max_length=255, blank=True, verbose_name="Note interne")
     paid_at = models.DateTimeField(default=timezone.now, verbose_name="Réglé le")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Modifié le")
     confirmed_by = models.ForeignKey(
@@ -879,12 +878,18 @@ class TrainerPayment(models.Model):
         reference used when the settlement mode is espèce and no reference
         was supplied."""
         now = timezone.localtime()
-        slug = slugify(trainer.last_name).upper() if trainer and trainer.last_name else "FORMATEUR"
+        slug = (
+            slugify(trainer.last_name).upper()
+            if trainer and trainer.last_name
+            else "FORMATEUR"
+        )
         return f"ESP-{slug}-{now.strftime('%Y%m%d')}-{now.strftime('%H%M%S')}"
 
     @property
     def proof_is_pdf(self):
-        return bool(self.proof_document) and self.proof_document.name.lower().endswith(".pdf")
+        return bool(self.proof_document) and self.proof_document.name.lower().endswith(
+            ".pdf"
+        )
 
 
 class Participant(models.Model):
