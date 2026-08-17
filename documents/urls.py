@@ -72,6 +72,17 @@ urlpatterns = [
         name="generate_batch_attestations",
     ),
     path("documents/<int:pk>/download/", views.download_document, name="download"),
+    # ── Employee mission orders — global, quick-access, session-independent ──
+    path(
+        "mission-orders/employees/",
+        views.employee_mission_order_list_view,
+        name="employee_mission_order_list",
+    ),
+    path(
+        "mission-orders/employees/<int:pk>/print/",
+        views_print.print_employee_mission_order,
+        name="print_employee_mission_order",
+    ),
     # ── Print views (HTML, CTRL+P friendly) ────────────────────────────
     path(
         "sessions/<int:session_pk>/print/candidate-list/",

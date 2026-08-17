@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Ordres de mission — Employés — ISI Gestion Pédagogique{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'documents/css/documents.css' %}" />{% endblock %}
+
+{% block breadcrumb %}
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="{% url 'documents:employee_mission_order_list' %}">Documents</a>
+<i class="bi bi-chevron-right bc-sep"></i>
+{% endblock %}
+{% block breadcrumb_active %}<span class="bc-active">Ordres de mission — Employés</span>{% endblock %}
+
+{% block content %}
+<div class="fade-up">
+
+  <div class="page-header">
+    <div class="page-header-left">
+      <h1>Ordres de mission — Employés</h1>
+      <p class="page-subtitle">
+        Pour le personnel non formateur — indépendant de toute session/formation.
+        Numérotés dans la même série annuelle que les ordres de mission des formateurs.
+      </p>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-lg-5">
+      <div class="isi-card">
+        <div class="isi-card-header">
+          <i class="bi bi-plus-circle-fill"></i> Nouvel ordre de mission
+        </div>
+        <div class="isi-card-body" style="padding:20px 24px;">
+          <form method="post">
+            {% csrf_token %}
+            {% for field in form %}
+            <div class="mb-3">
+              <label class="form-label">{{ field.label }}{% if field.field.required %} *{% endif %}</label>
+              {{ field }}
+              {% if field.errors %}
+                <div class="text-danger small mt-1">{{ field.errors|striptags }}</div>
+              {% endif %}
+            </div>
+            {% endfor %}
+            <button type="submit" class="topbar-btn primary w-100 justify-content-center">
+              <i class="bi bi-file-earmark-arrow-down"></i> Générer et imprimer
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-7">
+      <div class="isi-card">
+        <div class="isi-card-header">
+          <i class="bi bi-clock-history"></i> Historique
+        </div>
+        <div class="isi-card-body" style="padding:0;">
+          <table class="table mb-0">
+            <thead>
+              <tr>
+                <th>N° archivage</th>
+                <th>Employé</th>
+                <th>Destination</th>
+                <th>Départ</th>
+                <th>Retour</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for order in orders %}
+              <tr>
+                <td><strong>{{ order.archive_number }}</strong></td>
+                <td>{{ order.employee_name }}</td>
+                <td>{{ order.destination }}</td>
+                <td>{{ order.date_start|date:"d/m/Y" }}</td>
+                <td>{{ order.date_end|date:"d/m/Y" }}</td>
+                <td class="text-end">
+                  <a href="{% url 'documents:print_employee_mission_order' order.pk %}"
+                     class="topbar-btn" target="_blank">
+                    <i class="bi bi-printer"></i> Imprimer
+                  </a>
+                </td>
+              </tr>
+              {% empty %}
+              <tr>
+                <td colspan="6" class="text-center text-muted py-4">Aucun ordre de mission pour le moment.</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

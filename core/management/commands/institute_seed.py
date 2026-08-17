@@ -35,7 +35,7 @@ from django.core.management.base import BaseCommand
 INSTITUTE = {
     # Legal name as registered on the RC / accreditation decree.
     "name_fr": "SARL MOUASSASSET TAMAYOUZ LILIDARA W ESSALAMA",
-    "name_ar": "شركة ذات مسؤولية محدودة مؤسسة تمايوز للإدارة والسلامة",
+    "name_ar": "مؤسسة التميز للإدارة والسلامة",
     "address": "CITE LOTIS HACHEMI 1ère TRANCHE ETAGE 1 ET 2, SETIF",
     # From facture n°0152026 header: "Tél. 036527557"
     "phone": "036527557",

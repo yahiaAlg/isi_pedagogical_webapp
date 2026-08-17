@@ -160,6 +160,86 @@ class GeneratedDocument(models.Model):
             )
 
 
+class EmployeeMissionOrder(models.Model):
+    """
+    A standalone "ordre de mission" for a non-formateur employee — global,
+    not tied to any Session/formation, filled directly with its own data
+    and generated from a dedicated quick-access page (rather than from a
+    specific session's document list, which only covers the formateur's
+    own mission order for that session).
+
+    Shares the SAME yearly archival sequence as Session.mission_order_number
+    (see core/sequencing.py:allocate_mission_order_number), so the combined
+    registry of mission orders — whether for a formateur or an employee —
+    is one continuous, gapless per-year count.
+    """
+
+    TRANSPORT_CHOICES = [
+        ("vehicule_service", "Véhicule de service"),
+        ("vehicule_personnel", "Véhicule personnel"),
+        ("transport_commun", "Transport en commun"),
+        ("autre", "Autre"),
+    ]
+
+    archive_number = models.CharField(
+        max_length=20,
+        blank=True,
+        unique=True,
+        verbose_name="N° d'archivage",
+    )
+
+    employee_name = models.CharField(max_length=150, verbose_name="Nom et prénom")
+    job_title = models.CharField(
+        max_length=150, blank=True, verbose_name="Fonction occupée"
+    )
+    professional_address = models.CharField(
+        max_length=255, blank=True, verbose_name="Adresse professionnelle"
+    )
+
+    destination = models.CharField(max_length=200, verbose_name="Destination")
+    motif = models.CharField(max_length=255, verbose_name="Motif de la mission")
+
+    date_start = models.DateField(verbose_name="Date de départ")
+    time_start = models.TimeField(
+        null=True, blank=True, verbose_name="Heure de départ"
+    )
+    date_end = models.DateField(verbose_name="Date de retour")
+
+    transport_means = models.CharField(
+        max_length=30,
+        choices=TRANSPORT_CHOICES,
+        default="vehicule_service",
+        verbose_name="Moyen de transport",
+    )
+
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Ordre de mission (employé)"
+        verbose_name_plural = "Ordres de mission (employés)"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.archive_number or '—'} — {self.employee_name}"
+
+    def clean(self):
+        if self.date_start and self.date_end and self.date_end < self.date_start:
+            raise ValidationError(
+                "La date de retour doit être après la date de départ"
+            )
+
+    def assign_archive_number(self):
+        """Idempotent — same never-reassigned pattern as
+        Session.assign_mission_order_number / assign_pv_number."""
+        if self.archive_number:
+            return
+        from core.sequencing import allocate_mission_order_number
+
+        self.archive_number = allocate_mission_order_number(self.date_start)
+        self.save(update_fields=["archive_number"])
+
+
 class HotEvaluation(models.Model):
     """
     « Fiche d'évaluation à chaud » — post-training satisfaction survey

@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>{% block doc_title %}Document{% endblock %}</title>
+<title>{% block doc_title %}وثيقة{% endblock %}</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: Arial, sans-serif; font-size: 12px; color: #000; background: #fff; }
@@ -76,7 +76,7 @@
   .letterhead-center .accred    { font-size: 11px; font-weight: bold; }
   .letterhead-center .dept      { font-size: 11px; }
   .letterhead-ref {
-    text-align: right;
+    text-align: left;
     font-size: 10px;
     min-width: 110px;
     flex-shrink: 0;
@@ -100,7 +100,7 @@
     font-size: 12px;
     margin-bottom: 14px;
   }
-  .doc-meta-left { text-align: left; }
+  .doc-meta-left { text-align: right; }
   .doc-date { margin-bottom: 12px; font-size: 12px; }
 
   /* ── Table ── */
@@ -164,8 +164,8 @@
 <body>
 
 <div class="print-btn-bar no-print">
-  <button class="print-btn" onclick="window.print()">🖨 Imprimer</button>
-  <a class="back-btn" href="javascript:history.back()">← Retour</a>
+  <button class="print-btn" onclick="window.print()">🖨 طباعة</button>
+  <a class="back-btn" href="javascript:history.back()">→ رجوع</a>
 </div>
 
 <div class="page-wrapper">
@@ -181,15 +181,15 @@
         {% endif %}
       </div>
       <div class="letterhead-center">
-        <div class="state-line">République Algérienne Démocratique et Populaire</div>
-        <div class="inst-sub">Établissement Privée pour l'enseignement professionnel</div>
+        <div class="state-line">الجمهورية الجزائرية الديمقراطية الشعبية</div>
+        <div class="inst-sub">مؤسسة خاصة للتكوين المهني</div>
         {% if institute %}
-        <div class="inst-name">{{ institute.name_fr }}</div>
+        <div class="inst-name">{{ institute.name_ar }}</div>
         <div class="accred">
-          Agrément {{ institute.accreditation_number }} Date {{ institute.accreditation_date|date:"d/m/Y" }}
+          اعتماد رقم {{ institute.accreditation_number }} بتاريخ {{ institute.accreditation_date|date:"d/m/Y" }}
         </div>
         {% endif %}
-        <div class="dept">Département de la Gestion Pédagogique</div>
+        <div class="dept">مصلحة التسيير البيداغوجي</div>
       </div>
       <div class="letterhead-ref">
         {% if institute %}{{ institute.if_number }}{% endif %}
@@ -204,7 +204,7 @@
     <div class="doc-footer">
       {% if institute %}
         {{ institute.address }} |
-        Mobile : {{ institute.phone }} |
+        الهاتف : {{ institute.phone }} |
         {{ institute.email }}
       {% endif %}
     </div>

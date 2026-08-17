@@ -1,6 +1,6 @@
 from django import forms
 from formations.models import Session
-from .models import HotEvaluation
+from .models import HotEvaluation, EmployeeMissionOrder
 
 class DocumentGenerationForm(forms.Form):
     """Base form for document generation"""
@@ -150,3 +150,38 @@ class HotEvaluationForm(forms.ModelForm):
                 }
             )
         return pairs
+
+class EmployeeMissionOrderForm(forms.ModelForm):
+    """Global (session-independent) ordre de mission for a non-formateur
+    employee — filled directly on the quick-access page."""
+
+    class Meta:
+        model = EmployeeMissionOrder
+        fields = [
+            "employee_name",
+            "job_title",
+            "professional_address",
+            "destination",
+            "motif",
+            "date_start",
+            "time_start",
+            "date_end",
+            "transport_means",
+        ]
+        widgets = {
+            "employee_name": forms.TextInput(attrs={"class": "form-control"}),
+            "job_title": forms.TextInput(attrs={"class": "form-control"}),
+            "professional_address": forms.TextInput(attrs={"class": "form-control"}),
+            "destination": forms.TextInput(attrs={"class": "form-control"}),
+            "motif": forms.TextInput(attrs={"class": "form-control"}),
+            "date_start": forms.DateInput(
+                attrs={"class": "form-control", "type": "date"}
+            ),
+            "time_start": forms.TimeInput(
+                attrs={"class": "form-control", "type": "time"}
+            ),
+            "date_end": forms.DateInput(
+                attrs={"class": "form-control", "type": "date"}
+            ),
+            "transport_means": forms.Select(attrs={"class": "form-select"}),
+        }

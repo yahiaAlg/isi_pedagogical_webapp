@@ -1,28 +1,28 @@
 {% extends "documents/print/base_print.html" %}
 
-{% block doc_title %}Liste des notes — {{ session.reference }}{% endblock %}
+{% block doc_title %}قائمة النقاط — {{ session.reference }}{% endblock %}
 
 {% block doc_body %}
-<div class="doc-title">Liste des Notes D'évaluation des Candidats</div>
+<div class="doc-title">قائمة نقاط تقييم المترشحين</div>
 <div class="doc-subtitle">
-  <strong>formation : {{ session.formation.code }}</strong>
+  <strong>التكوين : {{ session.formation.code }}</strong>
   &nbsp;&nbsp;&nbsp;
-  <strong>Client : {{ session.client.name }}</strong>
+  <strong>الزبون : {{ session.client.name }}</strong>
 </div>
-<div class="doc-date"><strong>Date : </strong>{{ session.date_start|date:"d/m/Y" }}</div>
+<div class="doc-date"><strong>التاريخ : </strong>{{ session.date_start|date:"d/m/Y" }}</div>
 
 <table>
   <thead>
     <tr>
-      <th style="width:40px;">N°</th>
-      <th>Nom et prénom</th>
+      <th style="width:40px;">الرقم</th>
+      <th>الاسم واللقب</th>
       {% if session.formation.evaluation_type == 'theory_only' or session.formation.evaluation_type == 'both' %}
-      <th>Note Théorique</th>
+      <th>النقطة النظرية</th>
       {% endif %}
       {% if session.formation.evaluation_type == 'practice_only' or session.formation.evaluation_type == 'both' %}
-      <th>Note Pratique</th>
+      <th>النقطة التطبيقية</th>
       {% endif %}
-      <th>Résultat</th>
+      <th>النتيجة</th>
     </tr>
   </thead>
   <tbody>
@@ -37,9 +37,9 @@
       <td>{% if p.score_practice %}{{ p.score_practice }}{% endif %}</td>
       {% endif %}
       <td>
-        {% if p.result == 'passed' %}Reçu
-        {% elif p.result == 'failed' %}Ajourné
-        {% elif p.result == 'absent' %}Absent
+        {% if p.result == 'passed' %}ناجح
+        {% elif p.result == 'failed' %}مؤجل
+        {% elif p.result == 'absent' %}غائب
         {% else %}—{% endif %}
       </td>
     </tr>
@@ -63,15 +63,15 @@
 </table>
 
 <div style="font-size:11px;margin-bottom:16px;">
-  <strong>Seuil de passage : {{ session.formation.passing_score }}/20</strong>
+  <strong>عتبة النجاح : {{ session.formation.passing_score }}/20</strong>
   &nbsp;|&nbsp;
-  Présents : {{ session.total_present }}
+  الحضور : {{ session.total_present }}
   &nbsp;|&nbsp;
-  Absents : {{ session.total_absent }}
+  الغياب : {{ session.total_absent }}
 </div>
 
 <div class="sig-row">
-  <div>Le formateur : <strong>{{ session.trainer.full_name|upper }}</strong></div>
-  <div>Entreprise</div>
+  <div>المكوّن : <strong>{{ session.trainer.full_name|upper }}</strong></div>
+  <div>المؤسسة</div>
 </div>
 {% endblock %}

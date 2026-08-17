@@ -1,6 +1,6 @@
 {% extends "documents/print/base_print.html" %}
 
-{% block doc_title %}Fiche d'évaluation à chaud — {{ participant.full_name }}{% endblock %}
+{% block doc_title %}ورقة التقييم الفوري — {{ participant.full_name }}{% endblock %}
 
 {% block doc_body %}
 <style>
@@ -11,7 +11,7 @@
     font-size: 12px;
   }
   .eval-info-col { flex: 1; padding: 8px 12px; }
-  .eval-info-col + .eval-info-col { border-left: 1px solid #555; }
+  .eval-info-col + .eval-info-col { border-right: 1px solid #555; }
   .eval-info-row { margin-bottom: 6px; }
   .eval-info-row .fill {
     display: inline-block;
@@ -28,9 +28,9 @@
     margin-bottom: 12px;
   }
 
-  table.eval-table th.crit-col { text-align: left; width: 34%; }
-  table.eval-table td.crit-cell { text-align: left; }
-  table.eval-table td.crit-cell .crit-ar { font-size: 10px; color: #333; direction: rtl; }
+  table.eval-table th.crit-col { text-align: right; width: 34%; }
+  table.eval-table td.crit-cell { text-align: right; }
+  table.eval-table td.crit-cell .crit-fr { font-size: 10px; color: #333; direction: ltr; }
   table.eval-table th.grade-col, table.eval-table td.grade-cell { width: 8%; }
   table.eval-table th.note-col, table.eval-table td.note-cell { width: 10%; }
 
@@ -84,50 +84,50 @@
   .eval-comments .lines { border-bottom: 1px solid #999; min-height: 16px; margin-top: 4px; }
 </style>
 
-<div class="doc-title">Fiche d'évaluation à chaud</div>
+<div class="doc-title">ورقة التقييم الفوري</div>
 
 <div class="eval-info-box">
   <div class="eval-info-col">
-    <div class="eval-info-row">Nom et Prénom :
+    <div class="eval-info-row">الاسم واللقب :
       <span class="fill">{% if not blank_mode %}{{ participant.full_name }}{% endif %}</span>
     </div>
-    <div class="eval-info-row">Fonction occupée :
+    <div class="eval-info-row">الوظيفة :
       <span class="fill">{% if not blank_mode %}{{ participant.job_title }}{% endif %}</span>
     </div>
-    <div class="eval-info-row">Structure :
+    <div class="eval-info-row">الهيكل :
       <span class="fill">{% if not blank_mode %}{{ participant.employer }}{% endif %}</span>
     </div>
   </div>
   <div class="eval-info-col">
-    <div class="eval-info-row">Formation :
+    <div class="eval-info-row">التكوين :
       <span class="fill">{% if not blank_mode %}{{ session.formation.title }}{% endif %}</span>
     </div>
-    <div class="eval-info-row">Client :
+    <div class="eval-info-row">الزبون :
       <span class="fill">{% if not blank_mode %}{{ session.client.name }}{% endif %}</span>
     </div>
-    <div class="eval-info-row">Date de Formation :
+    <div class="eval-info-row">تاريخ التكوين :
       <span class="fill">{% if not blank_mode %}{{ session.date_start|date:"d/m/Y" }}{% endif %}</span>
     </div>
   </div>
 </div>
 
 <div class="eval-legend">
-  <div>A : Satisfait</div>
-  <div>B : Bon</div>
-  <div>C : Moyen</div>
-  <div>D : Non satisfait</div>
+  <div>A : مرضي جداً</div>
+  <div>B : جيد</div>
+  <div>C : متوسط</div>
+  <div>D : غير مرضي</div>
 </div>
 
 <table class="eval-table">
   <thead>
     <tr>
-      <th style="width:26px;">N</th>
-      <th class="crit-col">Critères d'évaluation</th>
+      <th style="width:26px;">الرقم</th>
+      <th class="crit-col">معايير التقييم</th>
       <th class="grade-col">A /10</th>
       <th class="grade-col">B /8</th>
       <th class="grade-col">C /6</th>
       <th class="grade-col">D /4</th>
-      <th class="note-col">NOTE/10</th>
+      <th class="note-col">النقطة/10</th>
     </tr>
   </thead>
   <tbody>
@@ -135,8 +135,8 @@
     <tr>
       <td>{{ row.number }}</td>
       <td class="crit-cell">
-        {{ row.label_fr }}
-        <div class="crit-ar">{{ row.label_ar }}</div>
+        {{ row.label_ar }}
+        <div class="crit-fr">{{ row.label_fr }}</div>
       </td>
       <td class="grade-cell"><span class="tick{% if row.grade == 'A' %} checked{% endif %}"></span></td>
       <td class="grade-cell"><span class="tick{% if row.grade == 'B' %} checked{% endif %}"></span></td>
@@ -149,8 +149,7 @@
 </table>
 
 <div class="eval-overall">
-  <div>Dans l'ensemble, comment avez-vous apprécié la formation</div>
-  <div class="ar-line">بشكل عام كيف تقيم هذا التدريب ؟</div>
+  <div>بشكل عام كيف تقيم هذا التدريب ؟</div>
 </div>
 
 <div class="smiley-row">
@@ -168,12 +167,12 @@
 
 {% if evaluation and evaluation.comments %}
 <div class="eval-comments">
-  <strong>Commentaires :</strong>
+  <strong>ملاحظات :</strong>
   <div class="lines">{{ evaluation.comments }}</div>
 </div>
 {% elif blank_mode %}
 <div class="eval-comments">
-  <strong>Commentaires :</strong>
+  <strong>ملاحظات :</strong>
   <div class="lines">&nbsp;</div>
   <div class="lines">&nbsp;</div>
 </div>
@@ -181,7 +180,7 @@
 
 {% if not blank_mode and evaluation and evaluation.total_score is not None %}
 <div style="margin-top:14px;font-size:11px;color:#333;">
-  Score global : {{ evaluation.total_score }}/80
+  المجموع العام : {{ evaluation.total_score }}/80
 </div>
 {% endif %}
 {% endblock %}

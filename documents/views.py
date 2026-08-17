@@ -8,8 +8,14 @@ from django.http import HttpResponse
 from django.core.exceptions import PermissionDenied
 
 from formations.models import Session, Participant
-from .models import GeneratedDocument, HotEvaluation
-from .forms import AttendanceSheetForm, AttestationGenerationForm, CommitteeForm, HotEvaluationForm
+from .models import GeneratedDocument, HotEvaluation, EmployeeMissionOrder
+from .forms import (
+    AttendanceSheetForm,
+    AttestationGenerationForm,
+    CommitteeForm,
+    HotEvaluationForm,
+    EmployeeMissionOrderForm,
+)
 from .utils import check_document_requirements
 from .notifications import notify_pv_generated
 
@@ -392,3 +398,36 @@ def download_document(request, pk):
     except FileNotFoundError:
         messages.error(request, "Fichier introuvable sur le serveur.")
         return redirect("documents:dashboard", session_pk=doc.session.pk)
+
+
+# ---------------------------------------------------------------------------
+# Employee mission orders — global, session-independent (quick access bar)
+# ---------------------------------------------------------------------------
+@login_required
+def employee_mission_order_list_view(request):
+    """List + create page for standalone (non-formateur) employee mission
+    orders. Reachable from the sidebar's Documents quick-access, not from
+    any specific session's document dashboard — see
+    EmployeeMissionOrder / core.sequencing.allocate_mission_order_number
+    for why this is deliberately separate."""
+    if not request.user.profile.can_generate_documents():
+        raise PermissionDenied()
+
+    if request.method == "POST":
+        form = EmployeeMissionOrderForm(request.POST)
+        if form.is_valid():
+            order = form.save(commit=False)
+            order.created_by = request.user
+            order.full_clean()
+            order.save()
+            order.assign_archive_number()
+            return redirect("documents:print_employee_mission_order", pk=order.pk)
+    else:
+        form = EmployeeMissionOrderForm()
+
+    orders = EmployeeMissionOrder.objects.select_related("created_by").all()[:100]
+    return render(
+        request,
+        "documents/employee_mission_order_list.html",
+        {"form": form, "orders": orders},
+    )

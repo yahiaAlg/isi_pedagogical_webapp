@@ -1,11 +1,11 @@
 {% extends "documents/print/base_print.html" %}
 
-{% block doc_title %}أمر بمهمة — {{ session.reference }}{% endblock %}
+{% block doc_title %}أمر بمهمة — {{ order.employee_name }}{% endblock %}
 
 {% block doc_body %}
 <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:20px;">
-  <div><strong>رقم الأرشفة :</strong> {{ session.mission_order_number }}</div>
-  <div><strong>التاريخ :</strong> {{ session.date_start|date:"d/m/Y" }}</div>
+  <div><strong>رقم الأرشفة :</strong> {{ order.archive_number }}</div>
+  <div><strong>التاريخ :</strong> {{ order.date_start|date:"d/m/Y" }}</div>
 </div>
 
 <div style="text-align:center;margin:24px 0 28px;">
@@ -18,46 +18,44 @@
   <tbody>
     <tr>
       <td style="border:none;width:50%;padding:8px 0;font-weight:bold;vertical-align:top;">
-        اسم ولقب المكوّن :
+        اسم ولقب الموظف :
       </td>
       <td style="border:none;padding:8px 0;text-decoration:underline;font-weight:bold;">
-        {{ session.trainer.full_name|upper }}
+        {{ order.employee_name|upper }}
       </td>
     </tr>
     <tr>
-      <td style="border:none;padding:8px 0;font-weight:bold;">تخصص التكوين :</td>
-      <td style="border:none;padding:8px 0;text-decoration:underline;">{{ session.formation.title }}</td>
+      <td style="border:none;padding:8px 0;font-weight:bold;">الوظيفة :</td>
+      <td style="border:none;padding:8px 0;text-decoration:underline;">{{ order.job_title }}</td>
     </tr>
     <tr>
-      <td style="border:none;padding:8px 0;font-weight:bold;">العنوان المهني للمكوّن :</td>
-      <td style="border:none;padding:8px 0;text-decoration:underline;">{{ session.trainer.professional_address }}</td>
+      <td style="border:none;padding:8px 0;font-weight:bold;">العنوان المهني :</td>
+      <td style="border:none;padding:8px 0;text-decoration:underline;">{{ order.professional_address }}</td>
     </tr>
     <tr>
       <td style="border:none;padding:8px 0;font-weight:bold;">الوجهة :</td>
-      <td style="border:none;padding:8px 0;text-decoration:underline;">
-        {{ session.client.city }} — {{ session.client.name }}
-        {% if session.external_location %} — {{ session.external_location }}{% endif %}
-      </td>
+      <td style="border:none;padding:8px 0;text-decoration:underline;">{{ order.destination }}</td>
     </tr>
     <tr>
       <td style="border:none;padding:8px 0;font-weight:bold;">السبب :</td>
-      <td style="border:none;padding:8px 0;text-decoration:underline;">تكوين حسب الطلب</td>
+      <td style="border:none;padding:8px 0;text-decoration:underline;">{{ order.motif }}</td>
     </tr>
     <tr>
       <td style="border:none;padding:10px 0;font-weight:bold;">تاريخ وساعة الانطلاق :</td>
       <td style="border:none;padding:10px 0;text-decoration:underline;">
-        {{ session.date_start|date:"d/m/Y" }} &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; على الساعة 08:00
+        {{ order.date_start|date:"d/m/Y" }}
+        {% if order.time_start %} &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; على الساعة {{ order.time_start|time:"H:i" }}{% endif %}
       </td>
     </tr>
     <tr>
       <td style="border:none;padding:8px 0;font-weight:bold;">تاريخ العودة :</td>
       <td style="border:none;padding:8px 0;text-decoration:underline;">
-        {{ session.date_end|date:"d/m/Y" }} &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; نهاية المهمة
+        {{ order.date_end|date:"d/m/Y" }} &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; نهاية المهمة
       </td>
     </tr>
     <tr>
       <td style="border:none;padding:8px 0;font-weight:bold;">وسيلة النقل :</td>
-      <td style="border:none;padding:8px 0;text-decoration:underline;">نقل</td>
+      <td style="border:none;padding:8px 0;text-decoration:underline;">{{ order.get_transport_means_display }}</td>
     </tr>
   </tbody>
 </table>

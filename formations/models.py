@@ -356,6 +356,17 @@ class Session(models.Model):
         max_length=20, blank=True, verbose_name="Numéro PV"
     )
 
+    # mission_order_number: the "ordre de mission" archival number — drawn
+    # from the SAME yearly counter as documents.EmployeeMissionOrder (see
+    # core/sequencing.py:allocate_mission_order_number), so formateur and
+    # employee mission orders share one continuous per-year sequence.
+    # Auto-assigned once, the first time the session's mission order is
+    # printed — see Session.assign_mission_order_number(). Same
+    # never-reassigned protection as pv_number above.
+    mission_order_number = models.CharField(
+        max_length=20, blank=True, verbose_name="Numéro d'ordre de mission"
+    )
+
     date_start = models.DateField(verbose_name="Date début")
     date_end = models.DateField(verbose_name="Date fin")
 
@@ -492,6 +503,16 @@ class Session(models.Model):
             )
             if old_pv_number and self.pv_number != old_pv_number:
                 self.pv_number = old_pv_number
+            old_mission_order_number = (
+                Session.objects.filter(pk=self.pk)
+                .values_list("mission_order_number", flat=True)
+                .first()
+            )
+            if (
+                old_mission_order_number
+                and self.mission_order_number != old_mission_order_number
+            ):
+                self.mission_order_number = old_mission_order_number
         super().save(*args, **kwargs)
 
     def _generate_reference(self):
@@ -513,6 +534,21 @@ class Session(models.Model):
 
         self.pv_number = allocate_pv_number()
         self.save(update_fields=["pv_number"])
+
+    def assign_mission_order_number(self):
+        """
+        Assign this session's ordre de mission archival number if it
+        doesn't have one yet — idempotent, safe to call every time the
+        mission order is printed. Drawn from the same yearly counter as
+        standalone employee mission orders (core.sequencing.
+        allocate_mission_order_number), so the two never collide.
+        """
+        if self.mission_order_number:
+            return
+        from core.sequencing import allocate_mission_order_number
+
+        self.mission_order_number = allocate_mission_order_number()
+        self.save(update_fields=["mission_order_number"])
 
     def clean(self):
         if self.date_start and self.date_end and self.date_end < self.date_start:

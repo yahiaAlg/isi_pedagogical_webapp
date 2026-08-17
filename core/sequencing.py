@@ -37,6 +37,7 @@ from .models import SequenceCounter
 
 PV_KIND = "pv"
 CERTIFICATE_KIND = "certificate"
+MISSION_ORDER_KIND = "mission_order"
 
 
 def allocate_pv_number(reference_date=None):
@@ -63,3 +64,21 @@ def allocate_certificate_number(reference_date=None):
     period_key = f"{ref.year:04d}"
     seq = SequenceCounter.next_value(CERTIFICATE_KIND, period_key)
     return f"{ref.year:04d}/{ref.month:02d} ت.ح.ط /{seq:03d}"
+
+
+def allocate_mission_order_number(reference_date=None):
+    """
+    Allocate the next "ordre de mission" archival number ("N° d'Archivage").
+    Format: "{NNN}/{YYYY}". One counter per calendar YEAR, shared by BOTH
+    kinds of mission order — a session's formateur mission order
+    (Session.assign_mission_order_number, one per session) and a standalone
+    employee mission order (documents.EmployeeMissionOrder) — so the two
+    never collide and together form a single continuous yearly archive,
+    the same way a paper "ordre de mission" registry would be kept
+    regardless of who the order is for. The counter resets to 1 on Jan 1st
+    of every year.
+    """
+    ref = reference_date or timezone.localdate()
+    period_key = f"{ref.year:04d}"
+    seq = SequenceCounter.next_value(MISSION_ORDER_KIND, period_key)
+    return f"{seq:03d}/{ref.year:04d}"

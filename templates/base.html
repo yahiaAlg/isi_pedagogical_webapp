@@ -122,6 +122,10 @@
          href="{% url 'formations:session_list' %}" data-path="/documents/">
         <i class="bi bi-file-earmark-text-fill"></i> Autres documents
       </a>
+      <a class="nav-item-link {% if request.resolver_match.url_name == 'employee_mission_order_list' %}active{% endif %}"
+         href="{% url 'documents:employee_mission_order_list' %}" data-path="/documents/mission-orders/employees/">
+        <i class="bi bi-signpost-split-fill"></i> Ordres de mission (employés)
+      </a>
     </div>
 
     <!-- Ressources -->

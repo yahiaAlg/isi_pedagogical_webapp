@@ -1,39 +1,39 @@
 {% extends "documents/print/base_print.html" %}
 
-{% block doc_title %}Liste des informations candidats — {{ session.reference }}{% endblock %}
+{% block doc_title %}قائمة معلومات المترشحين — {{ session.reference }}{% endblock %}
 
 {% block doc_body %}
 
 {% if blank_mode %}
 <div class="note-box" style="background:#fffbeb;border:1px solid #fbbf24;padding:8px;border-radius:4px;">
-  <strong>Fiche vierge — à compléter manuellement</strong> par le formateur et les candidats.
+  <strong>ورقة فارغة — تُعبّأ يدوياً</strong> من طرف المكوّن والمترشحين.
 </div>
 {% endif %}
 
 <div class="note-box">
-  <strong>Note : Veuillez Écrire Votre Nom et Prénom en Majuscule</strong><br>
-  Le Certificat sera établi en fonction des renseignements portés sur cette fiche.<br>
-  Toute erreur risque d'être portée sur l'attestation qui ne pourra en aucun cas être renouvelée
+  <strong>ملاحظة : يرجى كتابة الاسم واللقب بأحرف كبيرة</strong><br>
+  ستُحرَّر الشهادة وفق المعلومات المدوّنة في هذه الورقة.<br>
+  أي خطأ قد يظهر في الشهادة ولا يمكن بأي حال من الأحوال تجديدها
 </div>
 
-<div class="doc-title">La liste de Les Information des Candidats</div>
+<div class="doc-title">قائمة معلومات المترشحين</div>
 
 <div class="doc-subtitle">
-  <strong>Titre de formation : {{ session.formation.code }}</strong>
+  <strong>عنوان التكوين : {{ session.formation.code }}</strong>
   &nbsp;&nbsp;&nbsp;
-  <strong>Client : {{ session.client.name }}</strong>
+  <strong>الزبون : {{ session.client.name }}</strong>
 </div>
 
 <div class="doc-date">
-  <strong>Date : </strong> {{ session.date_start|date:"d/m/Y" }} au {{ session.date_end|date:"d/m/Y" }}
+  <strong>التاريخ : </strong> من {{ session.date_start|date:"d/m/Y" }} إلى {{ session.date_end|date:"d/m/Y" }}
 </div>
 
 <table>
   <thead>
     <tr>
-      <th style="width:40px;">N°</th>
-      <th>Nom</th>
-      <th>Prénom</th>
+      <th style="width:40px;">الرقم</th>
+      <th>اللقب (لاتيني)</th>
+      <th>الاسم (لاتيني)</th>
       <th>اللقب</th>
       <th>الاسم</th>
       <th>تاريخ و مكان الميلاد</th>
@@ -70,7 +70,7 @@
 </table>
 
 <div class="sig-row">
-  <div>Le formateur : <strong>{{ session.trainer.full_name|upper }}</strong></div>
-  <div>Entreprise</div>
+  <div>المكوّن : <strong>{{ session.trainer.full_name|upper }}</strong></div>
+  <div>المؤسسة</div>
 </div>
 {% endblock %}

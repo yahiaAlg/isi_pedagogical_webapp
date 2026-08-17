@@ -1,33 +1,33 @@
 {% extends "documents/print/base_print.html" %}
 
-{% block doc_title %}Feuille de présence J{{ day_number }} — {{ session.reference }}{% endblock %}
+{% block doc_title %}ورقة الحضور يوم {{ day_number }} — {{ session.reference }}{% endblock %}
 
 {% block doc_body %}
 {% if blank_mode %}
 <div class="note-box" style="background:#fffbeb;border:1px solid #fbbf24;padding:8px;border-radius:4px;">
-  <strong>Feuille vierge — à compléter manuellement</strong> par le formateur et les candidats.
+  <strong>ورقة فارغة — تُعبّأ يدوياً</strong> من طرف المكوّن والمترشحين.
 </div>
 {% endif %}
-<div class="doc-title">Liste de Présence</div>
+<div class="doc-title">ورقة الحضور</div>
 <div class="doc-subtitle">
-  <strong>Titre de formation : {{ session.formation.code }}</strong>
+  <strong>عنوان التكوين : {{ session.formation.code }}</strong>
   &nbsp;&nbsp;&nbsp;
-  <strong>Client : {{ session.client.name }}</strong>
+  <strong>الزبون : {{ session.client.name }}</strong>
 </div>
 <div class="doc-date">
-  <strong>Date : </strong>
+  <strong>التاريخ : </strong>
   {% if day_date %}{{ day_date|date:"d/m/Y" }}{% else %}{{ session.date_start|date:"d/m/Y" }}{% endif %}
   &nbsp;&nbsp;
-  <strong>Jour : {{ day_number }}</strong>
+  <strong>اليوم : {{ day_number }}</strong>
 </div>
 
 <table>
   <thead>
     <tr>
-      <th style="width:40px;">N°</th>
-      <th>Nome et prénom</th>
-      <th>Fonction</th>
-      <th>Signature</th>
+      <th style="width:40px;">الرقم</th>
+      <th>الاسم واللقب</th>
+      <th>الوظيفة</th>
+      <th>الإمضاء</th>
     </tr>
   </thead>
   <tbody>
@@ -52,7 +52,7 @@
 </table>
 
 <div class="sig-row">
-  <div>Le formateur : <strong>{{ session.trainer.full_name|upper }}</strong></div>
-  <div>Entreprise</div>
+  <div>المكوّن : <strong>{{ session.trainer.full_name|upper }}</strong></div>
+  <div>المؤسسة</div>
 </div>
 {% endblock %}

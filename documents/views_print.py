@@ -12,6 +12,7 @@ from django.utils.timezone import now
 
 from formations.models import Session, Participant
 from core.models import InstituteInfo
+from .models import EmployeeMissionOrder
 
 
 def _get_institute():
@@ -129,6 +130,9 @@ def print_mission_order(request, session_pk):
     session = get_object_or_404(Session, pk=session_pk)
     if not request.user.profile.can_generate_documents():
         raise PermissionDenied()
+    # Shared yearly sequencer with EmployeeMissionOrder — see
+    # core.sequencing.allocate_mission_order_number.
+    session.assign_mission_order_number()
     return render(
         request,
         "documents/print/mission_order.html",
@@ -285,3 +289,21 @@ def print_batch_attestations(request, session_pk):
     context.update(column_offsets())
 
     return render(request, "documents/print/batch_attestations.html", context)
+
+
+@login_required
+def print_employee_mission_order(request, pk):
+    order = get_object_or_404(EmployeeMissionOrder, pk=pk)
+    if not request.user.profile.can_generate_documents():
+        raise PermissionDenied()
+    # Shared yearly sequencer with Session.mission_order_number — see
+    # core.sequencing.allocate_mission_order_number.
+    order.assign_archive_number()
+    return render(
+        request,
+        "documents/print/mission_order_employee.html",
+        {
+            "order": order,
+            "institute": _get_institute(),
+        },
+    )
