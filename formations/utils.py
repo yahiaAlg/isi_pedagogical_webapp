@@ -265,6 +265,16 @@ def generate_child_sessions(primary_session):
     primary_session.status = "planned"
     primary_session.pv_number = ""
 
+    # Also clear any previously-saved/auto-filled final exam score. Once a
+    # cycle finishes, auto_fill_exam_scores() writes a derived exam_score
+    # and never touches it again (its `exam_score__isnull=True` guard is
+    # what stops it from clobbering a manually-entered mark). If exam_score
+    # were left in place here, that guard would keep it stuck on the value
+    # from the previous run even after the participant's theory/practice
+    # marks are edited and the group is regenerated/re-run — exactly what
+    # "redoing the training days from scratch" is not supposed to do.
+    primary_session.participant_set.update(exam_score=None)
+
     half_score = (formation.max_score / Decimal("2")).quantize(Decimal("0.01"))
     eval_type = formation.evaluation_type
 

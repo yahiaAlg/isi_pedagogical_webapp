@@ -1376,10 +1376,23 @@ def session_exam_scores(request, pk):
     else:
         form = ExamScoreForm(session=session)
 
+    # Pair each attending participant with its bound form field so the
+    # template renders the form's computed value (submitted POST value on
+    # a validation error, otherwise the initial default derived from the
+    # theory/practice marks) instead of reading participant.exam_score
+    # directly, which is None until a score has actually been saved and
+    # was making the field look blank/unrepopulated.
+    exam_fields = [
+        (participant, form[f"exam_{participant.id}"])
+        for participant in session.participant_set.filter(
+            attended=True
+        ).order_by("last_name", "first_name")
+    ]
+
     return render(
         request,
         "formations/session_exam_scores.html",
-        {"form": form, "session": session},
+        {"form": form, "session": session, "exam_fields": exam_fields},
     )
 
 

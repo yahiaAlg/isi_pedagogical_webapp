@@ -54,7 +54,7 @@
     <div class="isi-card-header">
       <div class="card-icon green"><i class="bi bi-clipboard2-data-fill"></i></div>
       <h3>Notes d'examen</h3>
-      <span class="header-count ms-1">({{ session.participant_set.filter_attended }} participants présents)</span>
+      <span class="header-count ms-1">({{ exam_fields|length }} participant{{ exam_fields|length|pluralize }} présent{{ exam_fields|length|pluralize }})</span>
     </div>
     <div class="isi-card-body" style="padding:0;">
       <form method="post" novalidate>
@@ -77,8 +77,7 @@
           <div style="width:100px;text-align:center;font-family:var(--font-head);font-size:11px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--text-muted);">Résultat</div>
         </div>
 
-        {% for participant in session.participant_set.all %}
-        {% if participant.attended %}
+        {% for participant, exam_field in exam_fields %}
         <div class="score-row">
           <div class="score-participant-name" style="flex:1;">
             <div style="font-weight:600;font-size:14px;">{{ participant.full_name }}</div>
@@ -91,12 +90,7 @@
           <div style="width:160px;text-align:center;">
             <div class="score-field-group">
               <span class="score-field-label">/ {{ session.formation.max_score|floatformat:"-2" }}</span>
-              <input type="number"
-                min="0" max="{{ session.formation.max_score }}" step="0.25"
-                name="exam_{{ participant.id }}"
-                class="form-control score-input"
-                value="{{ participant.exam_score|default_if_none:'' }}"
-                style="width:80px;text-align:center;padding:6px 10px;display:inline-block;" />
+              {{ exam_field }}
             </div>
           </div>
 
@@ -126,7 +120,6 @@
             {% endif %}
           </div>
         </div>
-        {% endif %}
         {% empty %}
         <div class="empty-state" style="padding:40px 24px;">
           <p class="empty-state-text">Aucun participant présent dans cette session.</p>
