@@ -5,6 +5,41 @@ from .models import Session, Participant
 from django.utils import timezone
 
 
+def sync_evaluation_scores(participant, score_theory=None, score_practice=None, set_theory=False, set_practice=False):
+    """
+    Save theory/practice marks on the canonical primary-session participant
+    and mirror them to every day-copy (`source_participant`), regardless of
+    which one (primary or a child day) the edit came in on.
+
+    Without this, entering a mark via the per-day inline editor only wrote
+    to that day's copy, so the primary session's bulk "Notes journée" form
+    (which reads only the primary participant) kept showing empty fields
+    even though a value had just been saved.
+
+    `set_theory`/`set_practice` distinguish "leave untouched" from
+    "explicitly clear to None".
+    """
+    primary = participant.source_participant or participant
+
+    changed = []
+    if set_theory:
+        primary.score_theory = score_theory
+        changed.append("score_theory")
+    if set_practice:
+        primary.score_practice = score_practice
+        changed.append("score_practice")
+    if changed:
+        primary.save(update_fields=changed)
+
+    # Mirror onto every day copy so per-day views stay consistent too.
+    if changed:
+        primary.copies.exclude(pk=primary.pk).update(
+            **{field: getattr(primary, field) for field in changed}
+        )
+
+    return primary
+
+
 def build_session_number(formation_code, trainer_last_name="", date_obj=None, max_len=100):
     """
     Spec §new — session number format: S-{formation}-{formateur}-{date}.
@@ -228,11 +263,19 @@ def generate_child_sessions(primary_session):
                 email=p.email,
                 notes=p.notes,
                 attended=True,
+                # Carry forward any mark already saved on the primary
+                # instead of resetting it to half — regenerating children
+                # (e.g. after editing participants) must not wipe scores
+                # that were already entered.
                 score_theory=(
-                    half_score if eval_type in ["theory_only", "both"] else None
+                    p.score_theory
+                    if p.score_theory is not None
+                    else (half_score if eval_type in ["theory_only", "both"] else None)
                 ),
                 score_practice=(
-                    half_score if eval_type in ["practice_only", "both"] else None
+                    p.score_practice
+                    if p.score_practice is not None
+                    else (half_score if eval_type in ["practice_only", "both"] else None)
                 ),
                 source_participant=p,
             )

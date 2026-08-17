@@ -35,6 +35,7 @@ from .forms import (
     TrainerPaymentForm,
 )
 from .utils import (
+    sync_evaluation_scores,
     validate_session_transition,
     import_participants_from_file,
     check_scheduling_conflicts,
@@ -1325,19 +1326,13 @@ def session_scores(request, pk):
         if form.is_valid():
             eval_type = session.formation.evaluation_type
             for participant in session.participant_set.all():
-                changed = []
-                if eval_type in ["theory_only", "both"]:
-                    participant.score_theory = form.cleaned_data.get(
-                        f"theory_{participant.id}"
-                    )
-                    changed.append("score_theory")
-                if eval_type in ["practice_only", "both"]:
-                    participant.score_practice = form.cleaned_data.get(
-                        f"practice_{participant.id}"
-                    )
-                    changed.append("score_practice")
-                if changed:
-                    participant.save(update_fields=changed)
+                sync_evaluation_scores(
+                    participant,
+                    score_theory=form.cleaned_data.get(f"theory_{participant.id}"),
+                    score_practice=form.cleaned_data.get(f"practice_{participant.id}"),
+                    set_theory=eval_type in ["theory_only", "both"],
+                    set_practice=eval_type in ["practice_only", "both"],
+                )
             messages.success(request, "Notes enregistrées.")
             return redirect("formations:session_detail", pk=pk)
     else:
@@ -1680,23 +1675,25 @@ def update_score(request, pk):
     if not request.user.profile.can_edit_scores():
         return JsonResponse({"error": "Permission refusée"}, status=403)
     eval_type = participant.session.formation.evaluation_type
-    changed = []
+    kwargs = {}
     if eval_type in ["theory_only", "both"] and "score_theory" in request.POST:
         try:
             val = request.POST["score_theory"]
-            participant.score_theory = float(val) if val else None
-            changed.append("score_theory")
+            kwargs["score_theory"] = float(val) if val else None
+            kwargs["set_theory"] = True
         except ValueError:
             return JsonResponse({"error": "Note théorique invalide"}, status=400)
     if eval_type in ["practice_only", "both"] and "score_practice" in request.POST:
         try:
             val = request.POST["score_practice"]
-            participant.score_practice = float(val) if val else None
-            changed.append("score_practice")
+            kwargs["score_practice"] = float(val) if val else None
+            kwargs["set_practice"] = True
         except ValueError:
             return JsonResponse({"error": "Note pratique invalide"}, status=400)
-    if changed:
-        participant.save(update_fields=changed)
+    primary = sync_evaluation_scores(participant, **kwargs)
+    # Reflect the value on whichever record the request came from (may be
+    # a day copy) so the AJAX response updates the field the user is on.
+    participant.refresh_from_db(fields=["score_theory", "score_practice"])
     return JsonResponse(
         {
             "participant_id": participant.pk,
