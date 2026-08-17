@@ -214,16 +214,11 @@ def validate_session_transition(session, new_status):
                     f"Notes pratiques manquantes pour {missing.count()} participant(s)"
                 )
 
-        # For primary sessions, warn if exam scores are missing
-        if session.is_primary:
-            missing_exam = session.participant_set.filter(
-                attended=True, exam_score__isnull=True
-            )
-            if missing_exam.exists():
-                errors.append(
-                    f"Notes d'examen manquantes pour {missing_exam.count()} participant(s) "
-                    f"— saisissez-les via « Notes d'examen »"
-                )
+        # Note: exam_score is no longer required here. Daily theory/practice
+        # marks are validated above; exam_score itself is auto-derived from
+        # them by auto_fill_exam_scores() right after the transition to
+        # "completed" is saved (any value entered by hand on the "Notes
+        # d'examen" page beforehand is preserved, not overwritten).
 
     return errors
 
@@ -335,13 +330,15 @@ def generate_child_sessions(primary_session):
 
         created.append(child)
 
-    # Pre-fill exam + daily scores on primary participants (only those not already set)
+    # Pre-fill daily scores on primary participants (only those not already
+    # set). exam_score is intentionally left untouched here: it must stay
+    # None until either entered manually on the "Notes d'examen" page or
+    # derived from the daily marks by auto_fill_exam_scores() when the
+    # session is marked "Terminée". Pre-filling it here made it non-null
+    # too early, which silently defeated auto_fill_exam_scores()'s
+    # `exam_score__isnull=True` guard.
     for p in primary_session.participant_set.all():
         update_fields = []
-
-        if p.exam_score is None:
-            p.exam_score = half_score
-            update_fields.append("exam_score")
 
         if eval_type in ["theory_only", "both"] and p.score_theory is None:
             p.score_theory = half_score
