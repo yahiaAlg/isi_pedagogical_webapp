@@ -58,8 +58,7 @@
     </div>
     <div class="fr-row fr-full">A suivi une session de formation qualifiante professionnelle à la carte</div>
     <div class="fr-row fr-full fr-bold">Spécialité : {{ data.SPECIALITE_FR }}</div>
-    <div class="fr-row fr-full">Durée de la formation (h): {{ data.DUREE_HEURES }} heures</div>
-    <div class="fr-row fr-full">.(Jours) : {{ data.DUREE_MOIS_FR }}</div>
+    <div class="fr-row fr-full">Durée de la formation {{ data.DUREE_HEURES }} heures equivaut au {{ data.DUREE_MOIS_FR }}</div>
     <div class="fr-row fr-full">Au cours de la période du : {{ data.DATE_DEBUT }} à {{ data.DATE_FIN }}</div>
     {% endif %}
   </div>
@@ -76,7 +75,7 @@
     </div>
     <div class="ar-row ar-full">قد تابع (ت) دورة في التكوين المهني التأهيلي حسب الطلب</div>
     <div class="ar-row ar-full ar-bold">تخصص : {{ data.SPECIALITE_AR }}</div>
-    <div class="ar-row ar-full">مدة التكوين (س) ساعة (بالأيام) : {{ data.DUREE_HEURES }}  {{ data.DUREE_MOIS_AR }}</div>
+    <div class="ar-row ar-full">مدة التكوين {{ data.DUREE_HEURES }} ساعة ما يكافئ {{ data.DUREE_MOIS_AR }}</div>
     <div class="ar-row ar-full">في الفترة من : {{ data.DATE_DEBUT }} إلى {{ data.DATE_FIN }}</div>
     {% endif %}
   </div>
