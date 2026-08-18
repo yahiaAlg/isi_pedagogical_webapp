@@ -23,6 +23,11 @@ set -euo pipefail
 # ---- config -----------------------------------------------------------
 PYTHON_BIN="${PYTHON_BIN:-python}"
 MANAGE_PY="${MANAGE_PY:-manage.py}"
+
+# Force UTF-8 I/O so Django's styled/unicode output (e.g. "►") doesn't crash
+# on Windows terminals defaulting to cp1252.
+export PYTHONIOENCODING="utf-8"
+export PYTHONUTF8=1
 LOG_DIR="${LOG_DIR:-./seed_logs}"
 TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
 LOG_FILE="${LOG_DIR}/seed_run_${TIMESTAMP}.log"
