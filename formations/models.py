@@ -627,6 +627,35 @@ class Session(models.Model):
         return (self.date_end - self.date_start).days + 1
 
     @property
+    def group_end_date(self):
+        """The real last day of this session group — day 1's (primary's)
+        date_end when there are no child sessions, otherwise the latest
+        date_end among the primary + all child (jour 2-N) sessions. Used
+        for attestations/certificates so DATE_FIN reflects the actual
+        final day of a multi-day session group rather than just the
+        primary session's own date_end."""
+        primary = self if self.is_primary else (self.parent_session or self)
+        candidates = [primary.date_end] + list(
+            primary.child_sessions.values_list("date_end", flat=True)
+        )
+        return max(candidates)
+
+    @property
+    def group_start_date(self):
+        """The primary (day 1) session's date_start — the start of the
+        whole group, regardless of which session in the group this is
+        called from."""
+        primary = self if self.is_primary else (self.parent_session or self)
+        return primary.date_start
+
+    @property
+    def group_duration_days(self):
+        """Total calendar-day span of the whole session group (day 1
+        through the last generated day), used for the attestation's
+        day-count field."""
+        return (self.group_end_date - self.group_start_date).days + 1
+
+    @property
     def total_price(self):
         """
         Spec §new — total price for the whole session group, computed from

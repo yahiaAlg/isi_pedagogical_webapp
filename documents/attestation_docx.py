@@ -29,7 +29,7 @@ import io
 import re
 import subprocess
 import zipfile
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 TEMPLATE_PATH = Path(__file__).parent / "doc_templates" / "attestation_template.docx"
@@ -60,46 +60,37 @@ FIELDS = [
 ]
 
 # ---------------------------------------------------------------------------
-# Arabic month-count wording, matching the institute's existing convention
-# ("شهر واحد" for 1, "شهرين" for 2, "N أشهر" beyond that). Diplômante
-# branches can run up to 30 months (Branch.curriculum_max_months),
-# qualifiante up to 6 — this table comfortably covers both.
+# Arabic day-count wording, matching the institute's existing numeral-word
+# convention used elsewhere on the certificate ("يوم واحد" for 1, "يومين"
+# for 2, "N أيام" for 3-10, "N يوما" beyond that). Despite the historical
+# "duree_mois_*" field names (kept as-is — they map to fixed placeholders
+# baked into the .docx template), this field displays a DAY count, matching
+# the template's own "(بالأيام)" / "(Jours)" labels.
 # ---------------------------------------------------------------------------
-_AR_MONTHS = {
-    1: "شهر واحد",
-    2: "شهرين",
-    3: "ثلاثة أشهر",
-    4: "أربعة أشهر",
-    5: "خمسة أشهر",
-    6: "ستة أشهر",
-    7: "سبعة أشهر",
-    8: "ثمانية أشهر",
-    9: "تسعة أشهر",
-    10: "عشرة أشهر",
+_AR_DAYS = {
+    1: "يوم واحد",
+    2: "يومين",
+    3: "ثلاثة أيام",
+    4: "أربعة أيام",
+    5: "خمسة أيام",
+    6: "ستة أيام",
+    7: "سبعة أيام",
+    8: "ثمانية أيام",
+    9: "تسعة أيام",
+    10: "عشرة أيام",
 }
 
 
-def _ar_month_label(n: int) -> str:
-    if n in _AR_MONTHS:
-        return _AR_MONTHS[n]
-    return f"{n} أشهر"  # 11+ — plural form, numeral spelled digitally
+def _ar_day_label(n: int) -> str:
+    if n in _AR_DAYS:
+        return _AR_DAYS[n]
+    return f"{n} يوما"  # 11+ — plural form, numeral spelled digitally
 
 
-def _fr_month_label(n: int) -> str:
-    return f"{n:02d} mois"
-
-
-def _months_between(date_start: date, date_end: date) -> int:
-    """Whole-month span used for the 'Durée (Jours)' field, which — per the
-    institute's own template — actually displays a month count rather than
-    a day count for qualifying trainings. Rounds up to the nearest month,
-    minimum 1."""
-    months = (date_end.year - date_start.year) * 12 + (
-        date_end.month - date_start.month
-    )
-    if date_end.day >= date_start.day:
-        months += 1
-    return max(1, months)
+def _fr_day_label(n: int) -> str:
+    if n == 1:
+        return "01 jour"
+    return f"{n:02d} jours"
 
 
 def _parse_certificate_number(certificate_number: str) -> tuple[str, str, str]:
@@ -138,18 +129,22 @@ def build_context(participant, *, issuance_date: date | None = None) -> dict:
     Requires participant.certificate_number to already be assigned
     (see formations.utils.assign_certificate_number / can_receive_certificate).
 
-    `issuance_date` defaults to today — override if the attestation is
-    being (re)generated for a date other than the moment of the call.
+    `issuance_date` defaults to the day after the session group's actual
+    last day (its `group_end_date` — the last generated day, not just the
+    primary/day-1 session's own date_end) — override if the attestation is
+    being (re)generated for a date other than that default.
     """
     session = participant.session
     formation = session.formation
     specialty = getattr(formation, "specialty", None)
     branch = getattr(specialty, "branch", None) if specialty else None
+    date_fin = session.group_end_date
+    issuance_date = issuance_date or (date_fin + timedelta(days=1))
 
     annee, mois_serie, num_serie = _parse_certificate_number(
         participant.certificate_number
     )
-    months = _months_between(session.date_start, session.date_end)
+    days = session.group_duration_days
 
     institute = get_institute_info()
 
@@ -173,11 +168,11 @@ def build_context(participant, *, issuance_date: date | None = None) -> dict:
         "specialite_ar": formation.title_ar,
         "specialite_fr": formation.title,
         "duree_heures": str(formation.duration_hours),
-        "duree_mois_ar": _ar_month_label(months),
-        "duree_mois_fr": _fr_month_label(months),
-        "date_debut": _fmt(session.date_start),
-        "date_fin": _fmt(session.date_end),
-        "date_emission": _fmt(issuance_date or date.today()),
+        "duree_mois_ar": _ar_day_label(days),
+        "duree_mois_fr": _fr_day_label(days),
+        "date_debut": _fmt(session.group_start_date),
+        "date_fin": _fmt(date_fin),
+        "date_emission": _fmt(issuance_date),
         "agrement_num": institute.accreditation_number,
         "if_num": institute.if_number,
     }

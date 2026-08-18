@@ -16,49 +16,38 @@ type in this app.
 from __future__ import annotations
 
 import re
-from datetime import date
+from datetime import date, timedelta
 
 # ---------------------------------------------------------------------------
-# Arabic month-count wording, matching the institute's existing convention
-# ("شهر واحد" for 1, "شهرين" for 2, "N أشهر" beyond that). Diplômante
-# branches can run up to 30 months (Branch.curriculum_max_months),
-# qualifiante up to 6 — this table comfortably covers both.
+# Arabic day-count wording, matching the institute's existing numeral-word
+# convention used elsewhere on the certificate ("شهر واحد" for 1, "شهرين"
+# for 2, etc., mirrored here for days: "يوم واحد" for 1, "يومين" for 2,
+# "N أيام" for 3-10, "N يوما" beyond that).
 # ---------------------------------------------------------------------------
-_AR_MONTHS = {
-    1: "شهر واحد",
-    2: "شهرين",
-    3: "ثلاثة أشهر",
-    4: "أربعة أشهر",
-    5: "خمسة أشهر",
-    6: "ستة أشهر",
-    7: "سبعة أشهر",
-    8: "ثمانية أشهر",
-    9: "تسعة أشهر",
-    10: "عشرة أشهر",
+_AR_DAYS = {
+    1: "يوم واحد",
+    2: "يومين",
+    3: "ثلاثة أيام",
+    4: "أربعة أيام",
+    5: "خمسة أيام",
+    6: "ستة أيام",
+    7: "سبعة أيام",
+    8: "ثمانية أيام",
+    9: "تسعة أيام",
+    10: "عشرة أيام",
 }
 
 
-def _ar_month_label(n: int) -> str:
-    if n in _AR_MONTHS:
-        return _AR_MONTHS[n]
-    return f"{n} أشهر"  # 11+ — plural form, numeral spelled digitally
+def _ar_day_label(n: int) -> str:
+    if n in _AR_DAYS:
+        return _AR_DAYS[n]
+    return f"{n} يوما"  # 11+ — plural form, numeral spelled digitally
 
 
-def _fr_month_label(n: int) -> str:
-    return f"{n:02d} mois"
-
-
-def _months_between(date_start: date, date_end: date) -> int:
-    """Whole-month span used for the 'Durée (Jours)' field, which — per the
-    institute's own template — actually displays a month count rather than
-    a day count for qualifying trainings. Rounds up to the nearest month,
-    minimum 1."""
-    months = (date_end.year - date_start.year) * 12 + (
-        date_end.month - date_start.month
-    )
-    if date_end.day >= date_start.day:
-        months += 1
-    return max(1, months)
+def _fr_day_label(n: int) -> str:
+    if n == 1:
+        return "01 jour"
+    return f"{n:02d} jours"
 
 
 def _parse_certificate_number(certificate_number: str) -> tuple[str, str, str]:
@@ -104,17 +93,19 @@ def build_certificate_data(participant, *, issuance_date: date | None = None) ->
     Requires participant.certificate_number to already be assigned
     (see formations.utils.assign_certificate_number / can_receive_certificate).
 
-    `issuance_date` defaults to the session's own end date — attestations
-    are conventionally drawn up ("حرر ب ... في") the day the training
-    ended, so zone 3 (حرر في) and the month shown in zone 1 (رقم
-    التسلسلي, MOIS_SERIE) both line up with the session's last day
-    (zone 2) rather than with whatever day the document happens to be
-    printed. Override only if the attestation is being redated
+    `issuance_date` defaults to the day after the session group's actual
+    last day (its `group_end_date` — the last generated day, not just the
+    primary/day-1 session's own date_end) — attestations are conventionally
+    drawn up ("حرر ب ... في") the day after the training ended, so zone 3
+    (حرر في) lands one day after the session's last day (zone 2), and the
+    month shown in zone 1 (رقم التسلسلي, MOIS_SERIE) lines up with that
+    same issuance date. Override only if the attestation is being redated
     deliberately.
     """
     session = participant.session
     formation = session.formation
-    issuance_date = issuance_date or session.date_end
+    date_fin = session.group_end_date
+    issuance_date = issuance_date or (date_fin + timedelta(days=1))
 
     annee, mois_serie, num_serie = _parse_certificate_number(
         participant.certificate_number
@@ -122,9 +113,9 @@ def build_certificate_data(participant, *, issuance_date: date | None = None) ->
     # MOIS_SERIE (zone 1's ".../MM ت.ح.ط/...") is displayed here from the
     # issuance date rather than from whatever month the certificate number
     # happened to be allocated under, so it always matches the "حرر في"
-    # date (zone 3) and the session's end date (zone 2).
+    # date (zone 3) and the session's last day (zone 2).
     mois_serie = f"{issuance_date.month:02d}"
-    months = _months_between(session.date_start, session.date_end)
+    days = session.group_duration_days
 
     # CIP_NUM prints the "وبناءا على محضر نهاية التكوين" line, i.e. the
     # session's own PV (محضر مداولات) reference — a separate, monthly-reset
@@ -161,10 +152,10 @@ def build_certificate_data(participant, *, issuance_date: date | None = None) ->
         "SPECIALITE_FR": formation.title,
         "SPECIALITE_AR": formation.title_ar,
         "DUREE_HEURES": str(formation.duration_hours),
-        "DUREE_MOIS_FR": _fr_month_label(months),
-        "DUREE_MOIS_AR": _ar_month_label(months),
-        "DATE_DEBUT": _fmt(session.date_start),
-        "DATE_FIN": _fmt(session.date_end),
+        "DUREE_MOIS_FR": _fr_day_label(days),
+        "DUREE_MOIS_AR": _ar_day_label(days),
+        "DATE_DEBUT": _fmt(session.group_start_date),
+        "DATE_FIN": _fmt(date_fin),
         "DATE_EMISSION": _fmt(issuance_date),
         "AGREMENT_NUM": institute.accreditation_number if institute else "",
         "IF_NUM": institute.if_number if institute else "",
