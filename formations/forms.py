@@ -3,7 +3,15 @@ from decimal import Decimal
 from django import forms
 from django.core.exceptions import ValidationError
 from django.db.models import Sum
-from .models import Formation, Category, Branch, Specialty, Session, Participant, TrainerPayment
+from .models import (
+    Formation,
+    Category,
+    Branch,
+    Specialty,
+    Session,
+    Participant,
+    TrainerPayment,
+)
 from resources.models import Trainer, Room, Equipment, PedagogicalAsset
 from clients.models import Client
 
@@ -47,7 +55,11 @@ class BranchForm(forms.ModelForm):
 
     def clean_abbreviation(self):
         abbr = self.cleaned_data["abbreviation"].upper().strip()
-        if Branch.objects.filter(abbreviation=abbr).exclude(pk=self.instance.pk).exists():
+        if (
+            Branch.objects.filter(abbreviation=abbr)
+            .exclude(pk=self.instance.pk)
+            .exists()
+        ):
             raise ValidationError("Cette abréviation existe déjà.")
         return abbr
 
@@ -121,7 +133,13 @@ class FormationForm(forms.ModelForm):
             "code": forms.TextInput(attrs={"class": "form-control"}),
             "category": forms.Select(attrs={"class": "form-select"}),
             "specialty": forms.Select(attrs={"class": "form-select"}),
-            "description": forms.Textarea(attrs={"class": "form-control", "rows": 4}),
+            "description": forms.Textarea(
+                attrs={
+                    "class": "form-control",
+                    "rows": 4,
+                    "placeholder": "Markdown supporté : **gras**, *italique*, listes, liens...",
+                }
+            ),
             "duration_days": forms.NumberInput(
                 attrs={"class": "form-control", "min": "1"}
             ),
@@ -166,7 +184,11 @@ class FormationForm(forms.ModelForm):
         if not code and not specialty:
             raise ValidationError("Le code est requis en l'absence de spécialité.")
         if code and not specialty:
-            if Formation.objects.filter(code=code).exclude(pk=self.instance.pk).exists():
+            if (
+                Formation.objects.filter(code=code)
+                .exclude(pk=self.instance.pk)
+                .exists()
+            ):
                 raise ValidationError("Ce code existe déjà.")
         return code
 
@@ -254,7 +276,12 @@ class SessionForm(forms.ModelForm):
             ),
             "trainer_cost_mode": forms.Select(attrs={"class": "form-select"}),
             "trainer_cost_percentage": forms.NumberInput(
-                attrs={"class": "form-control", "step": "0.01", "min": "0", "max": "100"}
+                attrs={
+                    "class": "form-control",
+                    "step": "0.01",
+                    "min": "0",
+                    "max": "100",
+                }
             ),
             "trainer_cost_amount": forms.NumberInput(
                 attrs={"class": "form-control", "step": "0.01", "min": "0"}
@@ -276,9 +303,7 @@ class SessionForm(forms.ModelForm):
         self.fields["room"].queryset = Room.objects.filter(is_active=True)
         self.fields["room"].required = False
         self.fields["external_location"].required = False
-        self.fields["equipment"].queryset = Equipment.objects.filter(
-            status="available"
-        )
+        self.fields["equipment"].queryset = Equipment.objects.filter(status="available")
         self.fields["equipment"].required = False
         # committee_members not shown in form; managed separately
         self.fields.pop("committee_members", None)
@@ -292,7 +317,9 @@ class SessionForm(forms.ModelForm):
         # explicit new value from an admin is always honoured). They only
         # make sense once the session (and therefore its documents) exist,
         # and only an admin should be able to override what gets printed.
-        is_admin = bool(user and getattr(user, "profile", None) and user.profile.is_admin())
+        is_admin = bool(
+            user and getattr(user, "profile", None) and user.profile.is_admin()
+        )
         if not self.instance.pk or not is_admin:
             self.fields.pop("pv_number", None)
             self.fields.pop("mission_order_number", None)
@@ -356,12 +383,17 @@ class TrainerPaymentForm(forms.ModelForm):
                 attrs={"class": "form-control", "accept": ".pdf,.jpg,.jpeg,.png,.webp"}
             ),
             "notes": forms.TextInput(
-                attrs={"class": "form-control", "placeholder": "Note interne (optionnel)"}
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "Note interne (optionnel)",
+                }
             ),
         }
 
     def __init__(self, *args, session=None, **kwargs):
-        self.session = session or (kwargs.get("instance").session if kwargs.get("instance") else None)
+        self.session = session or (
+            kwargs.get("instance").session if kwargs.get("instance") else None
+        )
         super().__init__(*args, **kwargs)
         self.fields["reference"].required = False
         self.fields["notes"].required = False
@@ -389,11 +421,12 @@ class TrainerPaymentForm(forms.ModelForm):
         if amount is not None and status == "confirmed" and self.session is not None:
             cost = self.session.trainer_cost
             if cost is not None:
-                others_total = (
-                    self.session.trainer_payments.filter(status="confirmed")
-                    .exclude(pk=self.instance.pk)
-                    .aggregate(s=Sum("amount"))["s"]
-                    or Decimal("0.00")
+                others_total = self.session.trainer_payments.filter(
+                    status="confirmed"
+                ).exclude(pk=self.instance.pk).aggregate(s=Sum("amount"))[
+                    "s"
+                ] or Decimal(
+                    "0.00"
                 )
                 if others_total + amount > cost:
                     remaining = cost - others_total
@@ -561,7 +594,9 @@ class ParticipantForm(forms.ModelForm):
         # participant already exists (Spec §15.2 — never assignable at
         # creation), and only an admin should be able to override what
         # gets printed.
-        is_admin = bool(user and getattr(user, "profile", None) and user.profile.is_admin())
+        is_admin = bool(
+            user and getattr(user, "profile", None) and user.profile.is_admin()
+        )
         if not self.instance.pk or not is_admin:
             self.fields.pop("certificate_number", None)
 

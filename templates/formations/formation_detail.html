@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load static %}
+{% load formations_tags %}
 
 {% block title %}{{ formation.title }} — ISI Gestion Pédagogique{% endblock %}
 {% block extra_head %}<link rel="stylesheet" href="{% static 'formations/css/formations.css' %}" />{% endblock %}
@@ -163,12 +164,12 @@
           <h3>Description</h3>
         </div>
         <div class="isi-card-body">
-          <p style="color:var(--text-primary);line-height:1.7;margin:0;">{{ formation.description }}</p>
+          <div class="formation-description-md" style="color:var(--text-primary);line-height:1.7;">{{ formation.description|markdown }}</div>
           {% if formation.legal_references %}
           <div class="section-divider"></div>
           <div style="font-size:13px;color:var(--text-muted);">
             <div style="font-weight:600;margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px;font-size:11px;">Références légales</div>
-            {{ formation.legal_references }}
+            {{ formation.legal_references|markdown }}
           </div>
           {% endif %}
         </div>

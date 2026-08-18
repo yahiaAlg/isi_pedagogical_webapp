@@ -111,6 +111,7 @@
               <label class="form-label" for="{{ form.description.id_for_label }}">Description</label>
               <textarea id="{{ form.description.id_for_label }}" name="{{ form.description.html_name }}"
                 class="form-control" rows="4" placeholder="Objectifs, contenu, public cible…">{{ form.description.value|default_if_none:'' }}</textarea>
+              <div class="form-text">Markdown supporté : **gras**, *italique*, listes, liens…</div>
             </div>
           </div>
         </div>
@@ -244,6 +245,7 @@
               <textarea id="{{ form.legal_references.id_for_label }}" name="{{ form.legal_references.html_name }}"
                 class="form-control" rows="3"
                 placeholder="Décrets, arrêtés, textes réglementaires…">{{ form.legal_references.value|default_if_none:'' }}</textarea>
+              <div class="form-text">Markdown supporté.</div>
             </div>
           </div>
         </div>

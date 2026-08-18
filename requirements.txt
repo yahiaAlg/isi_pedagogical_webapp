@@ -30,3 +30,5 @@ qrcode[pil]
 
 # Environment variables
 python-dotenv
+
+markdown
