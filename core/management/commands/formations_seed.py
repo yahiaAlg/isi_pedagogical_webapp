@@ -10,6 +10,15 @@ Updated in this revision
   - Mapped Commercial (Vente) to COM (Communication).
   - Linked existing HSE and Informatique formations to the newly added
     2025 changelog specialties.
+  - Linked the generic "à la carte" HSE formations (Premier Secours,
+    Lutte Incendie, Travail en Hauteur, H2S, CPHS, BBS, etc.), which
+    real invoicing data (الحصيلة 2023/2024) books almost exclusively
+    under CIP1202, to that specialty (was previously unlinked).
+  - Linked RH-010 (ISO 9001/14001/45001) and COM-001 (Gestion de
+    Conflits) to TAG0717, and COM-005 (Agent Commercial) to the newly
+    added TAG1204 — all confirmed by real invoicing data.
+  - Added the CIP01Q qualifying-track formation ("Agent HSE — Parcours
+    Qualifiant"), the long-format counterpart to the CIP1202 sessions.
 
 Run
 ───
@@ -193,7 +202,7 @@ FORMATIONS = [
         Decimal("20"),
         3,
         "ISO",
-        None,
+        "TAG0717",
     ),
     (
         "RH-011",
@@ -433,7 +442,7 @@ FORMATIONS = [
         Decimal("20"),
         2,
         "",
-        None,
+        "TAG0717",
     ),
     (
         "COM-002",
@@ -501,7 +510,7 @@ FORMATIONS = [
         Decimal("20"),
         3,
         "",
-        None,
+        "TAG1204",
     ),
     (
         "COM-006",
@@ -758,7 +767,7 @@ FORMATIONS = [
         Decimal("20"),
         2,
         "",
-        None,
+        "CIP1202",
     ),
     (
         "HSE-005",
@@ -775,7 +784,7 @@ FORMATIONS = [
         Decimal("20"),
         2,
         "",
-        None,
+        "CIP1202",
     ),
     (
         "HSE-006",
@@ -792,7 +801,7 @@ FORMATIONS = [
         Decimal("20"),
         2,
         "",
-        None,
+        "CIP1202",
     ),
     (
         "HSE-007",
@@ -809,7 +818,7 @@ FORMATIONS = [
         Decimal("20"),
         2,
         "",
-        None,
+        "CIP1202",
     ),
     (
         "HSE-008",
@@ -826,7 +835,7 @@ FORMATIONS = [
         Decimal("20"),
         2,
         "",
-        None,
+        "CIP1202",
     ),
     (
         "HSE-009",
@@ -911,7 +920,7 @@ FORMATIONS = [
         Decimal("20"),
         1,
         "",
-        None,
+        "CIP1202",
     ),
     (
         "HSE-014",
@@ -928,7 +937,7 @@ FORMATIONS = [
         Decimal("20"),
         1,
         "",
-        None,
+        "CIP1202",
     ),
     (
         "HSE-015",
@@ -945,7 +954,7 @@ FORMATIONS = [
         Decimal("20"),
         2,
         "",
-        None,
+        "CIP1202",
     ),
     (
         "HSE-016",
@@ -979,7 +988,7 @@ FORMATIONS = [
         Decimal("20"),
         1,
         "",
-        None,
+        "CIP1202",
     ),
     (
         "HSE-018",
@@ -1065,6 +1074,23 @@ FORMATIONS = [
         2,
         "",
         "MIC1901",
+    ),
+    (
+        "CIP01Q",
+        "Agent HSE — Parcours Qualifiant",
+        "HSE",
+        180,
+        680,
+        5,
+        20,
+        Decimal("0"),
+        "both",
+        True,
+        Decimal("10"),
+        Decimal("20"),
+        150,
+        "",
+        "CIP01Q",
     ),
     # ── NEW from invoices ───────────────────────────────────────────────
     (

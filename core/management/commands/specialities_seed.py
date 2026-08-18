@@ -8,6 +8,12 @@ Updated for Nomenclature 2025 (Version Finale)
   - Added ALL new specialties from the 2025 changelog for:
     • HSE & Related branches (ELE, MEE, CIP, CMS, MME, INP)
     • Informatique branch (INT)
+  - Cross-checked against Nomenclature 2019 + CHANGEMENTS_OPERES_VERSION_
+    FINALE (2025) and real invoicing data (الحصيلة 2023/2024):
+    • Fixed CIP1202 and MIC1901, which were seeded with the branch's own
+      name instead of their real specialty title.
+    • Added TAG1204 (Conseiller de vente) and CIP01Q (custom qualifying
+      track), both referenced in real invoices but previously missing.
 
 Run
 ───
@@ -24,14 +30,28 @@ SPECIALTIES = {
     "CIP1202": dict(
         branch_abbr="CIP",
         code="1202",
-        title="Chimie Industrielle et Plasturgie",
-        title_ar="الكيمياء الصناعية والبلاستيك",
+        # Fixed: was mislabelled with the branch's own name. Per Nomenclature
+        # 2019 (p.32, n°16) CIP1202 is "Hygiène, sécurité et environnement" —
+        # this is confirmed by real invoicing data (الحصيلة 2023/2024), where
+        # nearly every HSE à-la-carte session (secourisme, ATEX, habilitation
+        # électrique/chimique, chariots élévateurs, CPHS, etc.) is booked
+        # under CIP1202. Per CHANGEMENTS_OPERES_VERSION_FINALE (2025), this
+        # specialty was formally transferred to the MEE branch and renumbered
+        # MEE2512 "Propreté, Sécurité et Environnement" (already seeded
+        # below); CIP1202 is kept here for continuity with historical/active
+        # invoicing which still references it.
+        title="Hygiène, Sécurité et Environnement",
+        title_ar="النظافة، الأمن والبيئة",
     ),
     "MIC1901": dict(
         branch_abbr="MIC",
         code="1901",
-        title="Mines et Carrières",
-        title_ar="المناجم والمحاجر",
+        # Fixed: was mislabelled with the branch's own name. Nomenclature
+        # 2019 (p.64, n°2) titled it "Hygiène et sécurité minières"; the 2025
+        # changelog (CHANGEMENTS_OPERES_VERSION_FINALE, branche المناجم
+        # والمحاجر) renamed it to "الوقاية، الأمن المنجمي و البيئة".
+        title="Prévention, Sécurité Minière et Environnement",
+        title_ar="الوقاية، الأمن المنجمي والبيئة",
     ),
     "ELE01Q": dict(
         branch_abbr="ELE",
@@ -50,6 +70,18 @@ SPECIALTIES = {
         code="1202",
         title="Cariste",
         title_ar="سائق الرافعات الشوكية",
+    ),
+    "CIP01Q": dict(
+        branch_abbr="CIP",
+        code="01Q",
+        # Added: custom institute-created qualifying-track code (same "Q"
+        # pattern as ELE01Q/ELE02Q, i.e. not an official nomenclature code).
+        # Confirmed in الحصيلة 2023 ("Qualifiante" / CIP01Q, ~6-month cycle,
+        # formateur Laouarem Abdelmoumene) — the long-format diploma-track
+        # counterpart to the short "à la carte" HSE sessions booked under
+        # CIP1202.
+        title="Agent HSE (Parcours Qualifiant)",
+        title_ar="عون الأمن الصناعي والبيئة (مسار تأهيلي)",
     ),
     # ── Estimated Specialties from Nomenclature 2019/2025 ───────────────
     "BTP0724": dict(
@@ -93,6 +125,14 @@ SPECIALTIES = {
         code="0717",
         title="Gestion des ressources humaines",
         title_ar="تسيير الموارد البشرية",
+    ),
+    "TAG1204": dict(
+        branch_abbr="TAG",
+        code="1204",
+        # Added: referenced in real invoicing (الحصيلة 2024 — "Agent
+        # commercial" à la carte session). Nomenclature 2019 (p.72, n°9).
+        title="Conseiller de vente",
+        title_ar="مستشار البيع",
     ),
     "TAG0712": dict(
         branch_abbr="TAG", code="0712", title="Marketing", title_ar="التسويق"
