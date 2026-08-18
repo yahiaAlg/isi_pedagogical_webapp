@@ -728,7 +728,9 @@ def session_list(request):
 @login_required
 def session_detail(request, pk):
     session = get_object_or_404(Session, pk=pk)
-    participants = session.participant_set.order_by("last_name", "first_name")
+    # Registration order (first participant added shows first), matching
+    # the order attestation numbers are handed out in — not alphabetical.
+    participants = session.participant_set.order_by("created_at", "pk")
     child_sessions = []
     if session.is_primary:
         child_sessions = list(
@@ -1324,7 +1326,20 @@ def session_scores(request, pk):
         )
         target = session.parent_session or session
         return redirect("formations:session_scores", pk=target.pk)
+    # Once the session has left planned/in_progress (i.e. terminated —
+    # completed/cancelled/archived), the day marks are final: validate_
+    # session_transition already requires them to be filled in before the
+    # move to "completed", so editing afterward would silently invalidate
+    # a status that was only reachable because these values were correct.
+    read_only = session.status not in ["planned", "in_progress"]
     if request.method == "POST":
+        if read_only:
+            messages.error(
+                request,
+                "Cette session est terminée : les notes théorique/pratique "
+                "ne sont plus modifiables.",
+            )
+            return redirect("formations:session_detail", pk=pk)
         form = ScoreForm(request.POST, session=session)
         if form.is_valid():
             eval_type = session.formation.evaluation_type
@@ -1341,7 +1356,9 @@ def session_scores(request, pk):
     else:
         form = ScoreForm(session=session)
     return render(
-        request, "formations/session_scores.html", {"form": form, "session": session}
+        request,
+        "formations/session_scores.html",
+        {"form": form, "session": session, "read_only": read_only},
     )
 
 

@@ -253,9 +253,13 @@ def print_batch_attestations(request, session_pk):
     if not request.user.profile.can_generate_documents():
         raise PermissionDenied()
 
+    # Certificate numbers are handed out in registration order (first
+    # participant added to the session gets the lowest number, and so
+    # on) rather than alphabetically — the counter increases "as per the
+    # order of that participant", not by name.
     passed = [
         p
-        for p in session.participant_set.order_by("last_name", "first_name")
+        for p in session.participant_set.order_by("created_at", "pk")
         if p.result == "passed" and session.formation.produces_certificate
     ]
 

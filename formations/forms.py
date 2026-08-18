@@ -510,6 +510,14 @@ class ParticipantForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields["employer_client"].queryset = Client.objects.filter(is_active=True)
         self.fields["employer_client"].required = False
+        # New participant: default their employer to the client the
+        # session was booked for (still fully editable/clearable — this
+        # is only a starting value, e.g. for an inter-entreprise session
+        # with participants from elsewhere).
+        if not self.instance.pk and self.session and self.session.client_id:
+            self.fields["employer_client"].initial = self.session.client_id
+            if not self.initial.get("employer"):
+                self.fields["employer"].initial = self.session.client.name
 
     def clean(self):
         cleaned_data = super().clean()
@@ -653,6 +661,16 @@ class ScoreForm(forms.Form):
             max_score = float(self.session.formation.max_score)
             for participant in self.session.participant_set.all():
                 if eval_type in ["theory_only", "both"]:
+                    # Single-criterion (theory_only) formations: if the day
+                    # mark was never entered but a final exam score already
+                    # was (e.g. entered directly via the "Examen" page),
+                    # show that as the starting value instead of blank —
+                    # it's the same underlying assessment for a theory_only
+                    # formation. "both" formations keep no fallback since
+                    # the exam score can't be unambiguously split in two.
+                    theory_initial = participant.score_theory
+                    if theory_initial is None and eval_type == "theory_only":
+                        theory_initial = participant.exam_score
                     self.fields[f"theory_{participant.id}"] = forms.DecimalField(
                         label=f"{participant.full_name} - Théorique",
                         max_digits=5,
@@ -660,12 +678,15 @@ class ScoreForm(forms.Form):
                         min_value=0,
                         max_value=max_score,
                         required=False,
-                        initial=participant.score_theory,
+                        initial=theory_initial,
                         widget=forms.NumberInput(
                             attrs={"class": "form-control", "step": "0.25"}
                         ),
                     )
                 if eval_type in ["practice_only", "both"]:
+                    practice_initial = participant.score_practice
+                    if practice_initial is None and eval_type == "practice_only":
+                        practice_initial = participant.exam_score
                     self.fields[f"practice_{participant.id}"] = forms.DecimalField(
                         label=f"{participant.full_name} - Pratique",
                         max_digits=5,
@@ -673,7 +694,7 @@ class ScoreForm(forms.Form):
                         min_value=0,
                         max_value=max_score,
                         required=False,
-                        initial=participant.score_practice,
+                        initial=practice_initial,
                         widget=forms.NumberInput(
                             attrs={"class": "form-control", "step": "0.25"}
                         ),

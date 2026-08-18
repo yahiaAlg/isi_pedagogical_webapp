@@ -316,6 +316,49 @@
     if (attAuto && attInput) attInput.value = days;
   });
 })();
+
+// ── Code = initials of Titre (FR) ────────────────────────────────────────
+// Auto-fills Code with the uppercase initials of each word in the latin
+// title (e.g. "Application Web Avancée" → "AWA"), as long as the user
+// hasn't typed into Code themselves.
+(function () {
+  const titleInput = document.getElementById("{{ form.title.id_for_label }}");
+  const codeInput  = document.getElementById("{{ form.code.id_for_label }}");
+  if (!titleInput || !codeInput) return;
+
+  let codeAuto = !codeInput.value;
+  codeInput.addEventListener("input", function () { codeAuto = false; });
+
+  titleInput.addEventListener("input", function () {
+    if (!codeAuto) return;
+    const initials = titleInput.value
+      .trim()
+      .split(/[\s-]+/)
+      .filter(Boolean)
+      .map(function (w) { return w.charAt(0).toUpperCase(); })
+      .join("");
+    codeInput.value = initials;
+  });
+})();
+
+// ── Note de passage = note maximale ÷ 2 ──────────────────────────────────
+// Note maximale is pre-populated at 20; Note de passage auto-tracks half
+// of it until the user edits Note de passage directly.
+(function () {
+  const maxInput     = document.getElementById("{{ form.max_score.id_for_label }}");
+  const passingInput = document.getElementById("{{ form.passing_score.id_for_label }}");
+  if (!maxInput || !passingInput) return;
+
+  let passingAuto = true;
+  passingInput.addEventListener("input", function () { passingAuto = false; });
+
+  maxInput.addEventListener("input", function () {
+    if (!passingAuto) return;
+    const max = parseFloat(maxInput.value);
+    if (!max || max <= 0) return;
+    passingInput.value = max / 2;
+  });
+})();
 </script>
 {% endif %}
 <script src="{% static 'formations/js/formations.js' %}"></script>

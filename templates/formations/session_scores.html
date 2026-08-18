@@ -32,10 +32,17 @@
     <div class="isi-card-body" style="padding:12px 24px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
       <span class="isi-badge gray">Évaluation : {{ session.formation.get_evaluation_type_display }}</span>
       <span class="isi-badge gray">Seuil : {{ session.formation.passing_score }} / 20</span>
+      {% if read_only %}
+      <span style="font-size:12px;color:var(--text-muted);">
+        <i class="bi bi-lock-fill" style="color:var(--text-muted);"></i>
+        Session terminée — notes en lecture seule.
+      </span>
+      {% else %}
       <span style="font-size:12px;color:var(--text-muted);">
         <i class="bi bi-info-circle-fill" style="color:var(--accent);"></i>
         Renseignez les notes puis cliquez sur « Enregistrer toutes les notes ».
       </span>
+      {% endif %}
     </div>
   </div>
 
@@ -90,7 +97,8 @@
               <input type="number" min="0" max="20" step="0.5"
                 name="theory_{{ participant.id }}"
                 class="form-control score-input"
-                value="{{ participant.score_theory|default_if_none:'' }}"
+                value="{% if participant.score_theory is not None %}{{ participant.score_theory }}{% elif session.formation.evaluation_type == 'theory_only' and participant.exam_score is not None %}{{ participant.exam_score }}{% endif %}"
+                {% if read_only %}disabled{% endif %}
                 style="width:72px;text-align:center;padding:6px 10px;display:inline-block;" />
             </div>
             {% else %}
@@ -107,7 +115,8 @@
               <input type="number" min="0" max="20" step="0.5"
                 name="practice_{{ participant.id }}"
                 class="form-control score-input"
-                value="{{ participant.score_practice|default_if_none:'' }}"
+                value="{% if participant.score_practice is not None %}{{ participant.score_practice }}{% elif session.formation.evaluation_type == 'practice_only' and participant.exam_score is not None %}{{ participant.exam_score }}{% endif %}"
+                {% if read_only %}disabled{% endif %}
                 style="width:72px;text-align:center;padding:6px 10px;display:inline-block;" />
             </div>
             {% else %}
@@ -137,11 +146,13 @@
 
         {% if session.participant_set.exists %}
         <div style="padding:16px 24px;border-top:1px solid var(--card-border);display:flex;gap:12px;flex-wrap:wrap;">
+          {% if not read_only %}
           <button type="submit" class="btn btn-amber">
             <i class="bi bi-check-lg"></i> Enregistrer toutes les notes
           </button>
+          {% endif %}
           <a href="{% url 'formations:session_detail' session.pk %}" class="btn btn-ghost">
-            <i class="bi bi-arrow-left"></i> Retour sans enregistrer
+            <i class="bi bi-arrow-left"></i> Retour{% if not read_only %} sans enregistrer{% endif %}
           </a>
         </div>
         {% endif %}
