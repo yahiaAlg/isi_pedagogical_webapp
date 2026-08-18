@@ -357,6 +357,20 @@ class Command(BaseCommand):
                 "capacity": formation.max_participants,
                 "status": "completed",
                 "session_number": entry["doc_reference"],
+                # Hard-code the REAL PV number transcribed from the paper
+                # nominal list/PV document, instead of leaving pv_number
+                # blank. Left blank, the first time anyone prints this
+                # historical session's nominal list/deliberation report,
+                # Session.assign_pv_number() would silently mint a BRAND
+                # NEW number off today's active monthly counter — showing
+                # a number that never matches the paper original. Setting
+                # it here on creation is exactly the same hard-coding
+                # path as the session edit form (Session.save() only
+                # protects against pv_number being CLEARED, not set), so
+                # assign_pv_number() will see it already has a value and
+                # skip straight to reusing it, exactly like a normal
+                # user-confirmed override.
+                "pv_number": entry["doc_reference"],
                 "is_primary": True,
             },
         )
