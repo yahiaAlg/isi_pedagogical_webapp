@@ -355,7 +355,7 @@ class Command(BaseCommand):
                 "location_type": "on_site",
                 "external_location": client.name,
                 "capacity": formation.max_participants,
-                "status": "completed",
+                "status": "planned",
                 "session_number": entry["doc_reference"],
                 # Hard-code the REAL PV number transcribed from the paper
                 # nominal list/PV document, instead of leaving pv_number
