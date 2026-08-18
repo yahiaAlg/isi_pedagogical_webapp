@@ -153,7 +153,16 @@ class HotEvaluationForm(forms.ModelForm):
 
 class EmployeeMissionOrderForm(forms.ModelForm):
     """Global (session-independent) ordre de mission for a non-formateur
-    employee — filled directly on the quick-access page."""
+    employee — filled directly on the quick-access page.
+
+    `archive_number` is the hard-coded override for this order's N°
+    d'archivage — see EmployeeMissionOrder.save()'s relaxed protection
+    (clearing is blocked, an explicit new value from an admin is always
+    honoured). Only shown when editing an existing order (a brand-new one
+    has no number yet — it's auto-assigned on first print, same as
+    Session.pv_number / Participant.certificate_number) and only to
+    admins.
+    """
 
     class Meta:
         model = EmployeeMissionOrder
@@ -167,6 +176,7 @@ class EmployeeMissionOrderForm(forms.ModelForm):
             "time_start",
             "date_end",
             "transport_means",
+            "archive_number",
         ]
         widgets = {
             "employee_name": forms.TextInput(attrs={"class": "form-control"}),
@@ -184,4 +194,17 @@ class EmployeeMissionOrderForm(forms.ModelForm):
                 attrs={"class": "form-control", "type": "date"}
             ),
             "transport_means": forms.Select(attrs={"class": "form-select"}),
+            "archive_number": forms.TextInput(
+                attrs={"class": "form-control", "style": "font-family:monospace;"}
+            ),
         }
+
+    def __init__(self, *args, **kwargs):
+        user = kwargs.pop("user", None)
+        super().__init__(*args, **kwargs)
+        self.fields["archive_number"].required = False
+        is_admin = bool(
+            user and getattr(user, "profile", None) and user.profile.is_admin()
+        )
+        if not self.instance.pk or not is_admin:
+            self.fields.pop("archive_number", None)

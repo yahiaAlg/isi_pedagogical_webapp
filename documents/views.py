@@ -414,7 +414,7 @@ def employee_mission_order_list_view(request):
         raise PermissionDenied()
 
     if request.method == "POST":
-        form = EmployeeMissionOrderForm(request.POST)
+        form = EmployeeMissionOrderForm(request.POST, user=request.user)
         if form.is_valid():
             order = form.save(commit=False)
             order.created_by = request.user
@@ -423,11 +423,41 @@ def employee_mission_order_list_view(request):
             order.assign_archive_number()
             return redirect("documents:print_employee_mission_order", pk=order.pk)
     else:
-        form = EmployeeMissionOrderForm()
+        form = EmployeeMissionOrderForm(user=request.user)
 
     orders = EmployeeMissionOrder.objects.select_related("created_by").all()[:100]
     return render(
         request,
         "documents/employee_mission_order_list.html",
         {"form": form, "orders": orders},
+    )
+
+
+@login_required
+def employee_mission_order_edit_view(request, pk):
+    """Edit an existing standalone employee mission order — the only way
+    to reach `archive_number` (admin-only field, see
+    EmployeeMissionOrderForm), so an admin can hard-code/override its N°
+    d'archivage the same way Session.pv_number / mission_order_number and
+    Participant.certificate_number can be overridden from their own edit
+    forms. Regular fields stay editable here too."""
+    order = get_object_or_404(EmployeeMissionOrder, pk=pk)
+    if not request.user.profile.can_generate_documents():
+        raise PermissionDenied()
+
+    if request.method == "POST":
+        form = EmployeeMissionOrderForm(request.POST, instance=order, user=request.user)
+        if form.is_valid():
+            order = form.save()
+            messages.success(
+                request, f"Ordre de mission « {order.employee_name} » modifié."
+            )
+            return redirect("documents:employee_mission_order_list")
+    else:
+        form = EmployeeMissionOrderForm(instance=order, user=request.user)
+
+    return render(
+        request,
+        "documents/employee_mission_order_form.html",
+        {"form": form, "order": order},
     )

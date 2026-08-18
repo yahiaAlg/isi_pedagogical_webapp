@@ -223,6 +223,22 @@ class EmployeeMissionOrder(models.Model):
     def __str__(self):
         return f"{self.archive_number or '—'} — {self.employee_name}"
 
+    def save(self, *args, **kwargs):
+        if self.pk:
+            # Protect archive_number from being silently CLEARED by an
+            # unrelated save once assigned — same relaxed rule as
+            # Session.pv_number / Participant.certificate_number: only
+            # blanking is blocked, an admin explicitly typing a NEW value
+            # (hard-coding it via the edit form) is always honoured.
+            old_archive_number = (
+                EmployeeMissionOrder.objects.filter(pk=self.pk)
+                .values_list("archive_number", flat=True)
+                .first()
+            )
+            if old_archive_number and not self.archive_number:
+                self.archive_number = old_archive_number
+        super().save(*args, **kwargs)
+
     def clean(self):
         if self.date_start and self.date_end and self.date_end < self.date_start:
             raise ValidationError(

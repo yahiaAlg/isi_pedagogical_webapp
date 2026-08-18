@@ -212,6 +212,8 @@ class SessionForm(forms.ModelForm):
             "capacity",
             "specialty_code",
             "session_number",
+            "pv_number",
+            "mission_order_number",
             "base_price",
             "price_mode",
             "invoice_reference",
@@ -237,6 +239,12 @@ class SessionForm(forms.ModelForm):
             "capacity": forms.NumberInput(attrs={"class": "form-control", "min": "1"}),
             "specialty_code": forms.TextInput(attrs={"class": "form-control"}),
             "session_number": forms.TextInput(attrs={"class": "form-control"}),
+            "pv_number": forms.TextInput(
+                attrs={"class": "form-control", "style": "font-family:monospace;"}
+            ),
+            "mission_order_number": forms.TextInput(
+                attrs={"class": "form-control", "style": "font-family:monospace;"}
+            ),
             "base_price": forms.NumberInput(
                 attrs={"class": "form-control", "step": "0.01", "min": "0"}
             ),
@@ -254,6 +262,11 @@ class SessionForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        # `user` is only used to gate the pv_number/mission_order_number
+        # hard-coding fields to admins — never required by callers that
+        # don't need that check (e.g. session_create, which never shows
+        # them anyway since the session doesn't exist yet).
+        user = kwargs.pop("user", None)
         super().__init__(*args, **kwargs)
         self.fields["formation"].queryset = Formation.objects.filter(is_active=True)
         self.fields["client"].queryset = Client.objects.filter(is_active=True)
@@ -269,6 +282,20 @@ class SessionForm(forms.ModelForm):
         self.fields["equipment"].required = False
         # committee_members not shown in form; managed separately
         self.fields.pop("committee_members", None)
+
+        self.fields["pv_number"].required = False
+        self.fields["mission_order_number"].required = False
+
+        # pv_number / mission_order_number are the hard-coded overrides for
+        # this session's PV and ordre de mission numbers — see
+        # Session.save()'s relaxed protection (clearing is blocked, an
+        # explicit new value from an admin is always honoured). They only
+        # make sense once the session (and therefore its documents) exist,
+        # and only an admin should be able to override what gets printed.
+        is_admin = bool(user and getattr(user, "profile", None) and user.profile.is_admin())
+        if not self.instance.pk or not is_admin:
+            self.fields.pop("pv_number", None)
+            self.fields.pop("mission_order_number", None)
 
         if self.instance.pk and self.instance.formation_id:
             self.fields["capacity"].initial = self.instance.formation.max_participants
@@ -474,6 +501,7 @@ class ParticipantForm(forms.ModelForm):
             "email",
             "notes",
             "qr_payload",
+            "certificate_number",
         ]
         widgets = {
             "first_name": forms.TextInput(attrs={"class": "form-control"}),
@@ -503,13 +531,20 @@ class ParticipantForm(forms.ModelForm):
                     "placeholder": "Laisser vide pour le lien de vérification par défaut",
                 }
             ),
+            "certificate_number": forms.TextInput(
+                attrs={"class": "form-control", "style": "font-family:monospace;"}
+            ),
         }
 
     def __init__(self, *args, **kwargs):
         self.session = kwargs.pop("session", None)
+        # `user` is only used to gate the certificate_number hard-coding
+        # field to admins — see ParticipantForm docstring below.
+        user = kwargs.pop("user", None)
         super().__init__(*args, **kwargs)
         self.fields["employer_client"].queryset = Client.objects.filter(is_active=True)
         self.fields["employer_client"].required = False
+        self.fields["certificate_number"].required = False
         # New participant: default their employer to the client the
         # session was booked for (still fully editable/clearable — this
         # is only a starting value, e.g. for an inter-entreprise session
@@ -518,6 +553,17 @@ class ParticipantForm(forms.ModelForm):
             self.fields["employer_client"].initial = self.session.client_id
             if not self.initial.get("employer"):
                 self.fields["employer"].initial = self.session.client.name
+
+        # certificate_number is the hard-coded override for this
+        # participant's attestation number — see Participant.save()'s
+        # relaxed protection (clearing is blocked, an explicit new value
+        # from an admin is always honoured). Only makes sense once the
+        # participant already exists (Spec §15.2 — never assignable at
+        # creation), and only an admin should be able to override what
+        # gets printed.
+        is_admin = bool(user and getattr(user, "profile", None) and user.profile.is_admin())
+        if not self.instance.pk or not is_admin:
+            self.fields.pop("certificate_number", None)
 
     def clean(self):
         cleaned_data = super().clean()

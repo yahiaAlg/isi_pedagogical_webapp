@@ -79,6 +79,11 @@ urlpatterns = [
         name="employee_mission_order_list",
     ),
     path(
+        "mission-orders/employees/<int:pk>/edit/",
+        views.employee_mission_order_edit_view,
+        name="employee_mission_order_edit",
+    ),
+    path(
         "mission-orders/employees/<int:pk>/print/",
         views_print.print_employee_mission_order,
         name="print_employee_mission_order",

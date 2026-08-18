@@ -497,24 +497,28 @@ class Session(models.Model):
         if not self.capacity:
             self.capacity = self.formation.max_participants
         if self.pk:
-            # Protect pv_number from being changed/cleared once assigned —
-            # same rule as Participant.certificate_number.
+            # Protect pv_number / mission_order_number from being silently
+            # CLEARED by an unrelated save (e.g. some other field being
+            # edited) once assigned — same rule as
+            # Participant.certificate_number. This only guards against
+            # accidental blanking; an admin explicitly typing a NEW value
+            # (hard-coding it via the session edit form — see
+            # SessionForm/session_detail "Numérotation") is always
+            # honoured, so the session stays the single source of truth
+            # for what actually gets printed on its documents.
             old_pv_number = (
                 Session.objects.filter(pk=self.pk)
                 .values_list("pv_number", flat=True)
                 .first()
             )
-            if old_pv_number and self.pv_number != old_pv_number:
+            if old_pv_number and not self.pv_number:
                 self.pv_number = old_pv_number
             old_mission_order_number = (
                 Session.objects.filter(pk=self.pk)
                 .values_list("mission_order_number", flat=True)
                 .first()
             )
-            if (
-                old_mission_order_number
-                and self.mission_order_number != old_mission_order_number
-            ):
+            if old_mission_order_number and not self.mission_order_number:
                 self.mission_order_number = old_mission_order_number
         super().save(*args, **kwargs)
 
@@ -1021,15 +1025,20 @@ class Participant(models.Model):
 
     def save(self, *args, **kwargs):
         if self.pk:
-            # Protect certificate_number from being changed once assigned
+            # Protect certificate_number from being silently CLEARED by an
+            # unrelated save once assigned. This only guards against
+            # accidental blanking; an admin explicitly typing a NEW value
+            # (hard-coding it via the participant edit form — see
+            # ParticipantForm) is always honoured, same relaxed rule as
+            # Session.pv_number above.
             old = Participant.objects.get(pk=self.pk)
-            if (
-                old.certificate_number
-                and self.certificate_number != old.certificate_number
-            ):
+            if old.certificate_number and not self.certificate_number:
                 self.certificate_number = old.certificate_number
         else:
-            # Spec §15.2 — certificate number never assignable through a form
+            # Spec §15.2 — certificate number never assignable at CREATE
+            # time through a form (a brand-new participant has no result
+            # yet); it only becomes hard-codable once the participant
+            # already exists — see ParticipantForm.
             self.certificate_number = ""
         super().save(*args, **kwargs)
 

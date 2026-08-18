@@ -259,6 +259,39 @@
               </div>
             </div>
 
+            {% if form.pv_number %}
+            <!-- ── Numérotation (admin) ──────────────────────── -->
+            <div class="section-divider"></div>
+            <div class="form-section-title">
+              Numérotation de cette session
+              <span style="font-size:12px;font-weight:400;color:var(--text-muted);">(admin — laisser tel quel pour la numérotation automatique)</span>
+            </div>
+            <div class="row g-3">
+              <div class="col-sm-6">
+                <label class="form-label" for="{{ form.pv_number.id_for_label }}">Numéro PV (محضر مداولات)</label>
+                <input type="text" id="{{ form.pv_number.id_for_label }}" name="{{ form.pv_number.html_name }}"
+                  value="{{ form.pv_number.value|default_if_none:'' }}"
+                  class="form-control {% if form.pv_number.errors %}is-invalid{% endif %}"
+                  placeholder="Ex : TAG0717-006/07/2026" style="font-family:monospace;" />
+                {% if form.pv_number.errors %}<div class="invalid-feedback d-block">{{ form.pv_number.errors|join:", " }}</div>{% endif %}
+                <div style="font-size:11.5px;color:var(--text-muted);margin-top:4px;">
+                  Vide au premier enregistrement, puis auto-attribué au premier impression de la liste nominale ou du PV. Modifiable ici à tout moment pour forcer un numéro précis — le prochain document imprimé affichera immédiatement cette valeur.
+                </div>
+              </div>
+              <div class="col-sm-6">
+                <label class="form-label" for="{{ form.mission_order_number.id_for_label }}">Numéro d'ordre de mission</label>
+                <input type="text" id="{{ form.mission_order_number.id_for_label }}" name="{{ form.mission_order_number.html_name }}"
+                  value="{{ form.mission_order_number.value|default_if_none:'' }}"
+                  class="form-control {% if form.mission_order_number.errors %}is-invalid{% endif %}"
+                  placeholder="Ex : 042/2026" style="font-family:monospace;" />
+                {% if form.mission_order_number.errors %}<div class="invalid-feedback d-block">{{ form.mission_order_number.errors|join:", " }}</div>{% endif %}
+                <div style="font-size:11.5px;color:var(--text-muted);margin-top:4px;">
+                  Même principe — auto-attribué à la première impression, mais modifiable ici à tout moment.
+                </div>
+              </div>
+            </div>
+            {% endif %}
+
             <!-- ── Tarification ─────────────────────────────── -->
             <div class="section-divider"></div>
             <div class="form-section-title">

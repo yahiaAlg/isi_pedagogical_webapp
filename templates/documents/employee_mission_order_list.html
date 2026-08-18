@@ -76,6 +76,12 @@
                 <td>{{ order.date_start|date:"d/m/Y" }}</td>
                 <td>{{ order.date_end|date:"d/m/Y" }}</td>
                 <td class="text-end">
+                  {% if request.user.profile.is_admin %}
+                  <a href="{% url 'documents:employee_mission_order_edit' order.pk %}"
+                     class="topbar-btn" title="Modifier">
+                    <i class="bi bi-pencil-fill"></i>
+                  </a>
+                  {% endif %}
                   <a href="{% url 'documents:print_employee_mission_order' order.pk %}"
                      class="topbar-btn" target="_blank">
                     <i class="bi bi-printer"></i> Imprimer

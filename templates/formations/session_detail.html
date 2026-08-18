@@ -782,6 +782,21 @@
           </a>
         </div>
         <div class="isi-card-body">
+          {% if session.pv_number or session.mission_order_number %}
+          <div style="display:flex;flex-wrap:wrap;gap:8px 20px;margin-bottom:14px;font-size:12.5px;">
+            {% if session.pv_number %}
+            <div><span style="color:var(--text-muted);">Numéro PV :</span> <code>{{ session.pv_number }}</code></div>
+            {% endif %}
+            {% if session.mission_order_number %}
+            <div><span style="color:var(--text-muted);">Ordre de mission :</span> <code>{{ session.mission_order_number }}</code></div>
+            {% endif %}
+            {% if request.user.profile.is_admin and request.user.profile.can_manage_sessions %}
+            <a href="{% url 'formations:session_edit' session.pk %}#{{ 'id_pv_number' }}" class="btn btn-ghost btn-sm" style="padding:0 8px;height:22px;line-height:20px;">
+              <i class="bi bi-pencil-fill"></i> Forcer un numéro
+            </a>
+            {% endif %}
+          </div>
+          {% endif %}
           {% with has_participants=participants|length %}
 
           <div class="doc-row">

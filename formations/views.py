@@ -1102,7 +1102,7 @@ def session_edit(request, pk):
         )
         return redirect("formations:session_detail", pk=pk)
     if request.method == "POST":
-        form = SessionForm(request.POST, instance=session)
+        form = SessionForm(request.POST, instance=session, user=request.user)
         if form.is_valid():
             confirmed = request.POST.get("confirm_conflicts") == "1"
             conflicts = check_scheduling_conflicts(
@@ -1132,7 +1132,7 @@ def session_edit(request, pk):
             messages.success(request, f'Session "{session.reference}" modifiée.')
             return redirect("formations:session_detail", pk=session.pk)
     else:
-        form = SessionForm(instance=session)
+        form = SessionForm(instance=session, user=request.user)
     return render(
         request,
         "formations/session_form.html",
@@ -1521,13 +1521,15 @@ def participant_edit(request, pk):
         )
         return redirect("formations:session_detail", pk=session.pk)
     if request.method == "POST":
-        form = ParticipantForm(request.POST, instance=participant, session=session)
+        form = ParticipantForm(
+            request.POST, instance=participant, session=session, user=request.user
+        )
         if form.is_valid():
             participant = form.save()
             messages.success(request, f'Participant "{participant.full_name}" modifié.')
             return redirect("formations:session_detail", pk=session.pk)
     else:
-        form = ParticipantForm(instance=participant, session=session)
+        form = ParticipantForm(instance=participant, session=session, user=request.user)
     return render(
         request,
         "formations/participant_form.html",

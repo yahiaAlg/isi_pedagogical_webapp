@@ -190,6 +190,24 @@
                 placeholder="Remarques, observations…">{{ form.notes.value|default_if_none:'' }}</textarea>
             </div>
 
+            {% if form.certificate_number %}
+            <!-- ── Numérotation attestation (admin) ─────────── -->
+            <div class="section-divider"></div>
+            <div class="form-section-title">
+              Numéro de certificat
+              <span style="font-size:12px;font-weight:400;color:var(--text-muted);">(admin — laisser tel quel pour la numérotation automatique)</span>
+            </div>
+            <div class="mb-4">
+              <label class="form-label" for="{{ form.certificate_number.id_for_label }}">Numéro d'attestation</label>
+              <input type="text" id="{{ form.certificate_number.id_for_label }}" name="{{ form.certificate_number.html_name }}"
+                value="{{ form.certificate_number.value|default_if_none:'' }}"
+                class="form-control {% if form.certificate_number.errors %}is-invalid{% endif %}"
+                placeholder="Ex : 2026/07 ت.ح.ط /003" style="font-family:monospace;" />
+              {% if form.certificate_number.errors %}<div class="invalid-feedback d-block">{{ form.certificate_number.errors|join:", " }}</div>{% endif %}
+              <small class="text-muted">Vide jusqu'à la première impression de l'attestation, puis auto-attribué. Modifiable ici à tout moment pour forcer un numéro précis — la prochaine impression affichera immédiatement cette valeur.</small>
+            </div>
+            {% endif %}
+
             <!-- ── Attestation QR code ────────────────────── -->
             <div class="section-divider"></div>
             <div class="form-section-title">QR code de l'attestation</div>

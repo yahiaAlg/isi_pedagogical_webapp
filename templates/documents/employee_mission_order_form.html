@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Modifier ordre de mission — ISI Gestion Pédagogique{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'documents/css/documents.css' %}" />{% endblock %}
+
+{% block breadcrumb %}
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="{% url 'documents:employee_mission_order_list' %}">Ordres de mission — Employés</a>
+<i class="bi bi-chevron-right bc-sep"></i>
+{% endblock %}
+{% block breadcrumb_active %}<span class="bc-active">Modifier</span>{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% url 'documents:employee_mission_order_list' %}" class="topbar-btn"><i class="bi bi-arrow-left"></i> Retour</a>
+{% endblock %}
+
+{% block content %}
+<div class="fade-up">
+  <div class="page-header">
+    <div class="page-header-left">
+      <h1>Modifier ordre de mission</h1>
+      <p class="page-subtitle">{{ order.employee_name }}</p>
+    </div>
+  </div>
+
+  <div class="row justify-content-center">
+    <div class="col-lg-7 col-md-10">
+      <div class="isi-card">
+        <div class="isi-card-header">
+          <i class="bi bi-signpost-fill"></i> Ordre de mission
+          <code style="font-size:12px;color:var(--text-muted);margin-left:8px;">{{ order.archive_number|default:"—" }}</code>
+        </div>
+        <div class="isi-card-body" style="padding:20px 24px;">
+          <form method="post">
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+            <div class="alert alert-danger mb-3">
+              {% for e in form.non_field_errors %}<div>{{ e }}</div>{% endfor %}
+            </div>
+            {% endif %}
+
+            {% for field in form %}
+            {% if field.name == "archive_number" %}
+            <div class="section-divider"></div>
+            <div class="form-section-title">
+              Numérotation
+              <span style="font-size:12px;font-weight:400;color:var(--text-muted);">(admin — laisser tel quel pour la numérotation automatique)</span>
+            </div>
+            {% endif %}
+            <div class="mb-3">
+              <label class="form-label">{{ field.label }}{% if field.field.required %} *{% endif %}</label>
+              {{ field }}
+              {% if field.name == "archive_number" %}
+              <div style="font-size:11.5px;color:var(--text-muted);margin-top:4px;">
+                Vide jusqu'à la première impression, puis auto-attribué depuis la même série annuelle que les ordres de mission de session. Modifiable ici à tout moment pour forcer un numéro précis — la prochaine impression affichera immédiatement cette valeur.
+              </div>
+              {% endif %}
+              {% if field.errors %}
+                <div class="text-danger small mt-1">{{ field.errors|striptags }}</div>
+              {% endif %}
+            </div>
+            {% endfor %}
+
+            <div class="section-divider"></div>
+            <div style="display:flex;gap:12px;">
+              <button type="submit" class="btn btn-amber"><i class="bi bi-check-lg"></i> Enregistrer</button>
+              <a href="{% url 'documents:employee_mission_order_list' %}" class="btn btn-ghost"><i class="bi bi-arrow-left"></i> Annuler</a>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
