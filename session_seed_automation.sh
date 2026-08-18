@@ -40,7 +40,7 @@ STEPS=(
     clients_seed
     trainers_seed
     formations_seed
-    seed_initial_data
+    seed_session_batch_examplary
     seed_session_batch_2026_1
     seed_session_batch_2026_2
     seed_session_batch_2026_3
