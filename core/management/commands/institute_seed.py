@@ -1,7 +1,7 @@
 # core/management/commands/institute_seed.py
 """
 Seeds the institute's own identity data:
-  - Superuser  (admin / admin1234!)
+  - Superuser  (admin / system2026*)
   - InstituteInfo  (legal + fiscal identity, sourced from the official
     accreditation decrees and the invoice header)
 
@@ -98,7 +98,7 @@ class Command(BaseCommand):
         if User.objects.filter(username="admin").exists():
             if force:
                 user = User.objects.get(username="admin")
-                user.set_password("admin1234!")
+                user.set_password("system2026*")
                 user.is_staff = True
                 user.is_superuser = True
                 user.save()
@@ -110,11 +110,11 @@ class Command(BaseCommand):
         User.objects.create_superuser(
             username="admin",
             email="admin@tamayouz.local",
-            password="admin1234!",
+            password="system2026*",
             first_name="Administrateur",
             last_name="Système",
         )
-        self._ok("admin superuser created  (username: admin / password: admin1234!)")
+        self._ok("admin superuser created  (username: admin / password: system2026*)")
 
     # ── institute info ───────────────────────────────────────────────────
     def _seed_institute(self, force: bool):

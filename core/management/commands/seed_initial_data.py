@@ -1,7 +1,7 @@
 # formations/management/commands/seed_initial_data.py
 """
 Seeds all initial data for the Training Management System:
-  - Superuser  (admin / admin1234!)
+  - Superuser  (admin / system2026*)
   - InstituteInfo  (vendor block from invoices)
   - 5 Categories  (RH · COM · PMD · HSE · INF)
   - All Formations  (catalog from facture_formations.txt, prices from initial_db.json)
@@ -1029,7 +1029,7 @@ class Command(BaseCommand):
         if User.objects.filter(username="admin").exists():
             if force:
                 user = User.objects.get(username="admin")
-                user.set_password("admin1234!")
+                user.set_password("system2026*")
                 user.is_staff = True
                 user.is_superuser = True
                 user.save()
@@ -1041,11 +1041,11 @@ class Command(BaseCommand):
         User.objects.create_superuser(
             username="admin",
             email="admin@tamayouz.local",
-            password="admin1234!",
+            password="system2026*",
             first_name="Administrateur",
             last_name="Système",
         )
-        self._ok("admin superuser created  (username: admin / password: admin1234!)")
+        self._ok("admin superuser created  (username: admin / password: system2026*)")
 
     # ── institute info ────────────────────────────────────────────────────────
 
