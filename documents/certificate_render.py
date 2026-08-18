@@ -104,15 +104,26 @@ def build_certificate_data(participant, *, issuance_date: date | None = None) ->
     Requires participant.certificate_number to already be assigned
     (see formations.utils.assign_certificate_number / can_receive_certificate).
 
-    `issuance_date` defaults to today — override if the attestation is
-    being (re)generated for a date other than the moment of the call.
+    `issuance_date` defaults to the session's own end date — attestations
+    are conventionally drawn up ("حرر ب ... في") the day the training
+    ended, so zone 3 (حرر في) and the month shown in zone 1 (رقم
+    التسلسلي, MOIS_SERIE) both line up with the session's last day
+    (zone 2) rather than with whatever day the document happens to be
+    printed. Override only if the attestation is being redated
+    deliberately.
     """
     session = participant.session
     formation = session.formation
+    issuance_date = issuance_date or session.date_end
 
     annee, mois_serie, num_serie = _parse_certificate_number(
         participant.certificate_number
     )
+    # MOIS_SERIE (zone 1's ".../MM ت.ح.ط/...") is displayed here from the
+    # issuance date rather than from whatever month the certificate number
+    # happened to be allocated under, so it always matches the "حرر في"
+    # date (zone 3) and the session's end date (zone 2).
+    mois_serie = f"{issuance_date.month:02d}"
     months = _months_between(session.date_start, session.date_end)
 
     # CIP_NUM prints the "وبناءا على محضر نهاية التكوين" line, i.e. the
@@ -154,7 +165,7 @@ def build_certificate_data(participant, *, issuance_date: date | None = None) ->
         "DUREE_MOIS_AR": _ar_month_label(months),
         "DATE_DEBUT": _fmt(session.date_start),
         "DATE_FIN": _fmt(session.date_end),
-        "DATE_EMISSION": _fmt(issuance_date or date.today()),
+        "DATE_EMISSION": _fmt(issuance_date),
         "AGREMENT_NUM": institute.accreditation_number if institute else "",
         "IF_NUM": institute.if_number if institute else "",
         "QR_PAYLOAD": participant.qr_code_content,

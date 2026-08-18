@@ -728,7 +728,9 @@ def session_list(request):
 @login_required
 def session_detail(request, pk):
     session = get_object_or_404(Session, pk=pk)
-    participants = session.participant_set.order_by("last_name", "first_name")
+    # Registration order (first participant added shows first), matching
+    # the order attestation numbers are handed out in — not alphabetical.
+    participants = session.participant_set.order_by("created_at", "pk")
     child_sessions = []
     if session.is_primary:
         child_sessions = list(

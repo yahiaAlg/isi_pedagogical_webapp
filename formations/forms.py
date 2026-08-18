@@ -510,6 +510,14 @@ class ParticipantForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields["employer_client"].queryset = Client.objects.filter(is_active=True)
         self.fields["employer_client"].required = False
+        # New participant: default their employer to the client the
+        # session was booked for (still fully editable/clearable — this
+        # is only a starting value, e.g. for an inter-entreprise session
+        # with participants from elsewhere).
+        if not self.instance.pk and self.session and self.session.client_id:
+            self.fields["employer_client"].initial = self.session.client_id
+            if not self.initial.get("employer"):
+                self.fields["employer"].initial = self.session.client.name
 
     def clean(self):
         cleaned_data = super().clean()
