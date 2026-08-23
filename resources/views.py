@@ -96,7 +96,10 @@ def trainer_list(request):
 @login_required
 def trainer_detail(request, pk):
     trainer = get_object_or_404(Trainer, pk=pk)
-    sessions = trainer.session_set.all().order_by("-date_start")[:10]
+    # Only show the primary (day 1) session of each cycle — see clients/views.py
+    sessions = (
+        trainer.session_set.filter(is_primary=True).order_by("-date_start")[:10]
+    )
     # Spec §new — full règlement (installment) history across all of this
     # trainer's session cycles, most recent first.
     from formations.models import TrainerPayment

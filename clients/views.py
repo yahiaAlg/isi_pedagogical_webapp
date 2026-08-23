@@ -86,7 +86,12 @@ def client_list(request):
 @login_required
 def client_detail(request, pk):
     client = get_object_or_404(Client, pk=pk)
-    sessions = client.session_set.all().order_by("-date_start")[:10]
+    # Only show the primary (day 1) session of each cycle here — listing
+    # every auto-generated child day of a multi-day cycle would repeat the
+    # same formation/trainer over and over and clutter the table.
+    sessions = (
+        client.session_set.filter(is_primary=True).order_by("-date_start")[:10]
+    )
     return render(
         request, "clients/client_detail.html", {"client": client, "sessions": sessions}
     )
