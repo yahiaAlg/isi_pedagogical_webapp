@@ -234,6 +234,7 @@ class SessionForm(forms.ModelForm):
             "capacity",
             "specialty_code",
             "session_number",
+            "reference",
             "pv_number",
             "mission_order_number",
             "base_price",
@@ -261,6 +262,9 @@ class SessionForm(forms.ModelForm):
             "capacity": forms.NumberInput(attrs={"class": "form-control", "min": "1"}),
             "specialty_code": forms.TextInput(attrs={"class": "form-control"}),
             "session_number": forms.TextInput(attrs={"class": "form-control"}),
+            "reference": forms.TextInput(
+                attrs={"class": "form-control", "style": "font-family:monospace;"}
+            ),
             "pv_number": forms.TextInput(
                 attrs={"class": "form-control", "style": "font-family:monospace;"}
             ),
@@ -308,19 +312,22 @@ class SessionForm(forms.ModelForm):
         # committee_members not shown in form; managed separately
         self.fields.pop("committee_members", None)
 
+        self.fields["reference"].required = False
         self.fields["pv_number"].required = False
         self.fields["mission_order_number"].required = False
 
-        # pv_number / mission_order_number are the hard-coded overrides for
-        # this session's PV and ordre de mission numbers — see
-        # Session.save()'s relaxed protection (clearing is blocked, an
-        # explicit new value from an admin is always honoured). They only
-        # make sense once the session (and therefore its documents) exist,
-        # and only an admin should be able to override what gets printed.
+        # reference / pv_number / mission_order_number are the hard-coded
+        # overrides for this session's main reference, PV number, and ordre
+        # de mission number — see Session.save()'s relaxed protection
+        # (clearing is blocked, an explicit new value from an admin is
+        # always honoured). They only make sense once the session (and
+        # therefore its documents) exist, and only an admin should be able
+        # to override what gets printed.
         is_admin = bool(
             user and getattr(user, "profile", None) and user.profile.is_admin()
         )
         if not self.instance.pk or not is_admin:
+            self.fields.pop("reference", None)
             self.fields.pop("pv_number", None)
             self.fields.pop("mission_order_number", None)
 

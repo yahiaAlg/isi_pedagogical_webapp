@@ -267,6 +267,19 @@
               <span style="font-size:12px;font-weight:400;color:var(--text-muted);">(admin — laisser tel quel pour la numérotation automatique)</span>
             </div>
             <div class="row g-3">
+              {% if form.reference %}
+              <div class="col-sm-6">
+                <label class="form-label" for="{{ form.reference.id_for_label }}">Référence de la session</label>
+                <input type="text" id="{{ form.reference.id_for_label }}" name="{{ form.reference.html_name }}"
+                  value="{{ form.reference.value|default_if_none:'' }}"
+                  class="form-control {% if form.reference.errors %}is-invalid{% endif %}"
+                  placeholder="Ex : MEE9999-012/2026" style="font-family:monospace;" />
+                {% if form.reference.errors %}<div class="invalid-feedback d-block">{{ form.reference.errors|join:", " }}</div>{% endif %}
+                <div style="font-size:11.5px;color:var(--text-muted);margin-top:4px;">
+                  Auto-générée à la création. Modifiable ici pour forcer une référence précise — doit rester unique.
+                </div>
+              </div>
+              {% endif %}
               <div class="col-sm-6">
                 <label class="form-label" for="{{ form.pv_number.id_for_label }}">Numéro PV (محضر مداولات)</label>
                 <input type="text" id="{{ form.pv_number.id_for_label }}" name="{{ form.pv_number.html_name }}"
