@@ -83,8 +83,12 @@ def check_document_requirements(session, doc_type, participant=None):
                 errors.append("Le participant n'est pas reçu")
             if not participant.date_of_birth:
                 errors.append("Date de naissance manquante")
-            if not participant.place_of_birth:
-                errors.append("Lieu de naissance manquant")
+            # Lieu de naissance (place_of_birth) is an optional field on
+            # Participant (blank=True) and batch generation already prints
+            # attestations without it (blank "A : ___" line) — the
+            # individual generator used to hard-block on it here, which
+            # was inconsistent with batch and with the field's own
+            # optionality, so it's no longer a blocking requirement.
 
     return errors
 
