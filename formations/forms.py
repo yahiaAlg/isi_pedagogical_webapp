@@ -199,6 +199,13 @@ class FormationForm(forms.ModelForm):
             # Auto-derive; overrides any freely-typed code/attestation_type.
             cleaned_data["code"] = specialty.reference_root
             cleaned_data["attestation_type"] = specialty.branch.attestation_type
+            # Category and specialty are mutually exclusive ways of
+            # catalog­ing a formation (see formation_form.html JS, which
+            # locks whichever field isn't chosen) — enforced here too so
+            # the rule holds even without JS.
+            cleaned_data["category"] = None
+        elif cleaned_data.get("category"):
+            cleaned_data["specialty"] = None
         min_p = cleaned_data.get("min_participants")
         max_p = cleaned_data.get("max_participants")
         if min_p and max_p and min_p > max_p:

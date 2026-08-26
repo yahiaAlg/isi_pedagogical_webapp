@@ -116,6 +116,7 @@
                     data-days="{{ f.duration_days }}"
                     data-code="{{ f.code }}"
                     data-specialty-code="{% if f.specialty_id %}{{ f.specialty.reference_root }}{% else %}{{ f.code }}{% endif %}"
+                    data-has-specialty="{% if f.specialty_id %}1{% endif %}"
                     {% if form.formation.value|stringformat:"s" == f.pk|stringformat:"s" %}selected{% endif %}>
                     {{ f.code }} — {{ f.title }}
                   </option>
@@ -250,6 +251,9 @@
                 <input type="text" id="{{ form.specialty_code.id_for_label }}" name="{{ form.specialty_code.html_name }}"
                   value="{{ form.specialty_code.value|default_if_none:'' }}"
                   class="form-control" placeholder="Ex : HSE-01" style="font-family:monospace;" />
+                <div id="specialty-code-hint" style="font-size:11.5px;color:var(--text-muted);margin-top:4px;display:none;">
+                  Repris automatiquement de la spécialité de la formation sélectionnée.
+                </div>
               </div>
               <div class="col-sm-6">
                 <label class="form-label" for="{{ form.session_number.id_for_label }}">Numéro de session</label>
@@ -408,6 +412,7 @@
   const durHint      = document.getElementById("duration-hint");
   const durVal       = document.getElementById("duration-days-val");
   const specialtyInput = document.getElementById("{{ form.specialty_code.id_for_label }}");
+  const specialtyHint = document.getElementById("specialty-code-hint");
   const sessionNumberInput = document.getElementById("{{ form.session_number.id_for_label }}");
 
   // Utility: select an <option> by value
@@ -451,7 +456,10 @@
 
   // ── Session code / specialty code auto-fill (Spec §new) ─────────────
   // Format: S-{formation}-{formateur}-{date}. Only overwrites fields the
-  // user hasn't manually edited themselves.
+  // user hasn't manually edited themselves — EXCEPT specialty_code once the
+  // chosen formation has a real specialty attached: from then on it's
+  // fully derived (like Formation.code once a specialty is set) and the
+  // field is locked, so it can never drift from the formation's specialty.
   let specialtyAuto = !!specialtyInput && !specialtyInput.value;
   let sessionNumberAuto = !!sessionNumberInput && !sessionNumberInput.value;
   if (specialtyInput) specialtyInput.addEventListener("input", function () { specialtyAuto = false; });
@@ -468,9 +476,30 @@
     const fOpt = formationSel ? formationSel.options[formationSel.selectedIndex] : null;
     const formationCode = fOpt ? slugTag(fOpt.dataset.code || "") : "";
     const specialtyCode = fOpt ? (fOpt.dataset.specialtyCode || formationCode) : "";
+    const hasSpecialty = !!fOpt && fOpt.dataset.hasSpecialty === "1";
 
-    if (specialtyAuto && specialtyInput) {
-      specialtyInput.value = specialtyCode.slice(0, 20);
+    if (specialtyInput) {
+      if (hasSpecialty) {
+        // Derived from the formation's specialty — always in sync, not
+        // user-editable (same protection pattern as Formation.code once a
+        // specialty is set).
+        specialtyInput.value = specialtyCode.slice(0, 20);
+        specialtyInput.readOnly = true;
+        specialtyInput.dataset.locked = "1";
+        if (specialtyHint) specialtyHint.style.display = "";
+      } else {
+        specialtyInput.readOnly = false;
+        if (specialtyHint) specialtyHint.style.display = "none";
+        // Switching away from a formation that had a specialty: the
+        // current value was fully derived (never user-typed), so it's
+        // safe to clear it and resume auto-fill for the new formation.
+        if (specialtyInput.dataset.locked === "1") {
+          specialtyInput.value = "";
+          specialtyAuto = true;
+        }
+        delete specialtyInput.dataset.locked;
+        if (specialtyAuto) specialtyInput.value = specialtyCode.slice(0, 20);
+      }
     }
 
     if (sessionNumberAuto && sessionNumberInput && formationCode) {

@@ -137,7 +137,7 @@ class Formation(models.Model):
     ]
 
     title = models.CharField(max_length=200, verbose_name="Titre")
-    title_ar = models.CharField(max_length=200, verbose_name="Titre (AR)")
+    title_ar = models.CharField(max_length=200, blank=True, verbose_name="Titre (AR)")
     code = models.CharField(
         max_length=20, blank=True, db_index=True, verbose_name="Code"
     )

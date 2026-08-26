@@ -63,14 +63,17 @@
                   class="form-control {% if form.code.errors %}is-invalid{% endif %}"
                   style="font-family:monospace;text-transform:uppercase;" required />
                 {% if form.code.errors %}<div class="invalid-feedback d-block">{{ form.code.errors|join:", " }}</div>{% endif %}
+                <div id="code-specialty-hint" style="font-size:11.5px;color:var(--text-muted);margin-top:4px;display:none;">
+                  Dérivé automatiquement de la spécialité sélectionnée.
+                </div>
               </div>
             </div>
             <div class="mb-3">
-              <label class="form-label" for="{{ form.title_ar.id_for_label }}">Titre (AR) <span style="color:var(--danger);">*</span></label>
+              <label class="form-label" for="{{ form.title_ar.id_for_label }}">Titre (AR)</label>
               <input type="text" id="{{ form.title_ar.id_for_label }}" name="{{ form.title_ar.html_name }}"
                 value="{{ form.title_ar.value|default_if_none:'' }}"
                 class="form-control {% if form.title_ar.errors %}is-invalid{% endif %}"
-                dir="rtl" placeholder="العنوان بالعربية" required />
+                dir="rtl" placeholder="العنوان بالعربية" />
               {% if form.title_ar.errors %}<div class="invalid-feedback d-block">{{ form.title_ar.errors|join:", " }}</div>{% endif %}
             </div>
             <div class="row g-3">
@@ -82,16 +85,23 @@
                   <option value="{{ c.pk }}" {% if form.category.value|stringformat:"s" == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>
                   {% endfor %}
                 </select>
+                <div id="category-locked-hint" style="font-size:11.5px;color:var(--text-muted);margin-top:4px;display:none;">
+                  Désactivée tant qu'une spécialité est sélectionnée.
+                </div>
               </div>
               <div class="col-sm-6">
                 <label class="form-label" for="{{ form.specialty.id_for_label }}">Spécialité</label>
                 <select id="{{ form.specialty.id_for_label }}" name="{{ form.specialty.html_name }}" class="form-select">
                   <option value="">— Aucune spécialité —</option>
                   {% for s in form.fields.specialty.queryset %}
-                  <option value="{{ s.pk }}" {% if form.specialty.value|stringformat:"s" == s.pk|stringformat:"s" %}selected{% endif %}>{{ s.reference_root }} — {{ s.title }}</option>
+                  <option value="{{ s.pk }}" data-code="{{ s.reference_root }}"
+                    {% if form.specialty.value|stringformat:"s" == s.pk|stringformat:"s" %}selected{% endif %}>{{ s.reference_root }} — {{ s.title }}</option>
                   {% endfor %}
                 </select>
                 <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">Si renseignée, le code et le type d'attestation sont dérivés automatiquement de la branche/spécialité.</div>
+                <div id="specialty-locked-hint" style="font-size:11.5px;color:var(--text-muted);margin-top:4px;display:none;">
+                  Désactivée tant qu'une catégorie est sélectionnée.
+                </div>
                 {% if form.specialty.errors %}<div class="invalid-feedback d-block">{{ form.specialty.errors|join:", " }}</div>{% endif %}
               </div>
             </div>
@@ -326,6 +336,7 @@
 (function () {
   const titleInput = document.getElementById("{{ form.title.id_for_label }}");
   const codeInput  = document.getElementById("{{ form.code.id_for_label }}");
+  const specialtySel = document.getElementById("{{ form.specialty.id_for_label }}");
   if (!titleInput || !codeInput) return;
 
   let codeAuto = !codeInput.value;
@@ -333,6 +344,9 @@
 
   titleInput.addEventListener("input", function () {
     if (!codeAuto) return;
+    // A specialty is authoritative over Code once chosen — see the
+    // specialty → code sync below, which owns the field from then on.
+    if (specialtySel && specialtySel.value) return;
     const initials = titleInput.value
       .trim()
       .split(/[\s-]+/)
@@ -363,5 +377,63 @@
 })();
 </script>
 {% endif %}
+
+<script>
+// ── Catégorie / Spécialité — mutuellement exclusives ─────────────────────
+// Picking one locks (disables) the other, since a formation is catalogued
+// either under a plain Category or under a Branch/Specialty, never both.
+// A disabled <select> isn't submitted, so choosing one naturally clears
+// the other server-side once saved.
+(function () {
+  const categorySel  = document.getElementById("{{ form.category.id_for_label }}");
+  const specialtySel = document.getElementById("{{ form.specialty.id_for_label }}");
+  const categoryHint = document.getElementById("category-locked-hint");
+  const specialtyHint = document.getElementById("specialty-locked-hint");
+  if (!categorySel || !specialtySel) return;
+
+  function sync() {
+    const hasCategory = !!categorySel.value;
+    const hasSpecialty = !!specialtySel.value;
+
+    specialtySel.disabled = hasCategory;
+    if (specialtyHint) specialtyHint.style.display = hasCategory ? "" : "none";
+
+    categorySel.disabled = hasSpecialty;
+    if (categoryHint) categoryHint.style.display = hasSpecialty ? "" : "none";
+  }
+
+  categorySel.addEventListener("change", sync);
+  specialtySel.addEventListener("change", sync);
+  sync();
+})();
+
+// ── Spécialité → Code (Spec §2.1) ────────────────────────────────────────
+// Mirrors the server-side derivation (Formation._apply_specialty_derivation):
+// once a specialty is picked, Code is forced to its reference_root and
+// locked — same protection as the session's Code spécialité field.
+(function () {
+  const specialtySel = document.getElementById("{{ form.specialty.id_for_label }}");
+  const codeInput = document.getElementById("{{ form.code.id_for_label }}");
+  const codeHint = document.getElementById("code-specialty-hint");
+  if (!specialtySel || !codeInput) return;
+
+  function sync() {
+    const opt = specialtySel.options[specialtySel.selectedIndex];
+    const derivedCode = opt ? opt.dataset.code : "";
+    if (specialtySel.value && derivedCode) {
+      codeInput.value = derivedCode;
+      codeInput.readOnly = true;
+      if (codeHint) codeHint.style.display = "";
+    } else {
+      codeInput.readOnly = false;
+      if (codeHint) codeHint.style.display = "none";
+    }
+  }
+
+  specialtySel.addEventListener("change", sync);
+  sync();
+})();
+</script>
+
 <script src="{% static 'formations/js/formations.js' %}"></script>
 {% endblock %}
