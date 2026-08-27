@@ -1,76 +1,67 @@
-{% extends "documents/print/base_print.html" %}
+{% extends "base.html" %}
+{% load static %}
 
-{% block doc_title %}قائمة معلومات المترشحين — {{ session.reference }}{% endblock %}
+{% block title %}Liste des informations candidats — {{ session.reference }}{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'documents/css/documents.css' %}" />{% endblock %}
 
-{% block doc_body %}
+{% block breadcrumb %}
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="{% url 'formations:session_detail' session.pk %}">{{ session.reference }}</a>
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="{% url 'documents:dashboard' session_pk=session.pk %}">Documents</a>
+<i class="bi bi-chevron-right bc-sep"></i>
+{% endblock %}
+{% block breadcrumb_active %}<span class="bc-active">Liste candidats</span>{% endblock %}
 
-{% if blank_mode %}
-<div class="note-box" style="background:#fffbeb;border:1px solid #fbbf24;padding:8px;border-radius:4px;">
-  <strong>ورقة فارغة — تُعبّأ يدوياً</strong> من طرف المكوّن والمترشحين.
-</div>
-{% endif %}
+{% block topbar_actions %}
+<a href="{% url 'documents:dashboard' session_pk=session.pk %}" class="topbar-btn"><i class="bi bi-arrow-left"></i> Retour</a>
+{% endblock %}
 
-<div class="note-box">
-  <strong>ملاحظة : يرجى كتابة الاسم واللقب بأحرف كبيرة</strong><br>
-  ستُحرَّر الشهادة وفق المعلومات المدوّنة في هذه الورقة.<br>
-  أي خطأ قد يظهر في الشهادة ولا يمكن بأي حال من الأحوال تجديدها
-</div>
+{% block content %}
+<div class="fade-up">
+  <div class="page-header">
+    <div class="page-header-left">
+      <h1>Liste des informations candidats</h1>
+      <p class="page-subtitle">{{ session.reference }} — {{ session.formation.title }}</p>
+    </div>
+  </div>
 
-<div class="doc-title">قائمة معلومات المترشحين</div>
-
-<div class="doc-subtitle">
-  <strong>عنوان التكوين : {{ session.formation.title }}</strong>
-  &nbsp;&nbsp;&nbsp;
-  <strong>الزبون : {{ session.client.name }}</strong>
-</div>
-
-<div class="doc-date">
-  <strong>التاريخ : </strong> من {{ session.date_start|date:"d/m/Y" }} إلى {{ session.date_end|date:"d/m/Y" }}
-</div>
-
-<table>
-  <thead>
-    <tr>
-      <th style="width:40px;">الرقم</th>
-      <th>اللقب (لاتيني)</th>
-      <th>الاسم (لاتيني)</th>
-      <th>اللقب</th>
-      <th>الاسم</th>
-      <th>تاريخ و مكان الميلاد</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for p in participants %}
-    <tr>
-      <td>{{ forloop.counter|stringformat:"02d" }}</td>
-      <td class="left">{{ p.last_name|upper }}</td>
-      <td class="left">{{ p.first_name|upper }}</td>
-      <td dir="rtl" style="text-align:right;">{{ p.last_name_ar }}</td>
-      <td dir="rtl" style="text-align:right;">{{ p.first_name_ar }}</td>
-      <td class="left">
-        {% if p.date_of_birth %}{{ p.date_of_birth|date:"d/m/Y" }}{% endif %}
-        {% if p.place_of_birth %} — {{ p.place_of_birth }}{% endif %}
-      </td>
-    </tr>
-    {% endfor %}
-    {# Pad to at least `blank_rows` rows (12 by default, or session capacity in blank mode) #}
-    {% with count=participants|length %}
-    {% if count < blank_rows %}
-      {% for i in ""|ljust:blank_rows %}
-        {% if forloop.counter > count %}
-        <tr>
-          <td>{{ forloop.counter|stringformat:"02d" }}</td>
-          <td>&nbsp;</td><td></td><td></td><td></td><td></td>
-        </tr>
-        {% endif %}
-      {% endfor %}
-    {% endif %}
-    {% endwith %}
-  </tbody>
-</table>
-
-<div class="sig-row">
-  <div>المكوّن : <strong>{{ session.trainer.full_name|upper }}</strong></div>
-  <div>المؤسسة</div>
+  <div class="row justify-content-center">
+    <div class="col-lg-6 col-md-8">
+      <div class="isi-card">
+        <div class="isi-card-header">
+          <div class="card-icon amber"><i class="bi bi-people-fill"></i></div>
+          <h3>Mode d’impression</h3>
+        </div>
+        <div class="isi-card-body">
+          <div style="background:#f8fafc;border:1px solid var(--card-border);border-radius:8px;padding:12px 14px;margin-bottom:20px;font-size:13.5px;">
+            <i class="bi bi-info-circle-fill" style="color:var(--accent);"></i>
+            Choisissez une liste <strong>remplie automatiquement</strong> ou un modèle <strong>vide</strong> à remplir manuellement par le formateur et les candidats.
+          </div>
+          <form method="post" novalidate>
+            {% csrf_token %}
+            {{ form.session }}
+            <div class="mb-4">
+              <label class="form-label">{{ form.print_mode.label }}</label>
+              <div style="display:grid;gap:10px;margin-top:10px;">
+                {% for radio in form.print_mode %}
+                <label style="display:flex;align-items:flex-start;gap:10px;padding:13px 14px;border:1px solid var(--card-border);border-radius:8px;cursor:pointer;">
+                  {{ radio.tag }}
+                  <span style="font-size:13.5px;line-height:1.45;">{{ radio.choice_label }}</span>
+                </label>
+                {% endfor %}
+              </div>
+              {% if form.print_mode.errors %}<div class="invalid-feedback d-block">{{ form.print_mode.errors|join:", " }}</div>{% endif %}
+            </div>
+            <div class="section-divider"></div>
+            <div style="display:flex;gap:12px;">
+              <button type="submit" class="btn btn-amber"><i class="bi bi-printer-fill"></i> Préparer l’impression</button>
+              <a href="{% url 'documents:dashboard' session_pk=session.pk %}" class="btn btn-ghost">Annuler</a>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 {% endblock %}
