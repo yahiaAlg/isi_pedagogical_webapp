@@ -4,6 +4,10 @@ from django.contrib import messages
 from django.utils import timezone
 
 from formations.models import Session, Participant
+from formations.utils import (
+    compute_session_reference_renumbering,
+    apply_session_reference_renumbering,
+)
 from .models import InstituteInfo, PVDefaultSignatory, SequenceCounter
 from .forms import (
     InstituteInfoForm,
@@ -311,6 +315,50 @@ def sequence_counter_activate(request, pk):
         f"attribués sous cette période jusqu'à activation d'une autre.",
     )
     return redirect("core:sequence_counter_list")
+
+
+@login_required
+def session_reference_maintenance(request):
+    """
+    Settings quick action — "Corriger les références de session".
+
+    GET shows a dry-run preview of what `compute_session_reference_renumbering`
+    would change (nothing is written yet): every session whose reference
+    would move, old → new, grouped and counted. POST actually applies it
+    (see `apply_session_reference_renumbering`).
+
+    A preview-then-confirm flow, rather than a single-click action, is
+    deliberate — session references appear on already-printed/signed
+    documents (PV, attestations, ordres de mission…), so silently
+    reshuffling them on every click would be surprising and hard to
+    reason about; the admin sees exactly what will move before it does.
+    """
+    if not request.user.profile.is_admin():
+        messages.error(request, "Accès réservé aux administrateurs.")
+        return redirect("core:dashboard")
+
+    changes = compute_session_reference_renumbering()
+
+    if request.method == "POST":
+        count = apply_session_reference_renumbering(changes)
+        if count:
+            messages.success(
+                request,
+                f"{count} référence(s) de session corrigée(s) — numérotation "
+                f"remise à plat par ordre chronologique.",
+            )
+        else:
+            messages.info(request, "Aucune correction nécessaire — la numérotation était déjà cohérente.")
+        return redirect("core:settings")
+
+    return render(
+        request,
+        "core/session_reference_maintenance.html",
+        {
+            "changes": changes,
+            "changes_count": len(changes),
+        },
+    )
 
 
 def verify_attestation(request, token):

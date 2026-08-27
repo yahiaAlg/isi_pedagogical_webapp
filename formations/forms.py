@@ -360,6 +360,46 @@ class SessionForm(forms.ModelForm):
             raise ValidationError("La date de fin doit être après la date de début.")
         return cleaned_data
 
+    def clean_reference(self):
+        """
+        Spec — a hard-coded reference that collides with another session
+        (e.g. because the formation's specialty/codification or the
+        session number was changed after the reference was first
+        generated) is auto-corrected to the next free number in the same
+        "{prefix}-{counter}/{year}" scheme, rather than blocking the save
+        with a hard "already exists" error. `session_create`/`session_edit`
+        surface a message when this happened (see `_reference_auto_corrected`
+        below) so the correction is never silent.
+
+        A reference that doesn't match the standard scheme (a fully
+        custom value an admin typed by hand) can't be safely bumped —
+        that case still raises, same as Django's default unique
+        validation would.
+        """
+        reference = (self.cleaned_data.get("reference") or "").strip()
+        self._reference_auto_corrected = None
+        if not reference:
+            return reference
+
+        qs = Session.objects.filter(reference=reference)
+        if self.instance.pk:
+            qs = qs.exclude(pk=self.instance.pk)
+        if not qs.exists():
+            return reference
+
+        from .utils import next_available_session_reference, parse_session_reference
+
+        parsed = parse_session_reference(reference)
+        if not parsed:
+            raise ValidationError("Un objet Session avec ce champ Référence existe déjà.")
+
+        prefix, _counter, year = parsed
+        corrected = next_available_session_reference(
+            prefix, year, exclude_pk=self.instance.pk or None
+        )
+        self._reference_auto_corrected = (reference, corrected)
+        return corrected
+
 
 class TrainerPaymentForm(forms.ModelForm):
     """Spec §new — records one installment towards the formateur's part

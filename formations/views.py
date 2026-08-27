@@ -629,6 +629,43 @@ def formation_api_detail(request, pk):
     return JsonResponse(data)
 
 
+@login_required
+def session_reference_preview_api(request):
+    """
+    AJAX — next free "{prefix}-{counter:03d}/{year}" reference for the
+    chosen formation + start-date year, used by the session form to keep
+    the (admin-only) reference field auto-corrected live as the formation
+    (specialty/codification) or the date changes, instead of only finding
+    out about a conflict after a failed submit — see
+    `formations.utils.next_available_session_reference`.
+
+    `exclude` (optional) is the session being edited, so its own current
+    reference doesn't count as "taken" against itself.
+    """
+    from .utils import next_available_session_reference
+
+    formation_pk = request.GET.get("formation")
+    date_start = request.GET.get("date_start")
+    exclude_pk = request.GET.get("exclude") or None
+
+    if not formation_pk or not date_start:
+        return JsonResponse({"reference": None})
+
+    formation = Formation.objects.filter(pk=formation_pk).first()
+    if not formation:
+        return JsonResponse({"reference": None})
+
+    try:
+        year = int(date_start[:4])
+    except (TypeError, ValueError):
+        return JsonResponse({"reference": None})
+
+    reference = next_available_session_reference(
+        formation.code or "SES", year, exclude_pk=exclude_pk
+    )
+    return JsonResponse({"reference": reference})
+
+
 # ===========================================================================
 # Session
 # ===========================================================================
@@ -1006,6 +1043,13 @@ def session_create(request):
                 )
             session = form.save()
             _log_equipment_allocations(session, request.user)
+            corrected = getattr(form, "_reference_auto_corrected", None)
+            if corrected:
+                messages.info(
+                    request,
+                    f"Référence « {corrected[0]} » déjà utilisée — corrigée "
+                    f"automatiquement en « {corrected[1]} ».",
+                )
             messages.success(
                 request,
                 f'Session "{session.reference}" créée. Ajoutez maintenant les participants.',
@@ -1129,6 +1173,13 @@ def session_edit(request, pk):
                 )
             session = form.save()
             _log_equipment_allocations(session, request.user)
+            corrected = getattr(form, "_reference_auto_corrected", None)
+            if corrected:
+                messages.info(
+                    request,
+                    f"Référence « {corrected[0]} » déjà utilisée — corrigée "
+                    f"automatiquement en « {corrected[1]} ».",
+                )
             messages.success(request, f'Session "{session.reference}" modifiée.')
             return redirect("formations:session_detail", pk=session.pk)
     else:

@@ -46,6 +46,11 @@ urlpatterns = [
         views.sequence_counter_activate,
         name="sequence_counter_activate",
     ),
+    path(
+        "settings/session-references/",
+        views.session_reference_maintenance,
+        name="session_reference_maintenance",
+    ),
     # Spec §11.6 — public QR verification landing page (no login required)
     path("verify/<int:token>/", views.verify_attestation, name="verify_attestation"),
 ]

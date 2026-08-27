@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load static %}
+{% load formations_tags %}
 
 {% block title %}{{ title }} — Sessions — ISI Gestion Pédagogique{% endblock %}
 {% block extra_head %}<link rel="stylesheet" href="{% static 'formations/css/formations.css' %}" />{% endblock %}
@@ -180,14 +181,14 @@
               <div class="col-sm-6">
                 <label class="form-label" for="{{ form.date_start.id_for_label }}">Date de début <span style="color:var(--danger);">*</span></label>
                 <input type="date" id="{{ form.date_start.id_for_label }}" name="{{ form.date_start.html_name }}"
-                  value="{{ form.date_start.value|date:'Y-m-d'|default_if_none:'' }}"
+                  value="{{ form.date_start.value|iso_date }}"
                   class="form-control {% if form.date_start.errors %}is-invalid{% endif %}" required />
                 {% if form.date_start.errors %}<div class="invalid-feedback d-block">{{ form.date_start.errors|join:", " }}</div>{% endif %}
               </div>
               <div class="col-sm-6">
                 <label class="form-label" for="{{ form.date_end.id_for_label }}">Date de fin <span style="color:var(--danger);">*</span></label>
                 <input type="date" id="{{ form.date_end.id_for_label }}" name="{{ form.date_end.html_name }}"
-                  value="{{ form.date_end.value|date:'Y-m-d'|default_if_none:'' }}"
+                  value="{{ form.date_end.value|iso_date }}"
                   class="form-control {% if form.date_end.errors %}is-invalid{% endif %}" required />
                 {% if form.date_end.errors %}<div class="invalid-feedback d-block">{{ form.date_end.errors|join:", " }}</div>{% endif %}
               </div>
@@ -280,7 +281,9 @@
                   placeholder="Ex : MEE9999-012/2026" style="font-family:monospace;" />
                 {% if form.reference.errors %}<div class="invalid-feedback d-block">{{ form.reference.errors|join:", " }}</div>{% endif %}
                 <div style="font-size:11.5px;color:var(--text-muted);margin-top:4px;">
-                  Auto-générée à la création. Modifiable ici pour forcer une référence précise — doit rester unique.
+                  Auto-générée à la création, et réajustée automatiquement si vous changez la formation
+                  ou la date de début. Modifiable ici pour forcer une référence précise — si elle existe déjà,
+                  elle est corrigée automatiquement au prochain numéro libre à l'enregistrement.
                 </div>
               </div>
               {% endif %}
@@ -414,6 +417,8 @@
   const specialtyInput = document.getElementById("{{ form.specialty_code.id_for_label }}");
   const specialtyHint = document.getElementById("specialty-code-hint");
   const sessionNumberInput = document.getElementById("{{ form.session_number.id_for_label }}");
+  const referenceInput = document.getElementById("{{ form.reference.id_for_label }}");
+  const REFERENCE_PREVIEW_API = "{% url 'formations:session_reference_preview_api' %}";
 
   // Utility: select an <option> by value
   function selectOption(sel, val) {
@@ -425,6 +430,37 @@
       }
     }
   }
+
+  // ── Date field normalization (safety net) ────────────────────────────
+  // <input type="date"> silently blanks itself if its `value` isn't
+  // exactly "yyyy-mm-dd" — the browser just refuses to display anything
+  // rather than erroring. The real fix is server-side (the template no
+  // longer runs the value through Django's `|date:` filter, which used to
+  // turn a re-posted raw string into an empty one on validation errors —
+  // see session_form.html value= attributes), but this normalizes on load
+  // in case a value ever reaches the page in another shape (e.g.
+  // "dd/mm/yyyy"), so the field is repopulated instead of silently
+  // cleared either way.
+  function normalizeDateInput(input) {
+    if (!input || !input.value) return;
+    const v = input.value.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return; // already correct
+    const dmy = v.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/); // dd/mm/yyyy or dd-mm-yyyy
+    if (dmy) {
+      const [, d, m, y] = dmy;
+      input.value = `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+      return;
+    }
+    const ymd = v.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/); // yyyy/mm/dd
+    if (ymd) {
+      const [, y, m, d] = ymd;
+      input.value = `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+      return;
+    }
+    // Unrecognized shape — leave as-is rather than guess wrong.
+  }
+  normalizeDateInput(dateStart);
+  normalizeDateInput(dateEnd);
 
   // ── Formateur filtering — only show trainers qualified for the chosen
   // formation (falls back to showing everyone if none qualify, so the
@@ -464,6 +500,34 @@
   let sessionNumberAuto = !!sessionNumberInput && !sessionNumberInput.value;
   if (specialtyInput) specialtyInput.addEventListener("input", function () { specialtyAuto = false; });
   if (sessionNumberInput) sessionNumberInput.addEventListener("input", function () { sessionNumberAuto = false; });
+
+  // ── Reference live auto-correction (spec §new) ───────────────────────
+  // The reference field only ever appears when editing an existing
+  // session (admin-only — see SessionForm.__init__), so unlike
+  // specialty_code/session_number it already holds a real, previously
+  // valid value on load — it must NOT be touched just from opening the
+  // page. It stays "auto" (eligible for live re-suggestion) until the
+  // admin types into it directly, and only re-suggests once the
+  // formation or start date actually changes — see
+  // refreshReferencePreview(), wired up below — never from the initial
+  // recomputeCodes() call.
+  let referenceAuto = true;
+  if (referenceInput) referenceInput.addEventListener("input", function () { referenceAuto = false; });
+
+  function refreshReferencePreview() {
+    if (!referenceInput || !referenceAuto) return;
+    const fPk = formationSel ? formationSel.value : "";
+    const dStart = dateStart ? dateStart.value : "";
+    if (!fPk || !dStart) return;
+    const params = new URLSearchParams({ formation: fPk, date_start: dStart });
+    {% if session %}params.set("exclude", "{{ session.pk }}");{% endif %}
+    fetch(REFERENCE_PREVIEW_API + "?" + params.toString())
+      .then(r => r.json())
+      .then(data => {
+        if (data.reference && referenceAuto) referenceInput.value = data.reference;
+      })
+      .catch(() => {});
+  }
 
   function slugTag(str) {
     return (str || "")
@@ -566,6 +630,7 @@
       filterTrainers(this.value);
       fetchAndFill(this.value);
       recomputeCodes();
+      refreshReferencePreview();
     });
 
     // On page load — if a formation is already selected (from ?formation= or edit mode)
@@ -587,7 +652,10 @@
   }
 
   if (trainerSel) trainerSel.addEventListener("change", recomputeCodes);
-  if (dateStart) dateStart.addEventListener("change", recomputeCodes);
+  if (dateStart) dateStart.addEventListener("change", function () {
+    recomputeCodes();
+    refreshReferencePreview();
+  });
   recomputeCodes();
 })();
 </script>

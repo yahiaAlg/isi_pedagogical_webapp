@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Références de session — ISI Gestion Pédagogique{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'core/css/base.css' %}" />{% endblock %}
+
+{% block breadcrumb %}
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="{% url 'core:settings' %}">Paramètres</a>
+<i class="bi bi-chevron-right bc-sep"></i>
+{% endblock %}
+{% block breadcrumb_active %}<span class="bc-active">Références de session</span>{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% url 'core:settings' %}" class="topbar-btn"><i class="bi bi-arrow-left"></i> Paramètres</a>
+{% endblock %}
+
+{% block content %}
+<div class="fade-up">
+  <div class="page-header">
+    <div class="page-header-left">
+      <h1>Cohérence des références de session</h1>
+      <p class="page-subtitle">
+        Recalcule les références {PRÉFIXE}-{COMPTEUR}/{ANNÉE} de toutes les sessions par ordre
+        chronologique (date de début, puis titre de formation par ordre alphabétique en cas
+        d'égalité), en réservant un bloc de compteurs contigu par cycle — un numéro par jour de
+        durée — pour que la prochaine session principale reparte toujours du bon numéro, même si
+        ses jours 2–N n'ont pas encore été générés.
+      </p>
+    </div>
+  </div>
+
+  {% if changes_count == 0 %}
+  <div class="alert alert-success mb-4">
+    <i class="bi bi-check-circle-fill"></i>
+    <div>Aucune correction nécessaire — la numérotation de toutes les sessions est déjà cohérente.</div>
+  </div>
+  {% else %}
+  <div class="alert" style="background:#fffbeb;border:1px solid #fbbf24;color:#78350f;margin-bottom:20px;">
+    <i class="bi bi-exclamation-triangle-fill" style="color:#d97706;"></i>
+    <div>
+      <strong>{{ changes_count }} référence{{ changes_count|pluralize }} sera{{ changes_count|pluralize:"it,ont" }} modifiée{{ changes_count|pluralize }}.</strong>
+      Ces références peuvent déjà figurer sur des documents imprimés ou signés (PV, attestations,
+      ordres de mission…) — vérifiez la liste ci-dessous avant de confirmer.
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="isi-card mb-4">
+    <div class="isi-card-header">
+      <div class="card-icon amber"><i class="bi bi-sort-numeric-down"></i></div>
+      <h3>Aperçu des corrections</h3>
+    </div>
+    <div class="isi-card-body" style="padding:0;">
+      {% if changes %}
+      <div class="table-responsive">
+        <table class="isi-table">
+          <thead>
+            <tr>
+              <th>Session</th>
+              <th>Formation</th>
+              <th>Date</th>
+              <th>Référence actuelle</th>
+              <th></th>
+              <th>Nouvelle référence</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for session, old_ref, new_ref in changes %}
+            <tr>
+              <td>
+                <a href="{% url 'formations:session_detail' session.pk %}" target="_blank" rel="noopener">
+                  {% if session.is_primary %}<span class="isi-badge blue">Principale</span>{% else %}<span class="isi-badge gray">Jour</span>{% endif %}
+                </a>
+              </td>
+              <td>{{ session.formation.title }}</td>
+              <td>{{ session.date_start|date:"d/m/Y" }}</td>
+              <td><code>{{ old_ref|default:"—" }}</code></td>
+              <td><i class="bi bi-arrow-right"></i></td>
+              <td><code style="color:var(--success);font-weight:600;">{{ new_ref }}</code></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div style="padding:20px;font-size:13px;color:var(--text-muted);">Rien à afficher.</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <form method="post" id="renumber-form">
+    {% csrf_token %}
+    <div style="display:flex;gap:12px;">
+      {% if changes %}
+      <button type="submit" class="btn btn-amber" id="renumber-confirm-btn">
+        <i class="bi bi-check-lg"></i> Confirmer la correction ({{ changes_count }})
+      </button>
+      {% endif %}
+      <a href="{% url 'core:settings' %}" class="btn btn-ghost"><i class="bi bi-arrow-left"></i> Annuler</a>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+(function () {
+  var form = document.getElementById("renumber-form");
+  if (!form) return;
+  form.addEventListener("submit", function (e) {
+    if (!confirm("Appliquer la nouvelle numérotation à {{ changes_count }} session(s) ? Cette action modifie des références déjà imprimées sur certains documents.")) {
+      e.preventDefault();
+    }
+  });
+})();
+</script>
+{% endblock %}

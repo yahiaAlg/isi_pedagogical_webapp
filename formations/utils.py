@@ -1,3 +1,4 @@
+import re
 from datetime import timedelta
 from decimal import Decimal
 from .models import Session, Participant
@@ -138,15 +139,183 @@ def generate_session_reference(session):
     """
     year = session.date_start.year if session.date_start else timezone.now().year
     code = session.formation.code if session.formation_id else "SES"
-    prefix = f"{code}-"
 
-    existing = Session.objects.filter(
-        reference__startswith=prefix,
-        date_start__year=year,
-    ).count()
+    return next_available_session_reference(
+        code, year, exclude_pk=session.pk or None
+    )
 
-    counter = existing + 1
-    return f"{prefix}{counter:03d}/{year}"
+
+_REFERENCE_RE = re.compile(r"^(?P<prefix>.+)-(?P<counter>\d+)/(?P<year>\d{4})$")
+
+
+def parse_session_reference(reference):
+    """
+    Split a "{PREFIX}-{COUNTER}/{YEAR}" session reference into its parts.
+    Returns (prefix, counter, year) or None if `reference` doesn't match
+    the standard auto-generated shape (e.g. a fully custom hard-coded
+    reference an admin typed by hand) — callers should treat None as
+    "can't be safely renumbered/auto-corrected".
+    """
+    if not reference:
+        return None
+    m = _REFERENCE_RE.match(reference.strip())
+    if not m:
+        return None
+    return m.group("prefix"), int(m.group("counter")), int(m.group("year"))
+
+
+def next_available_session_reference(prefix, year, exclude_pk=None):
+    """
+    Return the next FREE "{prefix}-{counter:03d}/{year}" reference for this
+    (prefix, year) pair.
+
+    Deliberately NOT a simple `count() + 1`: that scheme drifts as soon as
+    a session in the middle of the sequence is deleted, re-dated into a
+    different year, or has its reference hard-coded by an admin — the
+    count drops even though the highest counter actually used hasn't, so
+    the "next" number collides with one still in use (the exact conflict
+    behind the "Un objet Session avec ce champ Référence existe déjà"
+    error). Scanning for the highest counter actually in use for this
+    (prefix, year) and starting one past it is immune to gaps. The
+    uniqueness loop below is just a final safety net for the rare case
+    where a hard-coded, non-standard-shaped reference happens to already
+    occupy that exact slot.
+    """
+    prefix = (prefix or "SES").strip()
+    year = int(year)
+    qs = Session.objects.filter(
+        reference__startswith=f"{prefix}-", date_start__year=year
+    )
+    if exclude_pk:
+        qs = qs.exclude(pk=exclude_pk)
+
+    highest = 0
+    for ref in qs.values_list("reference", flat=True):
+        parsed = parse_session_reference(ref)
+        if parsed and parsed[0] == prefix and parsed[2] == year:
+            highest = max(highest, parsed[1])
+
+    counter = highest + 1
+    candidate = f"{prefix}-{counter:03d}/{year}"
+    taken = set(qs.values_list("reference", flat=True))
+    while candidate in taken:
+        counter += 1
+        candidate = f"{prefix}-{counter:03d}/{year}"
+    return candidate
+
+
+def compute_session_reference_renumbering():
+    """
+    Settings quick action ("Corriger les références de session") — recompute
+    canonical, gap-free "{prefix}-{counter:03d}/{year}" references for every
+    session, in chronological order, instead of whatever order the naive
+    count-based generator happened to hand them out in (see
+    `next_available_session_reference` for why that scheme drifts).
+
+    Sessions are grouped into independent counters per (prefix, year) —
+    the same scope `next_available_session_reference` uses — since two
+    different prefixes or years are always allowed to both have a
+    "-001/...".
+
+    Within a (prefix, year) group, cycle-root sessions (no `parent_session`
+    — normally the `is_primary` day-1 session, but a stray orphan row with
+    no parent is treated the same way rather than silently skipped) are
+    sorted by `date_start`, then by formation title alphabetically as a
+    tie-break for same-day cycles, and numbered 1, 2, 3….
+
+    A root's successive/child sessions are NOT renumbered by counting
+    their own rows: every cycle reserves a contiguous block of
+    `(date_end - date_start).days + 1` counter slots — one slot per
+    calendar day of the cycle, since every session (root or child)
+    represents exactly one day — whether or not the child rows have
+    actually been generated yet (`formations:generate_session_group`) or
+    were deleted since. The next root's counter starts right after that
+    block, so numbering stays correct and collision-free either way.
+    When child rows DO exist, each is renumbered, in date order, as the
+    root's counter + its 1-based position in the block.
+
+    Returns a list of (session, old_reference, new_reference) tuples for
+    every session whose reference actually changes — nothing is written
+    to the database; see `apply_session_reference_renumbering` for that.
+    """
+    sessions = list(
+        Session.objects.select_related("formation").order_by("date_start", "pk")
+    )
+
+    roots = []
+    children_by_parent = {}
+    for s in sessions:
+        if s.parent_session_id:
+            children_by_parent.setdefault(s.parent_session_id, []).append(s)
+        else:
+            roots.append(s)
+
+    groups = {}
+    for s in roots:
+        code = s.formation.code if s.formation_id else "SES"
+        year = s.date_start.year if s.date_start else timezone.now().year
+        groups.setdefault((code, year), []).append(s)
+
+    changes = []
+    for (prefix, year), group_roots in groups.items():
+        group_roots.sort(
+            key=lambda s: (s.date_start, (s.formation.title or "").lower())
+        )
+        counter = 1
+        for root in group_roots:
+            new_ref = f"{prefix}-{counter:03d}/{year}"
+            if root.reference != new_ref:
+                changes.append((root, root.reference, new_ref))
+            root_counter = counter
+
+            children = sorted(
+                children_by_parent.get(root.pk, []),
+                key=lambda c: (c.date_start, c.pk),
+            )
+            for idx, child in enumerate(children, start=1):
+                child_ref = f"{prefix}-{(root_counter + idx):03d}/{year}"
+                if child.reference != child_ref:
+                    changes.append((child, child.reference, child_ref))
+
+            if root.date_start and root.date_end:
+                delta_days = (root.date_end - root.date_start).days
+            else:
+                delta_days = len(children)
+            gap = delta_days + 1  # each session/day occupies one counter slot
+            counter += gap
+
+    return changes
+
+
+def apply_session_reference_renumbering(changes):
+    """
+    Persist the (session, old_reference, new_reference) triples produced by
+    `compute_session_reference_renumbering`. Returns the number of sessions
+    updated.
+
+    Two-phase update, inside one transaction: every affected session is
+    first bumped to a throwaway unique placeholder, THEN each gets its
+    real final reference. Writing final values directly in a single pass
+    would risk a transient UNIQUE constraint violation whenever session
+    A's new reference happens to equal session B's *current* (not yet
+    updated) one — easy to hit with a full reshuffle, and order-dependent.
+    The placeholder phase guarantees no two rows ever share a reference at
+    any point during the update, regardless of ordering.
+    """
+    from django.db import transaction
+
+    if not changes:
+        return 0
+
+    with transaction.atomic():
+        for i, (session, _old, _new) in enumerate(changes):
+            Session.objects.filter(pk=session.pk).update(
+                reference=f"__renumbering_tmp__{session.pk}_{i}"
+            )
+        for session, _old, new_ref in changes:
+            Session.objects.filter(pk=session.pk).update(reference=new_ref)
+
+    return len(changes)
 
 
 def assign_certificate_number(participant):

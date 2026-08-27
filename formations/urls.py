@@ -38,6 +38,11 @@ urlpatterns = [
     ),
     # AJAX — session form pre-population
     path("api/formation/<int:pk>/", views.formation_api_detail, name="formation_api"),
+    path(
+        "api/session-reference-preview/",
+        views.session_reference_preview_api,
+        name="session_reference_preview_api",
+    ),
     # ── Session ───────────────────────────────────────────────────────────
     path("sessions/", views.session_list, name="session_list"),
     path("sessions/create/", views.session_create, name="session_create"),
