@@ -224,13 +224,17 @@ def compute_session_reference_renumbering():
     tie-break for same-day cycles, and numbered 1, 2, 3….
 
     A root's successive/child sessions are NOT renumbered by counting
-    their own rows: every cycle reserves a contiguous block of
-    `(date_end - date_start).days + 1` counter slots — one slot per
-    calendar day of the cycle, since every session (root or child)
-    represents exactly one day — whether or not the child rows have
-    actually been generated yet (`formations:generate_session_group`) or
-    were deleted since. The next root's counter starts right after that
-    block, so numbering stays correct and collision-free either way.
+    their own rows: every cycle reserves a contiguous block of counter
+    slots sized from the real cycle span — `max(root.date_end, every
+    child's date_end) - root.date_start, +1` — one slot per calendar day
+    of the cycle, since every session (root or child) represents exactly
+    one day — whether or not the child rows have actually been generated
+    yet (`formations:generate_session_group`) or were deleted since.
+    Using the root's own `date_end` alone would undercount whenever it's
+    out of sync with the actual last child day, letting the next root's
+    block start too early and collide with this cycle's numbers. The
+    next root's counter starts right after the (correctly sized) block,
+    so numbering stays correct and collision-free either way.
     When child rows DO exist, each is renumbered, in date order, as the
     root's counter + its 1-based position in the block.
 
@@ -277,8 +281,10 @@ def compute_session_reference_renumbering():
                 if child.reference != child_ref:
                     changes.append((child, child.reference, child_ref))
 
-            if root.date_start and root.date_end:
-                delta_days = (root.date_end - root.date_start).days
+            child_ends = [c.date_end for c in children if c.date_end]
+            last_day = max([root.date_end] + child_ends) if root.date_end else None
+            if root.date_start and last_day:
+                delta_days = (last_day - root.date_start).days
             else:
                 delta_days = len(children)
             gap = delta_days + 1  # each session/day occupies one counter slot

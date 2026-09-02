@@ -197,7 +197,7 @@
                   <span style="font-size:11px;color:var(--text-muted);font-weight:400;">(référence de l'examen)</span>
                 </label>
                 <input type="number" id="{{ form.max_score.id_for_label }}" name="{{ form.max_score.html_name }}"
-                  value="{{ form.max_score.value|default:'20' }}"
+                  value="{{ form.max_score.value|default_if_none:'20' }}"
                   class="form-control {% if form.max_score.errors %}is-invalid{% endif %}"
                   step="0.01" min="0.01" required />
                 {% if form.max_score.errors %}<div class="invalid-feedback d-block">{{ form.max_score.errors|join:", " }}</div>{% endif %}
@@ -207,7 +207,7 @@
                   Note de passage <span style="color:var(--danger);">*</span>
                 </label>
                 <input type="number" id="{{ form.passing_score.id_for_label }}" name="{{ form.passing_score.html_name }}"
-                  value="{{ form.passing_score.value|default:'10' }}"
+                  value="{{ form.passing_score.value|default_if_none:'10' }}"
                   class="form-control {% if form.passing_score.errors %}is-invalid{% endif %}"
                   step="0.01" min="0" required />
                 {% if form.passing_score.errors %}<div class="invalid-feedback d-block">{{ form.passing_score.errors|join:", " }}</div>{% endif %}
@@ -218,7 +218,7 @@
                   <span style="font-size:11px;color:var(--text-muted);font-weight:400;">(pour attestation)</span>
                 </label>
                 <input type="number" id="{{ form.min_attendance_days.id_for_label }}" name="{{ form.min_attendance_days.html_name }}"
-                  value="{{ form.min_attendance_days.value|default:'1' }}"
+                  value="{{ form.min_attendance_days.value|default_if_none:'1' }}"
                   class="form-control {% if form.min_attendance_days.errors %}is-invalid{% endif %}"
                   min="1" required />
                 {% if form.min_attendance_days.errors %}<div class="invalid-feedback d-block">{{ form.min_attendance_days.errors|join:", " }}</div>{% endif %}
