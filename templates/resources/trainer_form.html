@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load static %}
+{% load static l10n %}
 
 {% block title %}{{ title }} — Formateurs — ISI Gestion Pédagogique{% endblock %}
 
@@ -240,14 +240,14 @@
               <div class="col-sm-4">
                 <label class="form-label" for="{{ form.default_cost_percentage.id_for_label }}">Pourcentage par défaut (%)</label>
                 <input type="number" id="{{ form.default_cost_percentage.id_for_label }}" name="{{ form.default_cost_percentage.html_name }}"
-                  value="{{ form.default_cost_percentage.value|default_if_none:'' }}"
+                  value="{{ form.default_cost_percentage.value|default_if_none:''|unlocalize }}"
                   class="form-control {% if form.default_cost_percentage.errors %}is-invalid{% endif %}" step="0.01" min="0" max="100" placeholder="Ex : 30" />
                 {% if form.default_cost_percentage.errors %}<div class="invalid-feedback d-block">{{ form.default_cost_percentage.errors|join:", " }}</div>{% endif %}
               </div>
               <div class="col-sm-4">
                 <label class="form-label" for="{{ form.default_cost_amount.id_for_label }}">Montant direct par défaut (DA)</label>
                 <input type="number" id="{{ form.default_cost_amount.id_for_label }}" name="{{ form.default_cost_amount.html_name }}"
-                  value="{{ form.default_cost_amount.value|default_if_none:'' }}"
+                  value="{{ form.default_cost_amount.value|default_if_none:''|unlocalize }}"
                   class="form-control {% if form.default_cost_amount.errors %}is-invalid{% endif %}" step="0.01" min="0" placeholder="Ex : 15000" />
                 {% if form.default_cost_amount.errors %}<div class="invalid-feedback d-block">{{ form.default_cost_amount.errors|join:", " }}</div>{% endif %}
               </div>

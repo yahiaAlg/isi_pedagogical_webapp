@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load static %}
+{% load l10n %}
 
 {% block title %}{% if payment %}Modifier un règlement{% else %}Règlement formateur{% endif %} — {{ session.reference }} — ISI Gestion Pédagogique{% endblock %}
 {% block extra_head %}<link rel="stylesheet" href="{% static 'formations/css/formations.css' %}" />{% endblock %}
@@ -70,7 +71,7 @@
             <div class="mb-3">
               <label class="form-label" for="{{ form.amount.id_for_label }}">Montant réglé (DA) <span style="color:var(--danger);">*</span></label>
               <input type="number" id="{{ form.amount.id_for_label }}" name="{{ form.amount.html_name }}"
-                value="{{ form.amount.value|default_if_none:'' }}"
+                value="{{ form.amount.value|default_if_none:''|unlocalize }}"
                 class="form-control {% if form.amount.errors %}is-invalid{% endif %}" step="0.01" min="0" required />
               {% if form.amount.errors %}<div class="invalid-feedback d-block">{{ form.amount.errors|join:", " }}</div>{% endif %}
               {% if not payment %}

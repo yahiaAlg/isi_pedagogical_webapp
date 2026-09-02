@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load static %}
+{% load l10n %}
 {% load formations_tags %}
 
 {% block title %}{{ title }} — Sessions — ISI Gestion Pédagogique{% endblock %}
@@ -322,7 +323,7 @@
               <div class="col-sm-4">
                 <label class="form-label" for="{{ form.base_price.id_for_label }}">Prix de base (DA)</label>
                 <input type="number" id="{{ form.base_price.id_for_label }}" name="{{ form.base_price.html_name }}"
-                  value="{{ form.base_price.value|default_if_none:'' }}"
+                  value="{{ form.base_price.value|default_if_none:''|unlocalize }}"
                   class="form-control {% if form.base_price.errors %}is-invalid{% endif %}" step="0.01" min="0" placeholder="0.00" />
                 {% if form.base_price.errors %}<div class="invalid-feedback d-block">{{ form.base_price.errors|join:", " }}</div>{% endif %}
               </div>
@@ -368,14 +369,14 @@
               <div class="col-sm-4">
                 <label class="form-label" for="{{ form.trainer_cost_percentage.id_for_label }}">Pourcentage (%)</label>
                 <input type="number" id="{{ form.trainer_cost_percentage.id_for_label }}" name="{{ form.trainer_cost_percentage.html_name }}"
-                  value="{{ form.trainer_cost_percentage.value|default_if_none:'' }}"
+                  value="{{ form.trainer_cost_percentage.value|default_if_none:''|unlocalize }}"
                   class="form-control {% if form.trainer_cost_percentage.errors %}is-invalid{% endif %}" step="0.01" min="0" max="100" placeholder="Ex : 30" />
                 {% if form.trainer_cost_percentage.errors %}<div class="invalid-feedback d-block">{{ form.trainer_cost_percentage.errors|join:", " }}</div>{% endif %}
               </div>
               <div class="col-sm-4">
                 <label class="form-label" for="{{ form.trainer_cost_amount.id_for_label }}">Montant direct (DA)</label>
                 <input type="number" id="{{ form.trainer_cost_amount.id_for_label }}" name="{{ form.trainer_cost_amount.html_name }}"
-                  value="{{ form.trainer_cost_amount.value|default_if_none:'' }}"
+                  value="{{ form.trainer_cost_amount.value|default_if_none:''|unlocalize }}"
                   class="form-control {% if form.trainer_cost_amount.errors %}is-invalid{% endif %}" step="0.01" min="0" placeholder="Ex : 15000" />
                 {% if form.trainer_cost_amount.errors %}<div class="invalid-feedback d-block">{{ form.trainer_cost_amount.errors|join:", " }}</div>{% endif %}
               </div>
