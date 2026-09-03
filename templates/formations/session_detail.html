@@ -115,6 +115,24 @@
     </form>
   </div>
   {% endif %}
+  {% elif session.is_primary and request.user.profile.can_manage_sessions %}
+  <!-- Single-day formation: no child sessions to generate, but the PV /
+       attestation numbers still need a way to be released and reassigned
+       after a correction — same underlying action as "Regénérer" above. -->
+  <div class="alert alert-info mb-4" style="font-size:13.5px;align-items:center;gap:16px;flex-wrap:wrap;">
+    <i class="bi bi-arrow-repeat"></i>
+    <span style="flex:1;">
+      Besoin de corriger des notes après clôture ? Régénérez pour libérer le numéro de PV
+      et les numéros d'attestation actuels — de nouveaux numéros seront attribués au
+      prochain PV/attestation imprimé.
+    </span>
+    <form method="post" action="{% url 'formations:generate_session_group' session.pk %}" style="flex-shrink:0;">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-ghost btn-sm" style="font-size:12px;">
+        <i class="bi bi-arrow-repeat"></i> Regénérer
+      </button>
+    </form>
+  </div>
   {% endif %}
 
   <div class="row g-4">

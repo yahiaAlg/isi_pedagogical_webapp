@@ -1501,9 +1501,13 @@ def generate_session_group(request, pk):
             f"du compteur en cours au prochain PV imprimé.",
         )
     else:
-        messages.info(
+        messages.success(
             request,
-            "Cette formation ne comporte qu'une seule journée — aucune session supplémentaire à générer.",
+            "Cette formation ne comporte qu'une seule journée — aucune session "
+            "supplémentaire à générer. La session est repassée à « Planifiée » et "
+            "son numéro de PV, ainsi que les numéros d'attestation des participants "
+            "(le cas échéant), ont été libérés — de nouveaux numéros seront "
+            "attribués au prochain PV/attestation imprimé.",
         )
     return redirect("formations:session_detail", pk=pk)
 

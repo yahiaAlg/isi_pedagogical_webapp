@@ -426,10 +426,8 @@ def generate_child_sessions(primary_session):
     formation = primary_session.formation
     total_days = formation.duration_days
 
-    if total_days <= 1:
-        return []
-
-    # Idempotent: wipe existing children
+    # Idempotent: wipe existing children (no-op when total_days <= 1, since
+    # none were ever created for a single-day formation).
     primary_session.child_sessions.all().delete()
 
     # Reset the primary session back to "planned" and release its PV
@@ -437,6 +435,14 @@ def generate_child_sessions(primary_session):
     # Session.save() deliberately protects pv_number from being cleared
     # once assigned (see Session.save()) — this regeneration path is the
     # one intentional exception to that rule.
+    #
+    # This reset must run for single-day formations too (total_days <= 1):
+    # those sessions never have "child sessions" to regenerate, but they
+    # still accumulate a pv_number and per-participant certificate_number
+    # once completed, and those need releasing the same way so a fresh
+    # number is drawn the next time the PV/attestation is printed. Bailing
+    # out early here (as before) left single-day cycles with no way to
+    # refresh that info at all.
     Session.objects.filter(pk=primary_session.pk).update(status="planned", pv_number="")
     primary_session.status = "planned"
     primary_session.pv_number = ""
@@ -462,6 +468,12 @@ def generate_child_sessions(primary_session):
     # marks are edited and the group is regenerated/re-run — exactly what
     # "redoing the training days from scratch" is not supposed to do.
     primary_session.participant_set.update(exam_score=None)
+
+    if total_days <= 1:
+        # Nothing to (re)generate as child sessions, but the PV/certificate
+        # release above already happened, which is the part that actually
+        # matters for a single-day cycle.
+        return []
 
     half_score = (formation.max_score / Decimal("2")).quantize(Decimal("0.01"))
     eval_type = formation.evaluation_type
