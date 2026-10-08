@@ -68,6 +68,19 @@
                 </div>
               </div>
             </div>
+            <div class="row g-3 mb-3">
+              <div class="col-sm-4">
+                <label class="form-label" for="{{ form.website_code.id_for_label }}">Code sur le site web</label>
+                <input type="text" id="{{ form.website_code.id_for_label }}" name="{{ form.website_code.html_name }}"
+                  value="{{ form.website_code.value|default_if_none:'' }}"
+                  class="form-control {% if form.website_code.errors %}is-invalid{% endif %}"
+                  style="font-family:monospace;" />
+                {% if form.website_code.errors %}<div class="invalid-feedback d-block">{{ form.website_code.errors|join:", " }}</div>{% endif %}
+                <div style="font-size:11.5px;color:var(--text-muted);margin-top:4px;">
+                  Pré-rempli avec le code ; modifiez-le si le site diffère (ex. MEE2512-2). Utilisé dans le QR code.
+                </div>
+              </div>
+            </div>
             <div class="mb-3">
               <label class="form-label" for="{{ form.title_ar.id_for_label }}">Titre (AR)</label>
               <input type="text" id="{{ form.title_ar.id_for_label }}" name="{{ form.title_ar.html_name }}"
@@ -327,6 +340,18 @@
     if (hoursAuto && hoursInput) hoursInput.value = days * 8;
     if (attAuto && attInput) attInput.value = days;
   });
+})();
+
+// ── Website code mirrors Code until the user edits it ────────────────────
+(function () {
+  const codeInput = document.getElementById("{{ form.code.id_for_label }}");
+  const webInput = document.getElementById("{{ form.website_code.id_for_label }}");
+  if (!codeInput || !webInput) return;
+  let auto = !webInput.value || webInput.value === codeInput.value;
+  webInput.addEventListener("input", function () { auto = false; });
+  function mirror() { if (auto) webInput.value = codeInput.value; }
+  codeInput.addEventListener("input", mirror);
+  setInterval(mirror, 500); // catches programmatic changes (specialty/title autofill)
 })();
 
 // ── Code = initials of Titre (FR) ────────────────────────────────────────

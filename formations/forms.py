@@ -86,6 +86,9 @@ class SpecialtyForm(forms.ModelForm):
         widgets = {
             "branch": forms.Select(attrs={"class": "form-select"}),
             "code": forms.TextInput(attrs={"class": "form-control"}),
+            "website_code": forms.TextInput(
+                attrs={"class": "form-control", "style": "font-family:monospace;"}
+            ),
             "title": forms.TextInput(attrs={"class": "form-control"}),
             "title_ar": forms.TextInput(attrs={"class": "form-control", "dir": "rtl"}),
         }
@@ -111,6 +114,7 @@ class FormationForm(forms.ModelForm):
             "title",
             "title_ar",
             "code",
+            "website_code",
             "category",
             "specialty",
             "description",

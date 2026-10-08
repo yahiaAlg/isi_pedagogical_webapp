@@ -81,8 +81,8 @@ def check_document_requirements(session, doc_type, participant=None):
         else:
             if participant.result != "passed":
                 errors.append("Le participant n'est pas reçu")
-            if not participant.date_of_birth:
-                errors.append("Date de naissance manquante")
+            # Date/lieu de naissance are optional: their lines are simply
+            # omitted from the printed attestation when unknown.
             # Lieu de naissance (place_of_birth) is an optional field on
             # Participant (blank=True) and batch generation already prints
             # attestations without it (blank "A : ___" line) — the

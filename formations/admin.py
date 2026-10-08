@@ -79,6 +79,7 @@ class FormationAdmin(ImportExportModelAdmin, admin.ModelAdmin):
                     "title",
                     "title_ar",
                     "code",
+                    "website_code",
                     "category",
                     "specialty",
                     "attestation_type",

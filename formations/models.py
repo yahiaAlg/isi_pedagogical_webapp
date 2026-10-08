@@ -141,6 +141,16 @@ class Formation(models.Model):
     code = models.CharField(
         max_length=20, blank=True, db_index=True, verbose_name="Code"
     )
+    # Code of this formation in the main website's catalogue (URL segment).
+    # Pre-filled from `code` on save when blank; edit it when the website's
+    # code differs (e.g. a "-2" suffix).
+    website_code = models.CharField(
+        max_length=30,
+        blank=True,
+        verbose_name="Code sur le site web",
+        help_text="Pré-rempli avec le code ; modifiez-le si le code du catalogue "
+        "du site diffère (ex. MEE2512-2).",
+    )
     category = models.ForeignKey(
         Category, on_delete=models.SET_NULL, null=True, blank=True
     )
@@ -226,7 +236,35 @@ class Formation(models.Model):
 
     def save(self, *args, **kwargs):
         self._apply_specialty_derivation()
+        # website_code follows `code` while it was never customised: blank,
+        # or still equal to the previous code. A hand-edited value (e.g. a
+        # "-2" suffix) is left alone.
+        prev_code = None
+        if self.pk:
+            prev_code = (
+                Formation.objects.filter(pk=self.pk)
+                .values_list("code", flat=True)
+                .first()
+            )
+        wc = (self.website_code or "").strip()
+        if self.code and (not wc or (prev_code is not None and wc == prev_code)):
+            self.website_code = self.code
         super().save(*args, **kwargs)
+
+    @property
+    def website_url(self):
+        """URL of this formation in the main website's catalogue, e.g.
+        https://excellance-ms.dz/formations/catalogue-eems/MEE2512/ ("" if no code)."""
+        from urllib.parse import quote
+
+        from django.conf import settings
+
+        code = (self.website_code or self.code or "").strip()
+        if not code:
+            return ""
+        base = getattr(settings, "MAIN_SITE_URL", "").rstrip("/")
+        slug = getattr(settings, "MAIN_SITE_CATALOGUE_SLUG", "catalogue-eems")
+        return f"{base}/formations/{slug}/{quote(code)}/"
 
     @property
     def average_price(self):
@@ -1200,7 +1238,18 @@ class Participant(models.Model):
         # certificate numbers contain "/" and spaces (e.g. "2026/04 ت.ح.ط /001")
         # which don't survive as a clean URL path segment.
         path = f"/verify/{self.pk}/"
-        return f"{base}{path}" if base else path
+        verify_url = f"{base}{path}" if base else path
+
+        # The QR carries plain text with BOTH links: the internal validation
+        # page and the formation's page on the main website (when known).
+        try:
+            site_url = self.session.formation.website_url
+        except Exception:
+            site_url = ""
+        lines = [f"Vérification : {verify_url}"]
+        if site_url:
+            lines.append(f"Formation : {site_url}")
+        return "\n".join(lines)
 
     @property
     def qr_code_data_uri(self):

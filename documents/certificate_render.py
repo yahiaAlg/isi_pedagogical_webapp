@@ -72,8 +72,9 @@ def _parse_certificate_number(certificate_number: str) -> tuple[str, str, str]:
     return annee, mois_serie, num_serie
 
 
-def _fmt(d: date) -> str:
-    return d.strftime("%d/%m/%Y")
+def _fmt(d: date | None) -> str:
+    """Formats a date; returns "" when unknown (optional fields like birth date)."""
+    return d.strftime("%d/%m/%Y") if d else ""
 
 
 def get_institute_info():
@@ -135,7 +136,7 @@ def build_certificate_data(participant, *, issuance_date: date | None = None) ->
         # session.pv_number is already fully formatted, including its own
         # "{BRANCH}{SPECIALITE}-" prefix (see core.sequencing.allocate_pv_number) —
         # not reassembled here from the certificate number's serial/month/year.
-        "CIP_NUM": session.pv_number,
+        "CIP_NUM": session.pv_number or "",
         # Spec — dual-mode identity block: FR/latin and AR name pairs are
         # each independently optional (Participant.clean() already
         # enforces that at least one full pair exists). The print
@@ -144,13 +145,13 @@ def build_certificate_data(participant, *, issuance_date: date | None = None) ->
         "HAS_AR": participant.has_ar_name,
         "PRENOM_FR": participant.first_name.upper(),
         "NOM_FR": participant.last_name.upper(),
-        "PRENOM_AR": participant.first_name_ar,
-        "NOM_AR": participant.last_name_ar,
+        "PRENOM_AR": participant.first_name_ar or "",
+        "NOM_AR": participant.last_name_ar or "",
         "DATE_NAISSANCE": _fmt(participant.date_of_birth),
-        "LIEU_NAISSANCE_FR": participant.place_of_birth,
-        "LIEU_NAISSANCE_AR": participant.place_of_birth_ar,
-        "SPECIALITE_FR": formation.title,
-        "SPECIALITE_AR": formation.title_ar,
+        "LIEU_NAISSANCE_FR": (participant.place_of_birth or "").strip(),
+        "LIEU_NAISSANCE_AR": (participant.place_of_birth_ar or "").strip(),
+        "SPECIALITE_FR": (formation.title or "").strip(),
+        "SPECIALITE_AR": (formation.title_ar or "").strip(),
         "DUREE_HEURES": str(formation.duration_hours),
         "DUREE_MOIS_FR": _fr_day_label(days),
         "DUREE_MOIS_AR": _ar_day_label(days),
@@ -160,4 +161,5 @@ def build_certificate_data(participant, *, issuance_date: date | None = None) ->
         "AGREMENT_NUM": institute.accreditation_number if institute else "",
         "IF_NUM": institute.if_number if institute else "",
         "QR_PAYLOAD": participant.qr_code_content,
+        "WEBSITE_URL": formation.website_url,
     }

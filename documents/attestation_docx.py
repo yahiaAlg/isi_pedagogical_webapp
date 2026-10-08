@@ -115,8 +115,8 @@ def _parse_certificate_number(certificate_number: str) -> tuple[str, str, str]:
     return annee, mois_serie, num_serie
 
 
-def _fmt(d: date) -> str:
-    return d.strftime("%d/%m/%Y")
+def _fmt(d) -> str:
+    return d.strftime("%d/%m/%Y") if d else ""
 
 
 # ---------------------------------------------------------------------------

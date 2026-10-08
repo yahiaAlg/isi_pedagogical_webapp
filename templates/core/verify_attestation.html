@@ -21,6 +21,8 @@
   .info-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 14px; }
   .info-row .label { color: #888; }
   .info-row .value { font-weight: 700; }
+  .site-link { display: inline-block; margin-top: 18px; padding: 9px 18px; border-radius: 8px; background: #8a6d1d;
+               color: #fff; text-decoration: none; font-size: 14px; font-weight: 600; }
   .footer-note { margin-top: 20px; font-size: 12px; color: #999; }
 </style>
 </head>
@@ -36,6 +38,9 @@
       <div class="info-row"><span class="label">N° certificat</span><span class="value">{{ participant.certificate_number }}</span></div>
       <div class="info-row"><span class="label">Session</span><span class="value">{{ participant.session.reference }}</span></div>
     </div>
+    {% if participant.session.formation.website_url %}
+    <a class="site-link" href="{{ participant.session.formation.website_url }}" target="_blank" rel="noopener">Voir la formation sur le site officiel &rarr;</a>
+    {% endif %}
   {% else %}
     <div class="icon bad">&#10007;</div>
     <h1>Attestation introuvable</h1>

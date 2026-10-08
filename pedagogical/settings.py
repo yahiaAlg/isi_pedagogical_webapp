@@ -17,7 +17,13 @@ ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(","
 
 # Spec §11.6 — base URL used to build the default QR-code verification link
 # printed on attestations (e.g. https://isi-example.dz).
-SITE_URL = os.environ.get("SITE_URL", "http://localhost:8000")
+# Internal Ubuntu server, served under the /pedagogy prefix (see URL_PREFIX below).
+SITE_URL = os.environ.get("SITE_URL", "http://192.168.100.10/pedagogy").rstrip("/")
+
+# Public catalogue on the main (shared-hosting) website. A formation's page is
+# {MAIN_SITE_URL}/formations/{MAIN_SITE_CATALOGUE_SLUG}/{formation.code}/
+MAIN_SITE_URL = os.environ.get("MAIN_SITE_URL", "https://excellance-ms.dz").rstrip("/")
+MAIN_SITE_CATALOGUE_SLUG = os.environ.get("MAIN_SITE_CATALOGUE_SLUG", "catalogue-eems")
 
 CSRF_TRUSTED_ORIGINS = [
     o.strip()
