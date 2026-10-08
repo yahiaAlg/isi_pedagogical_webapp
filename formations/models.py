@@ -252,14 +252,21 @@ class Formation(models.Model):
         super().save(*args, **kwargs)
 
     @property
+    def title_slug(self):
+        """slugify(title) — same function the website uses for Offering.slug."""
+        return slugify(self.title or "")
+
+    @property
     def website_url(self):
-        """URL of this formation in the main website's catalogue, e.g.
-        https://excellance-ms.dz/formations/catalogue-eems/MEE2512/ ("" if no code)."""
+        """URL of this formation in the main website's catalogue, built from
+        the title slug, e.g. https://excellance-ms.dz/formations/catalogue-eems/
+        habilitation-a-lutilisation-des-produits-chimiques/. Falls back to the
+        website code (legacy /<code>/ URL) when the title has no usable slug."""
         from urllib.parse import quote
 
         from django.conf import settings
 
-        code = (self.website_code or self.code or "").strip()
+        code = self.title_slug or (self.website_code or self.code or "").strip()
         if not code:
             return ""
         base = getattr(settings, "MAIN_SITE_URL", "").rstrip("/")
@@ -1237,7 +1244,13 @@ class Participant(models.Model):
         # Use the participant's pk rather than the certificate number itself:
         # certificate numbers contain "/" and spaces (e.g. "2026/04 ت.ح.ط /001")
         # which don't survive as a clean URL path segment.
-        path = f"/verify/{self.pk}/"
+        # The pk identifies the certificate; the title slug is purely cosmetic
+        # (the view ignores it), so renaming a formation never breaks a QR.
+        try:
+            title_slug = self.session.formation.title_slug
+        except Exception:
+            title_slug = ""
+        path = f"/verify/{self.pk}/{title_slug}/" if title_slug else f"/verify/{self.pk}/"
         verify_url = f"{base}{path}" if base else path
 
         # The QR carries plain text with BOTH links: the internal validation

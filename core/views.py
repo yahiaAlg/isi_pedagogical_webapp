@@ -361,7 +361,7 @@ def session_reference_maintenance(request):
     )
 
 
-def verify_attestation(request, token):
+def verify_attestation(request, token, slug=None):
     """
     Spec §11.6 — public landing page for the attestation QR code.
     `token` is the participant's pk (certificate numbers contain "/" and

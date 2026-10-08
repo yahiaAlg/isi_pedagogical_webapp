@@ -53,4 +53,6 @@ urlpatterns = [
     ),
     # Spec §11.6 — public QR verification landing page (no login required)
     path("verify/<int:token>/", views.verify_attestation, name="verify_attestation"),
+    # Same page, with the formation's title slug in the URL (cosmetic, ignored).
+    path("verify/<int:token>/<str:slug>/", views.verify_attestation, name="verify_attestation_slug"),
 ]
