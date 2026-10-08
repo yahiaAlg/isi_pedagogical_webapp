@@ -4,6 +4,14 @@ Changes made to the project in this working session, grouped by feature.
 
 ---
 
+## QR / barcode separation on the attestation
+
+- **QR code** now encodes only the formation's page on the main website (`formation.website_url`). A manual `qr_payload` still overrides it; if the formation has no website page it falls back to the verification URL.
+- **Barcode** (Code 128, auto-generated, SVG, no new dependency) now encodes the verification URL `{SITE_URL}/verify/<participant pk>/` and replaces the former "Agrément n°" line (bottom-left).
+- New: `formations/barcode.py`, `Participant.verify_url`, `Participant.barcode_data_uri`; layout key `agrement_box` -> `barcode_box`.
+
+---
+
 ## 1. Logo not showing on printed documents (bug fix)
 
 **Problem:** the institute logo, uploaded via *Settings*, never appeared on any printed document in production.

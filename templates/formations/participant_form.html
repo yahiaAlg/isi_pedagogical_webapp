@@ -218,7 +218,7 @@
                 class="form-control {% if form.qr_payload.errors %}is-invalid{% endif %}"
                 placeholder="Laisser vide pour le lien de vérification par défaut" />
               {% if form.qr_payload.errors %}<div class="invalid-feedback d-block">{{ form.qr_payload.errors|join:", " }}</div>{% endif %}
-              <small class="text-muted">Si vide, le QR code encode automatiquement un lien de vérification basé sur le numéro de certificat.</small>
+              <small class="text-muted">Si vide, le QR code encode automatiquement le lien de la formation sur le site principal. Le lien de vérification est encodé dans le code-barres.</small>
             </div>
 
             <div class="section-divider"></div>

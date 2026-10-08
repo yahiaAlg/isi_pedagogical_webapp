@@ -51,7 +51,7 @@ BOXES = {
     "director_box": (621, 686, 744, 742),  # static "المدير / Le Directeur"
     "date_box": (877, 715, 1127, 752),
     "no_copy_box": (825, 761, 1019, 782),  # "لا تسلم نسخة أخرى من الشهادة" (static)
-    "agrement_box": (115, 817, 281, 838),
+    "barcode_box": (165, 804, 565, 852),  # verification barcode (replaces agrement line)
     "if_box": (971, 817, 1144, 848),
 }
 

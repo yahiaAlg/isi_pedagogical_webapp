@@ -1228,41 +1228,34 @@ class Participant(models.Model):
 
         assign_certificate_number(self)
 
-    # ---------------------------------------------------------------- QR code
+    # ------------------------------------------------- QR code + barcode
     @property
-    def qr_code_content(self):
-        """
-        Spec §11.6 — payload encoded on the attestation QR code.
-        Uses the manual override if set, otherwise falls back to an
-        auto-generated verification link keyed on the certificate number.
-        """
-        if self.qr_payload:
-            return self.qr_payload
+    def verify_url(self):
+        """Absolute URL of the internal attestation-validation page.
+        Encoded in the attestation BARCODE. Uses the participant's pk rather
+        than the certificate number (which contains "/" and spaces, e.g.
+        "2026/04 ت.ح.ط /001"). The title slug is cosmetic (the view ignores
+        it) and is omitted here to keep the barcode short enough to scan."""
         from django.conf import settings
 
         base = getattr(settings, "SITE_URL", "").rstrip("/")
-        # Use the participant's pk rather than the certificate number itself:
-        # certificate numbers contain "/" and spaces (e.g. "2026/04 ت.ح.ط /001")
-        # which don't survive as a clean URL path segment.
-        # The pk identifies the certificate; the title slug is purely cosmetic
-        # (the view ignores it), so renaming a formation never breaks a QR.
-        try:
-            title_slug = self.session.formation.title_slug
-        except Exception:
-            title_slug = ""
-        path = f"/verify/{self.pk}/{title_slug}/" if title_slug else f"/verify/{self.pk}/"
-        verify_url = f"{base}{path}" if base else path
+        return f"{base}/verify/{self.pk}/"
 
-        # The QR carries plain text with BOTH links: the internal validation
-        # page and the formation's page on the main website (when known).
+    @property
+    def qr_code_content(self):
+        """
+        Payload encoded on the attestation QR code: the formation's page on
+        the main website. A manual `qr_payload` override wins; if the
+        formation has no website page, falls back to the verification URL so
+        the QR is never empty.
+        """
+        if self.qr_payload:
+            return self.qr_payload
         try:
             site_url = self.session.formation.website_url
         except Exception:
             site_url = ""
-        lines = [f"Vérification : {verify_url}"]
-        if site_url:
-            lines.append(f"Formation : {site_url}")
-        return "\n".join(lines)
+        return site_url or self.verify_url
 
     @property
     def qr_code_data_uri(self):
@@ -1281,6 +1274,13 @@ class Participant(models.Model):
         img.save(buffer, format="PNG")
         encoded = base64.b64encode(buffer.getvalue()).decode("ascii")
         return f"data:image/png;base64,{encoded}"
+
+    @property
+    def barcode_data_uri(self):
+        """Code 128 barcode (SVG data URI) encoding `verify_url`."""
+        from .barcode import code128_svg_data_uri
+
+        return code128_svg_data_uri(self.verify_url)
 
     def get_attendance_for_day(self, day_key):
         return self.attendance_per_day.get(day_key, True)

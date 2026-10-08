@@ -99,9 +99,10 @@
     لا تسلم نسخة أخرى من الشهادة
   </div>
 
-  {% if data.AGREMENT_NUM %}
-  <div class="box agrement-line" style="{{ boxes.agrement_box }}">
-    Agrément n° {{ data.AGREMENT_NUM }}
+  {# Verification barcode (Code 128 of the /verify/ URL) — replaces the former "Agrément n°" line #}
+  {% if participant.barcode_data_uri %}
+  <div class="box barcode-box" style="{{ boxes.barcode_box }}">
+    <img src="{{ participant.barcode_data_uri }}" alt="Barcode">
   </div>
   {% endif %}
 
