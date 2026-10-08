@@ -333,3 +333,4 @@ a price override, asset/session surplus return increasing stock and logging
 a distinct `"return"` movement, and the hard stock-overflow guard on
 `deliver()` — all passed. Existing regressions (room save, equipment
 guardrail, asset CRUD/restock, permissions) re-verified — no breakage.*
+- Fix: barcode no longer overlaps the border rule/frame; now 1 module = 1px (no stretch), 26px tall, centred in the band under the bottom gold rule (formations/barcode.py, certificate_layout.py barcode_box, both _certificate_style*.html).

@@ -152,7 +152,8 @@
   .no-copy-line { font-family: 'Amiri', serif; font-weight: 400; font-size: 14px; text-align: right; }
 
   /* ---- verification barcode (replaces the agrement line) ---- */
-  .barcode-box img { width: 100%; height: 100%; display: block; }
+  .barcode-box { display: flex; align-items: center; justify-content: center; }
+  .barcode-box img { height: 100%; width: auto; max-width: 100%; display: block; }
 
   /* ---- agrement / IF (LTR) ---- */
   .agrement-line, .if-line {

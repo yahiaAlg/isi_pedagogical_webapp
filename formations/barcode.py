@@ -63,7 +63,7 @@ def code128b_modules(text):
     return "".join(_PATTERNS[v] for v in seq) + _STOP + "11"
 
 
-def code128_svg_data_uri(text, bar_height=60, quiet=10):
+def code128_svg_data_uri(text, bar_height=26, quiet=6):
     """Render `text` as a Code 128 barcode; returns a data: URI (SVG) or ''."""
     try:
         modules = code128b_modules(text)
@@ -82,8 +82,7 @@ def code128_svg_data_uri(text, bar_height=60, quiet=10):
     width = n + 2 * quiet
     svg = (
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {bar_height}" '
-        f'preserveAspectRatio="none" shape-rendering="crispEdges">'
-        f'<rect width="{width}" height="{bar_height}" fill="#fff"/>'
+        f'width="{width}" height="{bar_height}" shape-rendering="crispEdges">'
         f'<g fill="#000">{"".join(rects)}</g></svg>'
     )
     return "data:image/svg+xml;base64," + base64.b64encode(svg.encode()).decode("ascii")
