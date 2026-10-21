@@ -3,6 +3,11 @@
 {% block doc_title %}قائمة النقاط — {{ session.reference }}{% endblock %}
 
 {% block doc_body %}
+{% if blank_mode %}
+<div class="blank-note" style="background:#fffbeb;border:1px solid #fbbf24;padding:8px;border-radius:4px;margin-bottom:10px;font-size:12px;text-align:center;">
+  <strong>نسخة فارغة — تُعبّأ يدويا</strong>
+</div>
+{% endif %}
 <div class="doc-title">قائمة نقاط تقييم المترشحين</div>
 <div class="doc-subtitle">
   <strong>التكوين : {{ session.formation.code }}</strong>
@@ -45,8 +50,8 @@
     </tr>
     {% endfor %}
     {% with count=participants|length %}
-    {% if count < 12 %}
-      {% for i in "123456789012"|make_list %}
+    {% if count < blank_rows %}
+      {% for i in ""|ljust:blank_rows %}
         {% if forloop.counter > count %}
         <tr>
           <td>{{ forloop.counter|stringformat:"02d" }}</td>
@@ -65,9 +70,9 @@
 <div style="font-size:11px;margin-bottom:16px;">
   <strong>عتبة النجاح : {{ session.formation.passing_score }}/20</strong>
   &nbsp;|&nbsp;
-  الحضور : {{ session.total_present }}
+  الحضور : {% if blank_mode %}.......{% else %}{{ session.total_present }}{% endif %}
   &nbsp;|&nbsp;
-  الغياب : {{ session.total_absent }}
+  الغياب : {% if blank_mode %}.......{% else %}{{ session.total_absent }}{% endif %}
 </div>
 
 <div class="sig-row">

@@ -93,10 +93,18 @@ def print_nominal_list(request, session_pk):
     session = get_object_or_404(Session, pk=session_pk)
     if not request.user.profile.can_generate_documents():
         raise PermissionDenied()
-    # Nominal list and PV share the same reference (§ PV sequencer) —
-    # whichever of the two is printed first allocates it.
-    session.assign_pv_number()
-    participants = session.participant_set.order_by("last_name", "first_name")
+    # ?mode=blank — empty table for manual completion: no PV number is
+    # allocated and no participant data is pre-filled.
+    blank_mode = request.GET.get("mode") == "blank"
+    if blank_mode:
+        participants = []
+        blank_rows = max(session.capacity or 0, 12)
+    else:
+        # Nominal list and PV share the same reference (§ PV sequencer) —
+        # whichever of the two is printed first allocates it.
+        session.assign_pv_number()
+        participants = session.participant_set.order_by("last_name", "first_name")
+        blank_rows = 12
     return render(
         request,
         "documents/print/nominal_list.html",
@@ -104,6 +112,8 @@ def print_nominal_list(request, session_pk):
             "session": session,
             "participants": participants,
             "institute": _get_institute(),
+            "blank_mode": blank_mode,
+            "blank_rows": blank_rows,
         },
     )
 
@@ -113,7 +123,13 @@ def print_evaluation_list(request, session_pk):
     session = get_object_or_404(Session, pk=session_pk)
     if not request.user.profile.can_generate_documents():
         raise PermissionDenied()
-    participants = session.participant_set.order_by("last_name", "first_name")
+    blank_mode = request.GET.get("mode") == "blank"
+    if blank_mode:
+        participants = []
+        blank_rows = max(session.capacity or 0, 12)
+    else:
+        participants = session.participant_set.order_by("last_name", "first_name")
+        blank_rows = 12
     return render(
         request,
         "documents/print/evaluation_list.html",
@@ -121,6 +137,8 @@ def print_evaluation_list(request, session_pk):
             "session": session,
             "participants": participants,
             "institute": _get_institute(),
+            "blank_mode": blank_mode,
+            "blank_rows": blank_rows,
         },
     )
 
@@ -148,15 +166,18 @@ def print_deliberation_report(request, session_pk):
     session = get_object_or_404(Session, pk=session_pk)
     if not request.user.profile.can_generate_documents():
         raise PermissionDenied()
-    # Same PV sequencer/number as the nominal list (§ PV sequencer) —
-    # no-op if the nominal list already allocated one for this session.
-    session.assign_pv_number()
+    blank_mode = request.GET.get("mode") == "blank"
+    if not blank_mode:
+        # Same PV sequencer/number as the nominal list (§ PV sequencer) —
+        # no-op if the nominal list already allocated one for this session.
+        session.assign_pv_number()
     return render(
         request,
         "documents/print/deliberation_report.html",
         {
             "session": session,
             "institute": _get_institute(),
+            "blank_mode": blank_mode,
         },
     )
 

@@ -266,6 +266,10 @@
               <i class="bi bi-file-earmark-arrow-down-fill"></i> {% if doc %}Regénérer{% else %}Générer{% endif %}
             </a>
             {% endif %}
+            <a href="{% url 'documents:generate_evaluation_list' session_pk=session.pk %}?mode=blank"
+               class="btn btn-ghost btn-sm" title="Liste vierge à remplir à la main">
+              <i class="bi bi-file-earmark"></i> Vierge
+            </a>
           </div>
         </div>
         {% endwith %}
@@ -287,6 +291,10 @@
               <i class="bi bi-file-earmark-arrow-down-fill"></i> {% if doc %}Regénérer{% else %}Générer{% endif %}
             </a>
             {% endif %}
+            <a href="{% url 'documents:generate_nominal_list' session_pk=session.pk %}?mode=blank"
+               class="btn btn-ghost btn-sm" title="Liste vierge à remplir à la main">
+              <i class="bi bi-file-earmark"></i> Vierge
+            </a>
           </div>
         </div>
         {% endwith %}
@@ -326,6 +334,10 @@
               <i class="bi bi-file-earmark-arrow-down-fill"></i> {% if doc %}Regénérer{% else %}Générer{% endif %}
             </a>
             {% endif %}
+            <a href="{% url 'documents:generate_deliberation_report' session_pk=session.pk %}?mode=blank"
+               class="btn btn-ghost btn-sm" title="Procès-verbal vierge à remplir à la main">
+              <i class="bi bi-file-earmark"></i> Vierge
+            </a>
           </div>
         </div>
         {% endwith %}

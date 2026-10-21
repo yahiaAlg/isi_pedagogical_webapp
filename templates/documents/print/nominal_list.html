@@ -38,6 +38,7 @@
 
   @media print {
     .print-btn-bar { display: none !important; }
+    .blank-note { display: none !important; }
     .page-wrapper { max-width: 100%; margin: 0; padding: 0; }
     .doc-page { border: none; padding: 15mm 18mm; min-height: 297mm; }
     @page { size: A4; margin: 0; }
@@ -74,11 +75,16 @@
       إعتماد رقم {{ institute.accreditation_number }} المؤرخ {{ institute.accreditation_date|date:"Y/m/d" }}
       {% endif %}
     </div>
-    <div class="ar-ref" dir="ltr">رقم مرجع: {{ session.pv_number }}</div>
+    <div class="ar-ref" dir="ltr">{% if blank_mode %}رقم مرجع: ..........{% else %}رقم مرجع: {{ session.pv_number }}{% endif %}</div>
   </div>
 
   <div class="doc-body-wrap">
-  <div class="service-title">المصلحة البيداغوجية</div>
+  {% if blank_mode %}
+  <div class="blank-note" style="background:#fffbeb;border:1px solid #fbbf24;padding:8px;border-radius:4px;margin-bottom:10px;font-size:12px;text-align:center;">
+    <strong>نسخة فارغة — تُعبّأ يدويا</strong>
+  </div>
+  {% endif %}
+<div class="service-title">المصلحة البيداغوجية</div>
   <div class="doc-main-title">جدول اسمي نهائي للمتربصين المسجلين في التكوين التأهيلي حسب الطلب</div>
 
   <!-- Info grid -->
@@ -131,8 +137,8 @@
       </tr>
       {% endfor %}
       {% with count=participants|length %}
-      {% if count < 12 %}
-        {% for i in "123456789012"|make_list %}
+      {% if count < blank_rows %}
+        {% for i in ""|ljust:blank_rows %}
           {% if forloop.counter > count %}
           <tr>
             <td>{{ forloop.counter|stringformat:"02d" }}</td>

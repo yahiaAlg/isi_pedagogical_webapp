@@ -179,6 +179,11 @@ def generate_nominal_list_view(request, session_pk):
     session = get_object_or_404(Session, pk=session_pk)
     if not request.user.profile.can_generate_documents():
         raise PermissionDenied()
+    # A blank (manual) version is available in any session state — no
+    # status/participant requirement, nothing is recorded or numbered.
+    if request.GET.get("mode") == "blank":
+        url = reverse("documents:print_nominal_list", kwargs={"session_pk": session.pk})
+        return redirect(url + "?mode=blank")
     errors = check_document_requirements(session, "nominal_list")
     if errors:
         messages.error(request, f"Impossible de générer: {'; '.join(errors)}")
@@ -191,6 +196,10 @@ def generate_evaluation_list_view(request, session_pk):
     session = get_object_or_404(Session, pk=session_pk)
     if not request.user.profile.can_generate_documents():
         raise PermissionDenied()
+    # Blank (manual) version — always available, see generate_nominal_list_view.
+    if request.GET.get("mode") == "blank":
+        url = reverse("documents:print_evaluation_list", kwargs={"session_pk": session.pk})
+        return redirect(url + "?mode=blank")
     errors = check_document_requirements(session, "evaluation_list")
     if errors:
         messages.error(request, f"Impossible de générer: {'; '.join(errors)}")
@@ -203,6 +212,13 @@ def generate_deliberation_report_view(request, session_pk):
     session = get_object_or_404(Session, pk=session_pk)
     if not request.user.profile.can_generate_documents():
         raise PermissionDenied()
+    # Blank (manual) version — no committee/status requirement, no PV number
+    # allocated and no notification sent.
+    if request.GET.get("mode") == "blank":
+        url = reverse(
+            "documents:print_deliberation_report", kwargs={"session_pk": session.pk}
+        )
+        return redirect(url + "?mode=blank")
     if not session.committee_members or len(session.committee_members) < 2:
         return redirect("documents:set_committee", session_pk=session.pk)
     errors = check_document_requirements(session, "deliberation_report")
