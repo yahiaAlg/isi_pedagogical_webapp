@@ -53,7 +53,7 @@ BOXES = {
     "no_copy_box": (825, 761, 1019, 782),  # "لا تسلم نسخة أخرى من الشهادة" (static)
     # verification QR: small square in the bottom-left corner, just inside the
     # gold frame (frame inner edge x~71, y~841).
-    "verify_qr_box": (76, 788, 126, 838),
+    "verify_qr_box": (80, 798, 122, 840),
     # printed fallback code, centred in the clean band between the inner gold
     # rule (y~804) and the outer frame (y~843) — where the barcode used to be.
     "verify_code_box": (268, 811, 993, 837),

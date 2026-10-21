@@ -104,8 +104,8 @@
   <div class="box verify-qr-box" style="{{ boxes.verify_qr_box }}">
     <img src="{{ participant.verify_qr_data_uri }}" alt="QR">
   </div>
-  <div class="box verify-code-line" style="{{ boxes.verify_code_box }}">
-    للتحقق · Vérification : <span dir="ltr">{{ participant.verification_code_display }}</span>
+  <div class="box verify-code-line" dir="ltr" style="{{ boxes.verify_code_box }}">
+    <span dir="rtl">للتحقق</span>&nbsp;·&nbsp;Vérification&nbsp;:&nbsp;<span dir="ltr">{{ participant.verification_code_display }}</span>
   </div>
   {% endif %}
 
