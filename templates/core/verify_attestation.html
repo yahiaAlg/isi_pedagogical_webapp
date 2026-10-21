@@ -46,12 +46,14 @@
     <h1>{% if searched|default:False or token %}Attestation introuvable{% else %}Vérifier une attestation{% endif %}</h1>
     <p class="subtitle">{% if searched|default:False or token %}Aucun certificat émis ne correspond à ce code. Vérifiez le document ou contactez l'institut.{% else %}Saisissez le code imprimé sur l'attestation.{% endif %}</p>
   {% endif %}
-  {% if not participant %}
-  <form method="get" action="{% url 'core:verify_lookup' %}" style="margin-top:6px;">
-    <input type="text" name="code" value="{{ token|default:'' }}" placeholder="K7F9-Q2XM" maxlength="12"
+  <form method="get" action="{% url 'core:verify_lookup' %}" style="margin-top:{% if participant %}22px{% else %}6px{% endif %};">
+    {% if participant %}<div style="font-size:13px;color:#777;margin-bottom:8px;">Vérifier un autre code</div>{% endif %}
+    <input type="text" name="code" value="{% if not participant %}{{ token|default:'' }}{% endif %}" placeholder="K7F9-Q2XM" maxlength="12"
            autocomplete="off" style="padding:10px 12px;border:1px solid #ccc;border-radius:8px;font-size:15px;text-transform:uppercase;letter-spacing:1px;width:60%;text-align:center;">
     <button type="submit" class="site-link" style="border:0;cursor:pointer;margin-top:0;">Vérifier</button>
   </form>
+  {% if request.user.is_authenticated %}
+  <div style="margin-top:14px;"><a href="{% url 'core:dashboard' %}" style="font-size:13px;color:#777;">&larr; Retour à l'application</a></div>
   {% endif %}
   <div class="footer-note">Vérification automatique — ISI Gestion Pédagogique</div>
 </div>
