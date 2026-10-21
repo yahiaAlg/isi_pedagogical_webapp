@@ -278,10 +278,16 @@ def print_batch_attestations(request, session_pk):
     # participant added to the session gets the lowest number, and so
     # on) rather than alphabetically — the counter increases "as per the
     # order of that participant", not by name.
+    # ?ids=1,2,3 restricts the print to the participants ticked on the
+    # selection form; without it every passed participant is printed.
+    ids_param = request.GET.get("ids", "")
+    selected_ids = {int(x) for x in ids_param.split(",") if x.strip().isdigit()}
     passed = [
         p
         for p in session.participant_set.order_by("created_at", "pk")
-        if p.result == "passed" and session.formation.produces_certificate
+        if p.result == "passed"
+        and session.formation.produces_certificate
+        and (not selected_ids or p.pk in selected_ids)
     ]
 
     # Assign certificate numbers in bulk

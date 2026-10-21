@@ -372,7 +372,21 @@ def generate_batch_attestations_view(request, session_pk):
     if request.method == "POST":
         form = AttestationGenerationForm(request.POST, session=session)
         if form.is_valid():
-            return redirect("documents:print_batch_attestations", session_pk=session.pk)
+            # Only print the participants that were ticked — pass their ids
+            # to the print view (it used to print every passed participant).
+            ids = [
+                name.split("_", 1)[1]
+                for name, checked in form.cleaned_data.items()
+                if name.startswith("participant_") and checked
+            ]
+            if not ids:
+                messages.error(request, "Sélectionnez au moins un participant.")
+            else:
+                url = reverse(
+                    "documents:print_batch_attestations",
+                    kwargs={"session_pk": session.pk},
+                )
+                return redirect(f"{url}?ids={','.join(ids)}")
     else:
         form = AttestationGenerationForm(session=session)
 
