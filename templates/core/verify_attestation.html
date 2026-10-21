@@ -43,8 +43,15 @@
     {% endif %}
   {% else %}
     <div class="icon bad">&#10007;</div>
-    <h1>Attestation introuvable</h1>
-    <p class="subtitle">Aucun certificat émis ne correspond à ce code. Vérifiez le document ou contactez l'institut.</p>
+    <h1>{% if searched|default:False or token %}Attestation introuvable{% else %}Vérifier une attestation{% endif %}</h1>
+    <p class="subtitle">{% if searched|default:False or token %}Aucun certificat émis ne correspond à ce code. Vérifiez le document ou contactez l'institut.{% else %}Saisissez le code imprimé sur l'attestation.{% endif %}</p>
+  {% endif %}
+  {% if not participant %}
+  <form method="get" action="{% url 'core:verify_lookup' %}" style="margin-top:6px;">
+    <input type="text" name="code" value="{{ token|default:'' }}" placeholder="K7F9-Q2XM" maxlength="12"
+           autocomplete="off" style="padding:10px 12px;border:1px solid #ccc;border-radius:8px;font-size:15px;text-transform:uppercase;letter-spacing:1px;width:60%;text-align:center;">
+    <button type="submit" class="site-link" style="border:0;cursor:pointer;margin-top:0;">Vérifier</button>
+  </form>
   {% endif %}
   <div class="footer-note">Vérification automatique — ISI Gestion Pédagogique</div>
 </div>

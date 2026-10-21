@@ -25,6 +25,20 @@ SITE_URL = os.environ.get("SITE_URL", "http://192.168.100.10/pedagogy").rstrip("
 MAIN_SITE_URL = os.environ.get("MAIN_SITE_URL", "https://excellance-ms.dz").rstrip("/")
 MAIN_SITE_CATALOGUE_SLUG = os.environ.get("MAIN_SITE_CATALOGUE_SLUG", "catalogue-eems")
 
+# Attestation verification (QR) — the QR printed on a certificate points to
+# {MAIN_SITE_URL}/v/<code>/ (reachable from anywhere). The main site sends
+# visitors on the institute network to this app, everyone else gets a notice
+# page. As a second line of defence this app re-checks the client address:
+# private/loopback addresses are always "LAN"; add the institute's public NAT
+# address (or any other trusted range) here, comma-separated, CIDR allowed.
+LAN_EXTRA_NETWORKS = [
+    n.strip() for n in os.environ.get("LAN_EXTRA_NETWORKS", "").split(",") if n.strip()
+]
+
+# Shared secret for `manage.py ping_main_site` (announces this server's current
+# public IP to the main site every few minutes — see that command's docstring).
+INSTITUTE_PING_SECRET = os.environ.get("INSTITUTE_PING_SECRET", "")
+
 CSRF_TRUSTED_ORIGINS = [
     o.strip()
     for o in os.environ.get("CSRF_TRUSTED_ORIGINS", "").split(",")

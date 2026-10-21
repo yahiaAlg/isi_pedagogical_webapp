@@ -2,6 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils import timezone
+from django.conf import settings
 
 from formations.models import Session, Participant
 from formations.utils import (
@@ -16,6 +17,7 @@ from .forms import (
     SequencePeriodForm,
 )
 from .sequencing import PV_KIND, CERTIFICATE_KIND, MISSION_ORDER_KIND
+from .netutils import is_lan_request
 
 
 # ---------------------------------------------------------------------------
@@ -361,14 +363,26 @@ def session_reference_maintenance(request):
     )
 
 
+def _outside_lan_redirect(request, code=""):
+    """Verification only works from the institute network. Anyone else is sent
+    to the notice page on the main website. `from=pedagogy` stops the main site
+    from bouncing them straight back here (redirect loop)."""
+    from urllib.parse import quote
+
+    base = getattr(settings, "MAIN_SITE_URL", "").rstrip("/")
+    path = f"/v/{quote(code)}/" if code else "/v/"
+    return redirect(f"{base}{path}?from=pedagogy")
+
+
 def verify_attestation(request, token, slug=None):
     """
-    Spec §11.6 — public landing page for the attestation QR code.
-    `token` is the participant's pk (certificate numbers contain "/" and
-    spaces, so they can't be used directly as a URL path segment). No
-    login required — the QR is meant to be scanned by anyone holding the
-    physical document.
+    Spec §11.6 — landing page for the legacy attestation QR (sequential pk).
+    Kept so already-printed certificates keep working. `token` is the
+    participant's pk (certificate numbers contain "/" and spaces). Only
+    reachable from the institute network.
     """
+    if not is_lan_request(request):
+        return _outside_lan_redirect(request)
     participant = Participant.objects.filter(
         pk=token, certificate_issued=True
     ).exclude(certificate_number="").first()
@@ -376,4 +390,33 @@ def verify_attestation(request, token, slug=None):
         request,
         "core/verify_attestation.html",
         {"participant": participant, "token": token},
+    )
+
+
+def verify_by_code(request, code=""):
+    """
+    Landing page for the short code printed under the attestation QR
+    (/v/K7F9Q2XM/). Forgiving about how the code is typed (case, dash,
+    spaces). Only reachable from the institute network; anyone else is
+    redirected to the notice page on the main website.
+    """
+    code = request.GET.get("code", code)
+    clean = "".join(ch for ch in (code or "").upper() if ch.isalnum())
+    if not is_lan_request(request):
+        return _outside_lan_redirect(request, clean)
+    if request.GET.get("code") and clean:
+        # Manual lookup form → canonical URL
+        return redirect("core:verify_by_code", code=clean)
+    participant = None
+    if clean:
+        participant = (
+            Participant.objects.filter(verification_code=clean, certificate_issued=True)
+            .exclude(certificate_number="")
+            .select_related("session__formation")
+            .first()
+        )
+    return render(
+        request,
+        "core/verify_attestation.html",
+        {"participant": participant, "token": clean, "searched": bool(clean)},
     )

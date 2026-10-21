@@ -51,7 +51,11 @@ urlpatterns = [
         views.session_reference_maintenance,
         name="session_reference_maintenance",
     ),
-    # Spec §11.6 — public QR verification landing page (no login required)
+    # Short-code verification (the QR on attestations points to the main site's
+    # /v/<code>/, which forwards institute-network visitors here). No login.
+    path("v/", views.verify_by_code, name="verify_lookup"),
+    path("v/<str:code>/", views.verify_by_code, name="verify_by_code"),
+    # Spec §11.6 — legacy QR verification landing page (no login required)
     path("verify/<int:token>/", views.verify_attestation, name="verify_attestation"),
     # Same page, with the formation's title slug in the URL (cosmetic, ignored).
     path("verify/<int:token>/<str:slug>/", views.verify_attestation, name="verify_attestation_slug"),

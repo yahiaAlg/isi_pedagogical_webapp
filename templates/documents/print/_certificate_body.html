@@ -99,10 +99,13 @@
     لا تسلم نسخة أخرى من الشهادة
   </div>
 
-  {# Verification barcode (Code 128 of the /verify/ URL) — replaces the former "Agrément n°" line #}
-  {% if participant.barcode_data_uri %}
-  <div class="box barcode-box" style="{{ boxes.barcode_box }}">
-    <img src="{{ participant.barcode_data_uri }}" alt="Barcode">
+  {# Verification QR (bottom-left corner) + short printed code (bottom band) #}
+  {% if participant.verify_qr_data_uri %}
+  <div class="box verify-qr-box" style="{{ boxes.verify_qr_box }}">
+    <img src="{{ participant.verify_qr_data_uri }}" alt="QR">
+  </div>
+  <div class="box verify-code-line" style="{{ boxes.verify_code_box }}">
+    للتحقق · Vérification : <span dir="ltr">{{ participant.verification_code_display }}</span>
   </div>
   {% endif %}
 

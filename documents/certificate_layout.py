@@ -51,9 +51,12 @@ BOXES = {
     "director_box": (621, 686, 744, 742),  # static "المدير / Le Directeur"
     "date_box": (877, 715, 1127, 752),
     "no_copy_box": (825, 761, 1019, 782),  # "لا تسلم نسخة أخرى من الشهادة" (static)
-    # verification barcode: compact (340x20), centred on x=630 in the clean band
-    # between the inner gold rule (y~804) and the outer frame (y~843).
-    "barcode_box": (460, 814, 800, 834),
+    # verification QR: small square in the bottom-left corner, just inside the
+    # gold frame (frame inner edge x~71, y~841).
+    "verify_qr_box": (76, 788, 126, 838),
+    # printed fallback code, centred in the clean band between the inner gold
+    # rule (y~804) and the outer frame (y~843) — where the barcode used to be.
+    "verify_code_box": (268, 811, 993, 837),
     "if_box": (971, 817, 1144, 848),
 }
 

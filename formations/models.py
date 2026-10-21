@@ -1070,6 +1070,16 @@ class Participant(models.Model):
     certificate_issued = models.BooleanField(
         default=False, verbose_name="Certificat émis"
     )
+    # Random public code printed under the attestation QR (e.g. "K7F9-Q2XM",
+    # stored without the dash). Unguessable, unlike the sequential pk.
+    verification_code = models.CharField(
+        max_length=12,
+        unique=True,
+        null=True,
+        blank=True,
+        editable=False,
+        verbose_name="Code de vérification",
+    )
 
     # Spec §11.6 (planned, now implemented) — QR code on every attestation.
     # Defaults to a verification link built from the certificate number;
@@ -1228,27 +1238,75 @@ class Participant(models.Model):
 
         assign_certificate_number(self)
 
-    # ------------------------------------------------- QR code + barcode
+    # ------------------------------------------------- QR code + verification
+    VERIFY_CODE_ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ"  # no 0/O/1/I/L
+    VERIFY_CODE_LENGTH = 8
+
+    def ensure_verification_code(self):
+        """Return this participant's verification code, creating it on first use
+        (existing certificates get one lazily the next time they are printed)."""
+        if self.verification_code:
+            return self.verification_code
+        import secrets
+
+        if not self.pk:
+            return ""
+        cls = type(self)
+        while True:
+            code = "".join(
+                secrets.choice(self.VERIFY_CODE_ALPHABET)
+                for _ in range(self.VERIFY_CODE_LENGTH)
+            )
+            if not cls.objects.filter(verification_code=code).exists():
+                break
+        # .update() so custom save() logic (certificate copies etc.) is untouched.
+        cls.objects.filter(pk=self.pk, verification_code__isnull=True).update(
+            verification_code=code
+        )
+        self.refresh_from_db(fields=["verification_code"])
+        return self.verification_code or ""
+
+    @property
+    def verification_code_display(self):
+        """Human-friendly form of the code: K7F9-Q2XM."""
+        code = self.ensure_verification_code()
+        return f"{code[:4]}-{code[4:]}" if code else ""
+
     @property
     def verify_url(self):
-        """Absolute URL of the internal attestation-validation page.
-        Encoded in the attestation BARCODE. Uses the participant's pk rather
-        than the certificate number (which contains "/" and spaces, e.g.
-        "2026/04 ت.ح.ط /001"). The title slug is cosmetic (the view ignores
-        it) and is omitted here to keep the barcode short enough to scan."""
-        from django.conf import settings
+        """Short public URL encoded in the attestation QR. It lives on the main
+        website so it resolves from anywhere; the main site then forwards
+        visitors on the institute network to this app (see MAIN_SITE_URL)."""
+        code = self.ensure_verification_code()
+        base = getattr(settings, "MAIN_SITE_URL", "").rstrip("/")
+        return f"{base}/v/{code}/" if code else ""
 
-        base = getattr(settings, "SITE_URL", "").rstrip("/")
-        return f"{base}/verify/{self.pk}/"
+    @property
+    def verify_qr_data_uri(self):
+        """Small, low-density QR (PNG data URI) of `verify_url` for the
+        attestation corner — short URL, error-correction M, 1-module border."""
+        import base64
+        from io import BytesIO
+
+        url = self.verify_url
+        if not url:
+            return ""
+        try:
+            import qrcode
+            from qrcode.constants import ERROR_CORRECT_M
+        except ImportError:
+            return ""
+        qr = qrcode.QRCode(error_correction=ERROR_CORRECT_M, box_size=10, border=1)
+        qr.add_data(url)
+        qr.make(fit=True)
+        buffer = BytesIO()
+        qr.make_image(fill_color="black", back_color="white").save(buffer, format="PNG")
+        return "data:image/png;base64," + base64.b64encode(buffer.getvalue()).decode("ascii")
 
     @property
     def qr_code_content(self):
-        """
-        Payload encoded on the attestation QR code: the formation's page on
-        the main website. A manual `qr_payload` override wins; if the
-        formation has no website page, falls back to the verification URL so
-        the QR is never empty.
-        """
+        """Payload of the central (website) QR: the formation's page on the main
+        site, or the verification URL when the formation has none."""
         if self.qr_payload:
             return self.qr_payload
         try:
@@ -1274,13 +1332,6 @@ class Participant(models.Model):
         img.save(buffer, format="PNG")
         encoded = base64.b64encode(buffer.getvalue()).decode("ascii")
         return f"data:image/png;base64,{encoded}"
-
-    @property
-    def barcode_data_uri(self):
-        """Code 128 barcode (SVG data URI) encoding `verify_url`."""
-        from .barcode import code128_svg_data_uri
-
-        return code128_svg_data_uri(self.verify_url)
 
     def get_attendance_for_day(self, day_key):
         return self.attendance_per_day.get(day_key, True)

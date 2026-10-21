@@ -350,7 +350,7 @@ def generate_attestation_files(
     if not qr_payload:
         from django.conf import settings  # local import
 
-        qr_payload = f"{settings.SITE_URL}/verify/{participant.id}/"
+        qr_payload = participant.verify_url or f"{settings.SITE_URL}/verify/{participant.id}/"
 
     pdf_bytes = stamp_qr(pdf_bytes, qr_payload)
     return docx_bytes, pdf_bytes
