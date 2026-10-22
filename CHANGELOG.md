@@ -4,6 +4,17 @@ Changes made to the project in this working session, grouped by feature.
 
 ---
 
+## Attestation — choose which block(s) print (FR / AR / both)
+
+- Radio choice **Par défaut / Français uniquement / Arabe uniquement / Français et arabe**, in two places:
+  - **Session form** — applies to every participant of the session (`Session.attestation_blocks`).
+  - **Participant form** — overrides the session for that one participant (`Participant.attestation_blocks`; "Par défaut" = inherit the session).
+- Resolution order: participant override > session setting > automatic (each block whose full name pair was entered).
+- A forced language only prints if that name pair exists; the participant form refuses it otherwise, and a session-wide choice falls back to the automatic behaviour for participants lacking that name pair.
+- Files: `formations/models.py` (fields, `attestation_show_blocks`), `formations/migrations/0014_attestation_blocks.py`, `formations/forms.py`, `documents/certificate_render.py`, `templates/formations/session_form.html`, `templates/formations/participant_form.html`.
+
+---
+
 ## QR / barcode separation on the attestation
 
 - **QR code** now encodes only the formation's page on the main website (`formation.website_url`). A manual `qr_payload` still overrides it; if the formation has no website page it falls back to the verification URL.

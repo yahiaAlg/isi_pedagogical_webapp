@@ -386,6 +386,24 @@
               </div>
             </div>
 
+            <!-- ── Attestation : blocs imprimés ─────────────── -->
+            <div class="section-divider"></div>
+            <div class="form-section-title">
+              Attestations — blocs imprimés
+              <span style="font-size:12px;font-weight:400;color:var(--text-muted);">(pour tous les participants de la session)</span>
+            </div>
+            <div class="mb-4">
+              <div class="attest-blocks-radios" style="display:flex;flex-wrap:wrap;gap:8px 22px;">
+                {% for radio in form.attestation_blocks %}
+                <label for="{{ radio.id_for_label }}" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:13.5px;">
+                  {{ radio.tag }} {{ radio.choice_label }}
+                </label>
+                {% endfor %}
+              </div>
+              {% if form.attestation_blocks.errors %}<div class="invalid-feedback d-block">{{ form.attestation_blocks.errors|join:", " }}</div>{% endif %}
+              <small class="text-muted d-block mt-2">« Par défaut » : l'attestation affiche chaque bloc (français / arabe) dont le nom complet est renseigné. Ce choix s'applique à tous les participants de la session, sauf ceux dont la fiche définit son propre réglage.</small>
+            </div>
+
             <div class="section-divider"></div>
             <div style="display:flex;gap:12px;">
               <button type="submit" class="btn btn-amber"><i class="bi bi-check-lg"></i> {% if session %}Enregistrer{% else %}Créer la session{% endif %}</button>

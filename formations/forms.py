@@ -254,6 +254,7 @@ class SessionForm(forms.ModelForm):
             "trainer_cost_mode",
             "trainer_cost_percentage",
             "trainer_cost_amount",
+            "attestation_blocks",
             "committee_members",
         ]
         widgets = {
@@ -290,6 +291,7 @@ class SessionForm(forms.ModelForm):
                 attrs={"class": "form-control", "placeholder": "Ex : FA-2026-010"}
             ),
             "trainer_cost_mode": forms.Select(attrs={"class": "form-select"}),
+            "attestation_blocks": forms.RadioSelect(),
             "trainer_cost_percentage": forms.NumberInput(
                 attrs={
                     "class": "form-control",
@@ -592,9 +594,11 @@ class ParticipantForm(forms.ModelForm):
             "email",
             "notes",
             "qr_payload",
+            "attestation_blocks",
             "certificate_number",
         ]
         widgets = {
+            "attestation_blocks": forms.RadioSelect(),
             "first_name": forms.TextInput(attrs={"class": "form-control"}),
             "last_name": forms.TextInput(attrs={"class": "form-control"}),
             "first_name_ar": forms.TextInput(
@@ -667,6 +671,20 @@ class ParticipantForm(forms.ModelForm):
 
         has_fr = bool(first_name and last_name)
         has_ar = bool(first_name_ar and last_name_ar)
+
+        # A forced attestation block needs the matching name pair, otherwise
+        # it would print with empty labels.
+        blocks = cleaned_data.get("attestation_blocks")
+        if blocks in ("fr", "both") and not has_fr:
+            self.add_error(
+                "attestation_blocks",
+                "Le bloc français est demandé mais Prénom + Nom (FR) ne sont pas renseignés.",
+            )
+        if blocks in ("ar", "both") and not has_ar:
+            self.add_error(
+                "attestation_blocks",
+                "Le bloc arabe est demandé mais الاسم و اللقب (AR) ne sont pas renseignés.",
+            )
         # Spec — français/latin and arabe are each fully optional, but at
         # least one COMPLETE pair must be given; neither language is
         # obligatory on its own. (Also enforced in Participant.clean() as

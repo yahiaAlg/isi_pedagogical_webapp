@@ -221,6 +221,24 @@
               <small class="text-muted">Si vide, le QR code encode automatiquement le lien de la formation sur le site principal. Le lien de vérification est encodé dans le code-barres.</small>
             </div>
 
+            <!-- ── Attestation : blocs imprimés ─────────────── -->
+            <div class="section-divider"></div>
+            <div class="form-section-title">Attestation — blocs imprimés</div>
+            <div class="mb-4">
+              <div class="attest-blocks-radios" style="display:flex;flex-wrap:wrap;gap:8px 22px;">
+                {% for radio in form.attestation_blocks %}
+                <label for="{{ radio.id_for_label }}" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:13.5px;">
+                  {{ radio.tag }} {{ radio.choice_label }}
+                </label>
+                {% endfor %}
+              </div>
+              {% if form.attestation_blocks.errors %}<div class="invalid-feedback d-block">{{ form.attestation_blocks.errors|join:", " }}</div>{% endif %}
+              <small class="text-muted d-block mt-2">
+                « Par défaut » : hérite du réglage de la session{% if session %} (actuellement : <strong>{{ session.get_attestation_blocks_display }}</strong>){% endif %}, qui affiche par défaut chaque bloc dont le nom complet est renseigné.
+                Un autre choix s'applique uniquement à ce participant.
+              </small>
+            </div>
+
             <div class="section-divider"></div>
             <div style="display:flex;gap:12px;">
               <button type="submit" class="btn btn-amber">

@@ -141,8 +141,11 @@ def build_certificate_data(participant, *, issuance_date: date | None = None) ->
         # each independently optional (Participant.clean() already
         # enforces that at least one full pair exists). The print
         # template shows only the block(s) whose flag is True.
-        "HAS_FR": participant.has_fr_name,
-        "HAS_AR": participant.has_ar_name,
+        # Which block(s) print: automatic by default, overridable per session
+        # (Session.attestation_blocks) and per participant
+        # (Participant.attestation_blocks) — see Participant.attestation_show_blocks.
+        "HAS_FR": participant.attestation_show_blocks[0],
+        "HAS_AR": participant.attestation_show_blocks[1],
         "PRENOM_FR": participant.first_name.upper(),
         "NOM_FR": participant.last_name.upper(),
         "PRENOM_AR": participant.first_name_ar or "",

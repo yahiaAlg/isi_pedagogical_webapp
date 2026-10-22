@@ -358,6 +358,19 @@ class Formation(models.Model):
                     )
 
 
+# Attestation print — which identity block(s) (French/latin and/or Arabic) are
+# printed. "default" keeps the automatic behaviour (show every block whose full
+# name pair was entered). Used by Session (applies to all its participants) and
+# Participant (overrides the session value for that one participant).
+ATTESTATION_BLOCKS_DEFAULT = "default"
+ATTESTATION_BLOCKS_CHOICES = [
+    ("default", "Par défaut"),
+    ("fr", "Français uniquement"),
+    ("ar", "Arabe uniquement"),
+    ("both", "Français et arabe"),
+]
+
+
 class Session(models.Model):
     STATUS_CHOICES = [
         ("planned", "Planifiée"),
@@ -478,6 +491,18 @@ class Session(models.Model):
         db_index=True,
         verbose_name="Numéro de facture",
         help_text="Référence/séquence de facture associée à ce cycle de session.",
+    )
+
+    # Attestation print — session-wide choice of the identity block(s) shown on
+    # every participant's attestation. A participant's own setting (see
+    # Participant.attestation_blocks) takes precedence when it isn't "default".
+    attestation_blocks = models.CharField(
+        max_length=10,
+        choices=ATTESTATION_BLOCKS_CHOICES,
+        default=ATTESTATION_BLOCKS_DEFAULT,
+        verbose_name="Blocs de l'attestation",
+        help_text="Bloc(s) d'identité imprimé(s) sur les attestations de tous les "
+        "participants de cette session. « Par défaut » : selon les noms saisis.",
     )
 
     # Spec §new — the formateur's share of this cycle, defaulted from the
@@ -1094,6 +1119,17 @@ class Participant(models.Model):
         ),
     )
 
+    # Attestation print — per-participant override of the block(s) shown.
+    # "default" = follow the session's setting (itself "default" = automatic).
+    attestation_blocks = models.CharField(
+        max_length=10,
+        choices=ATTESTATION_BLOCKS_CHOICES,
+        default=ATTESTATION_BLOCKS_DEFAULT,
+        verbose_name="Blocs de l'attestation",
+        help_text="Remplace le réglage de la session pour ce participant. "
+        "« Par défaut » : hérite du réglage de la session.",
+    )
+
     notes = models.TextField(blank=True, verbose_name="Notes")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -1173,6 +1209,36 @@ class Participant(models.Model):
         if self.has_ar_name:
             return self.full_name_ar
         return (f"{self.first_name} {self.last_name}").strip() or "—"
+
+    @property
+    def attestation_blocks_mode(self):
+        """Resolved mode: participant override > session setting > "default"."""
+        if self.attestation_blocks and self.attestation_blocks != ATTESTATION_BLOCKS_DEFAULT:
+            return self.attestation_blocks
+        session_mode = getattr(self.session, "attestation_blocks", None)
+        return session_mode or ATTESTATION_BLOCKS_DEFAULT
+
+    @property
+    def attestation_show_blocks(self):
+        """(show_fr, show_ar) for the attestation print.
+
+        "default" shows every block whose full name pair exists. A forced
+        language is honoured only when that name pair exists (an empty block
+        would print blank labels); if that leaves nothing to print, it falls
+        back to the automatic behaviour.
+        """
+        auto = (self.has_fr_name, self.has_ar_name)
+        mode = self.attestation_blocks_mode
+        if mode == "fr":
+            wanted = (True, False)
+        elif mode == "ar":
+            wanted = (False, True)
+        elif mode == "both":
+            wanted = (True, True)
+        else:
+            return auto
+        show = (wanted[0] and auto[0], wanted[1] and auto[1])
+        return show if any(show) else auto
 
     @property
     def full_name_ar(self):
