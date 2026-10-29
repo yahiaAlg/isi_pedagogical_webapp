@@ -1,0 +1,359 @@
+# ISI Gestion Pédagogique — Changelog
+
+Changes made to the project in this working session, grouped by feature.
+
+---
+
+## New role "Agent pédagogique" + approval requests + notification bell
+
+- **Role** `pedagogical` (*Agent pédagogique*): same rights as an admin (sessions, resources, categories/branches/specialties, archiving, documents…) **except** user management, deleting formations / clearing their sessions, and the two catalogue actions below.
+- **Create a formation** — agents get a *Demander une formation* form instead; the admin sees the request, clicks *Créer la formation à sa place* (form prefilled), and the request closes automatically with a notification to the agent.
+- **Modify a formation** — agents click *Demander la modification*; once an admin approves, the edit form opens for that formation until it is saved once (or `APPROVAL_GRANT_HOURS`, default 24 h, elapse). Admins are notified when the edit is done.
+- **Bell** in the topbar for every user (unread badge, dropdown, mark-all-read, history page, 45 s polling) + **e-mail** copy of every event (new request, approved, rejected, created, edit done, cancelled). Mails are sent after commit in a background thread; SMTP failures are logged only. `EMAIL_TIMEOUT` (default 10 s) added.
+- Users need an e-mail address in their profile to receive the mails.
+- New app `approvals/` (models `ApprovalRequest`, `Notification`; migrations `approvals/0001`, `accounts/0002`); run `migrate` and `collectstatic`.
+- Settings: `APPROVAL_GRANT_HOURS`, `APPROVAL_MAIL_ASYNC`, `EMAIL_TIMEOUT`.
+
+---
+
+## Attestation — choose which block(s) print (FR / AR / both)
+
+- Radio choice **Par défaut / Français uniquement / Arabe uniquement / Français et arabe**, in two places:
+  - **Session form** — applies to every participant of the session (`Session.attestation_blocks`).
+  - **Participant form** — overrides the session for that one participant (`Participant.attestation_blocks`; "Par défaut" = inherit the session).
+- Resolution order: participant override > session setting > automatic (each block whose full name pair was entered).
+- A forced language only prints if that name pair exists; the participant form refuses it otherwise, and a session-wide choice falls back to the automatic behaviour for participants lacking that name pair.
+- Files: `formations/models.py` (fields, `attestation_show_blocks`), `formations/migrations/0014_attestation_blocks.py`, `formations/forms.py`, `documents/certificate_render.py`, `templates/formations/session_form.html`, `templates/formations/participant_form.html`.
+
+---
+
+## QR / barcode separation on the attestation
+
+- **QR code** now encodes only the formation's page on the main website (`formation.website_url`). A manual `qr_payload` still overrides it; if the formation has no website page it falls back to the verification URL.
+- **Barcode** (Code 128, auto-generated, SVG, no new dependency) now encodes the verification URL `{SITE_URL}/verify/<participant pk>/` and replaces the former "Agrément n°" line (bottom-left).
+- New: `formations/barcode.py`, `Participant.verify_url`, `Participant.barcode_data_uri`; layout key `agrement_box` -> `barcode_box`.
+
+---
+
+## 1. Logo not showing on printed documents (bug fix)
+
+**Problem:** the institute logo, uploaded via *Settings*, never appeared on any printed document in production.
+
+**Cause:** `pedagogical/urls.py` only served `MEDIA_URL` when `DEBUG=True`. WhiteNoise (used for static files) does not serve `MEDIA_ROOT`, so in production the logo file returned a 404.
+
+**Fix:** `MEDIA_URL` is now served in every environment.
+
+- `pedagogical/urls.py`
+
+---
+
+## 2. Default PV (محضر مداولات) signatories
+
+New settings-managed list of default committee members (e.g. institute directors) that get proposed — editable — every time a session's delegation committee is built. The trainer and the client's company representative are **never** pulled from this list; they're always entered fresh on each PV.
+
+- **New model:** `core.PVDefaultSignatory` (الاسم و اللقب, الصفة, ordre, actif)
+- **New admin registration:** `core/admin.py`
+- **New Settings sub-pages:** list / add / edit / delete
+  - `templates/core/pv_signatory_list.html`
+  - `templates/core/pv_signatory_form.html`
+  - `templates/core/pv_signatory_confirm_delete.html`
+  - Linked from `templates/core/settings.html`
+- **New views/urls:** `core/views.py`, `core/urls.py`, `core/forms.py` (`PVDefaultSignatoryForm`)
+- **Migration:** `core/migrations/0003_pvdefaultsignatory.py`
+
+---
+
+## 3. Dynamic PV committee form
+
+The committee (comité de délibération) form no longer uses a single free-text textarea. It's now a dynamic name + الصفة row list:
+
+- Pre-filled with: active `PVDefaultSignatory` rows (Settings) + the session's trainer (live, never stored as a default) + one blank row for the client's company representative (always typed fresh).
+- Add/remove rows client-side (JS), minimum 2 members enforced on save.
+
+**Changed:**
+- `documents/forms.py` — `CommitteeForm` rewritten to parse `member_name[]` / `member_role[]` pairs into `[{"name":..., "role":...}, ...]`
+- `documents/views.py` — `set_committee_view` builds the pre-filled rows
+- `templates/documents/committee_form.html` — rebuilt UI
+
+---
+
+## 4. محضر مداولات نهاية التكوين (Deliberation report / PV) — print template rebuilt
+
+Rebuilt to match the reference EEMS paper form field-for-field:
+
+- رقم, تاريخ, مستوى التأهيل, الاختصاص, الزبون, رمز التخصص
+- تاريخ بداية/نهاية التكوين
+- **عدد المتربصين — منهم بنات** (new, see §6)
+- عدد الحضور, عدد الغياب, عدد الناجحين
+- الوصي على التكوين السيد
+- Committee table now renders each member's **name + الصفة** (previously name only)
+
+**Changed:** `templates/documents/print/deliberation_report.html` (full rebuild)
+
+---
+
+## 5. الجدول الاسمي النهائي (Nominal list) — print template rebuilt
+
+Rebuilt to match the second reference photo exactly:
+
+- Header block: مجال التكوين, الاختصاص, الزبون, مدة التكوين (with dual-form "يومين" handling), تاريخ بداية/نهاية التكوين الحضوري, اسم ولقب الأستاذ المكون
+- Table columns: م / اسم ولقب المتربص بالعربية (1) / بالفرنسية (2) / تاريخ الميلاد ومكان الميلاد (3) / علامة الامتحان / ملاحظة
+
+**Changed:** `templates/documents/print/nominal_list.html` (full rebuild)
+
+---
+
+## 6. Gender field on participants (`منهم بنات` count)
+
+- **New field:** `Participant.gender` (Homme/Femme, optional)
+- **New property:** `Session.female_count` (feeds the PV's "منهم بنات" line) and `Session.passed_count`
+- Wired into: participant form/template, admin fieldsets
+- **Migration:** `formations/migrations/0006_participant_gender.py`
+
+---
+
+## 7. Exam scoring consolidated to once-per-formation
+
+**Problem:** théorique/pratique marks could be entered separately on every day-session of a multi-day formation.
+
+**Fix:**
+- `session_scores` (théorique/pratique entry) is now restricted to the **primary session only** — visiting it on a child/day session redirects to the primary session with an explanatory message.
+- `ExamScoreForm`'s exam mark now **defaults to the average** of théorique + pratique (when both are set), while staying fully editable/overridable.
+- Explanatory note added to the exam-scores screen.
+
+**Changed:** `formations/views.py`, `formations/forms.py`, `templates/formations/session_exam_scores.html`
+
+---
+
+## 8. Blank ("vierge") vs. auto-filled print mode
+
+The candidate information list and the daily presence sheet can now each be printed two ways:
+
+- **Auto-filled** (existing behaviour) — populated from registered participants.
+- **Vierge** (new) — every row is blank, sized to the session's capacity (or 12 rows minimum), for on-site manual completion by the trainer/candidates. Available even before any participant is registered.
+
+Triggered via `?mode=blank`; a "Vierge" button was added next to the existing "Générer" button on the documents dashboard.
+
+**Changed:** `documents/views_print.py`, `documents/views.py`, `templates/documents/print/candidate_list.html`, `templates/documents/print/attendance_sheet.html`, `templates/documents/dashboard.html`
+
+---
+
+## 9. Attestation — dual-mode name display (French/Latin vs. Arabic)
+
+**Problem:** the attestation always showed both a French/Latin name block and an Arabic name block, and French names were mandatory.
+
+**Fix:**
+- `Participant.first_name` / `last_name` are now optional (matching the already-optional Arabic pair).
+- **Validation rule (enforced in `Participant.clean()`, applied by every form):** at least one *complete* name pair — French **or** Arabic — is required. Neither language is individually mandatory; a half-filled pair (e.g. only a prénom) doesn't count.
+- New `Participant.has_fr_name` / `has_ar_name` properties; `full_name` now falls back to the Arabic name when no Latin name exists.
+- The attestation print shows **only** the block(s) with actual data:
+  - French only → French block only
+  - Arabic only → Arabic block only
+  - Both → both blocks (previous behaviour)
+- Two other prints (`attendance_sheet.html`, `evaluation_list.html`) were fixed to fall back to the Arabic name instead of showing a blank name for Arabic-only participants.
+
+**Changed:**
+- `formations/models.py` — `Participant.first_name`/`last_name` → `blank=True`; new properties; `clean()` validation
+- `formations/forms.py` — `ParticipantForm.clean()` updated (duplicate-name checks per language)
+- `templates/formations/participant_form.html` — removed "required" markers, added explanatory note
+- `documents/certificate_render.py` — added `HAS_FR` / `HAS_AR` flags to the template context
+- `templates/documents/print/_certificate_body.html` — French/Arabic boxes now conditionally rendered
+- `templates/documents/print/attendance_sheet.html`, `templates/documents/print/evaluation_list.html` — name fallback
+- **Migration:** `formations/migrations/0007_alter_participant_first_name_and_more.py`
+
+*Note: the unused box is simply hidden when only one language is provided — the layout doesn't reflow/widen the remaining box, since positioning is pixel-coordinate-based over a background image.*
+
+---
+
+## 10. Smart room / trainer / equipment double-booking warnings
+
+**New:** when creating or editing a session, if the chosen room, trainer, or any selected equipment is already booked on another (non-cancelled/non-archived) session with overlapping dates, the form shows a **soft, non-blocking warning** instead of refusing to save:
+
+- Lists each conflicting session (with a link to it)
+- Offers a quick action to add another room / trainer / equipment (opens in a new tab)
+- A **"Enregistrer quand même"** button lets the user save anyway
+
+**New:** `Session.equipment` (ManyToMany to `resources.Equipment`) — equipment reservation per session didn't exist before; it was needed to detect equipment conflicts at all.
+
+**Changed:**
+- `formations/models.py` — new `Session.equipment` field
+- `formations/utils.py` — new `check_scheduling_conflicts()` / `has_scheduling_conflicts()` helpers
+- `formations/forms.py` — `SessionForm` includes the `equipment` field
+- `formations/views.py` — `session_create` / `session_edit` implement the confirm-anyway flow
+- `templates/formations/session_form.html` — warning banner, equipment checklist, confirm button
+- **Migration:** `formations/migrations/0008_session_equipment.py`
+
+*Verified end-to-end with a live request/response test: posting a conflicting session shows the banner and does not save; resubmitting with confirmation saves it correctly.*
+
+---
+
+## 11. Removed dead code
+
+`documents/attestation_docx.py` and its orphaned template `documents/doc_templates/attestation_template.docx` were removed. This module (docx placeholder substitution → LibreOffice PDF conversion → QR stamping) was never imported or called anywhere — `documents/utils.py` already documented that attestations are generated through the HTML print pipeline (`certificate_render.py` + `certificate_layout.py` + `documents/print/attestation.html`) instead. No functional change; cleanup only.
+
+---
+
+## 12. Room ↔ equipment relationship, allocation history & guardrails
+
+Room equipment was previously just free-text (`equipment_notes`). It's now a relational multi-select backed by the existing `Equipment.room` FK, with a full allocation history and cross-room usage guardrails.
+
+- **New model:** `resources.EquipmentAllocation` — audit log of every time an equipment item is assigned to a room (home assignment, `session=None`) or checked into a session (`session=<Session>`), with `allocated_at`/`allocated_by` and `released_at`/`released_by`. `Equipment.active_allocation()` returns the current active **session-based** checkout (if any); a plain home-room assignment never counts as a lock — it's exactly what makes an item eligible to be borrowed elsewhere.
+- **Guardrail:** `Equipment.is_locked_elsewhere()` / `formations.utils.equipment_is_blocked()` block attaching an equipment item to a session (or reassigning its home room) while it still has an *active, unreleased session checkout* elsewhere. It must be released (unchecked from that session, or that session archived/cancelled) first.
+- **Room ↔ equipment multi-select:** `RoomForm.equipment` (checkbox multi-select) replaces relying on free-text for movable/trackable gear; `equipment_notes` is kept only for untracked fixed fittings (AC, outlets…). Saving a room applies the diff to `Equipment.room` and logs it to `EquipmentAllocation`; equipment already homed in another room isn't offered as a choice (must be released there first).
+- **New page:** `resources:room_detail` — room's homed equipment + its allocation history table (session or home-room reassignment, allocated/released timestamps).
+- **Auto-import on session creation:** picking a room now inherently pre-checks that room's homed equipment on the session form (AJAX `formations:room_equipment_api`, plus server-side prefill when a formation's last session is reused).
+- **Session detail — check/uncheck usage:** new "Équipements" card lets managers toggle which of the room's equipment is actually used in that session (`formations:session_equipment_update`), and shows a soft-warning suggestion list of equipment **idle** in other rooms on the session's dates (i.e. not in any other active, overlapping session and not actively checked out) that could be added here — guardrail-checked on submit, so a race with another session can't silently steal it.
+
+**New/changed:**
+- `resources/models.py` — `EquipmentAllocation` model; `Room.available_equipment`; `Equipment.active_allocation()` / `is_locked_elsewhere()`
+- `resources/forms.py` — `RoomForm.equipment` multi-select
+- `resources/views.py` — `room_detail`; `room_create`/`room_edit` apply the diff via `_apply_room_equipment()`
+- `resources/urls.py` — `rooms/<pk>/`
+- `resources/admin.py` — `EquipmentAllocationAdmin`
+- `formations/utils.py` — `equipment_is_blocked()`, `get_idle_equipment()`
+- `formations/views.py` — `session_detail` (room/idle equipment context), `session_equipment_update`, `room_equipment_api`, `_log_equipment_allocations()` wired into `session_create`/`session_edit`
+- `formations/urls.py` — `sessions/<pk>/equipment/`, `api/room/<pk>/equipment/`
+- `templates/resources/room_form.html` — equipment multi-select section
+- `templates/resources/room_detail.html` — new template
+- `templates/resources/room_list.html` — room name now links to the detail page
+- `templates/formations/session_form.html` — room→equipment auto-check JS
+- `templates/formations/session_detail.html` — new "Équipements" card (toggle + idle suggestions)
+- `core/management/commands/seed_db.py` — more equipment spread across rooms (idle-equipment demo data), seeded allocation history, one seeded session with reserved equipment
+- **Migration:** `resources/migrations/0002_equipment_allocation.py`
+
+*Verified end-to-end (Django test client, live DB): idle-equipment detection correctly excludes locally-assigned (non-room) equipment and equipment already booked/actively checked out elsewhere; the guardrail blocks adding an actively-checked-out item to a second overlapping session both from the session-detail toggle and from the room form, and releasing the original allocation makes it selectable/idle again; room equipment reassignment correctly releases the old allocation and logs the new one.*
+
+---
+
+## Migrations added this session
+
+```
+core/migrations/0003_pvdefaultsignatory.py
+formations/migrations/0006_participant_gender.py
+formations/migrations/0007_alter_participant_first_name_and_more.py
+formations/migrations/0008_session_equipment.py
+resources/migrations/0002_equipment_allocation.py
+```
+
+Run `python manage.py migrate` after deploying this version.
+
+## Verification performed
+
+- `python manage.py check` — 0 issues after every change
+- Full `migrate` from a clean database — all migrations apply without error
+- Live request/response tests (Django test client) for:
+  - Session create/edit conflict-warning flow (warning shown → blocked → confirm → saved)
+  - `ParticipantForm` validation (no name / Arabic-only / French-only)
+  - Attestation dual-mode rendering (Arabic-only data → French block absent, Arabic block present)
+  - Room ↔ equipment multi-select save, home-room reassignment, and allocation-history logging
+  - Cross-room equipment guardrail (block/skip while actively checked out elsewhere; allowed again once released)
+  - Idle-equipment suggestions on the session detail page
+
+---
+
+## 13. Pedagogical assets — consumable stock, categorisation, delivery to sessions
+
+Distinct from `Equipment` (reusable machines/tools/safety gear that get checked in/out but never run out), the institute also deals with **consumable pedagogical assets** — IT and office supplies, and other consumables — that are physically handed out during sessions/trainings and eventually run out. This adds full stock tracking for that category of resource, in the Resources section and wired into the session workflow.
+
+- **New model:** `resources.AssetCategory` — categorisation (IT, Bureautique, Autre) stored as data rather than a hardcoded choices list, so it can be extended without a migration. Seeded via a dedicated `_seed_asset_categories()` step, separate from the assets themselves.
+- **New model:** `resources.PedagogicalAsset` — a consumable (name, category, unit, reference, `quantity_in_stock`, `minimum_stock`, active flag, notes). Exposes `is_exhausted` / `is_low_stock` and two stock operations, both logged to `AssetMovement`:
+  - `restock(quantity, by, note)` — refill (e.g. new supplier delivery).
+  - `deliver(quantity, session=None, by=None, note=…)` — consume stock, optionally tied to the session it was handed out for. **Hard guardrail** (unlike the equipment soft-warning pattern): a delivery can never exceed what's physically `quantity_in_stock` — it raises instead of going negative.
+- **New model:** `resources.AssetMovement` — full audit trail of every restock/delivery (type, quantity, session if any, who, when, note). Mirrors the role `EquipmentAllocation` plays for reusable equipment, but for consumables.
+- **Resources section:** new "Actifs pédagogiques" page — list (filterable by category and stock state: low/exhausted), create/edit/delete, and a detail page showing current stock plus the full movement history, with an inline "Réapprovisionner" (restock) form.
+- **Session section:** `session_detail` gained an "Actifs pédagogiques livrés" card — shows everything delivered to that session (aggregated per asset) and a delivery form (asset + quantity + note) that consumes stock immediately on submit; blocked with a clear error if the requested quantity exceeds what's in stock. Available while the session is editable (not archived/cancelled), same rule as the equipment toggle.
+- **Seeds:** 3 categories, 11 assets spread across IT/Bureautique/Autre with realistic initial stock (seeded as a first "restock" movement each), and a handful of demo deliveries against the seeded in-progress and completed sessions so the stock history and session card aren't empty out of the box.
+
+**New/changed:**
+- `resources/models.py` — `AssetCategory`, `PedagogicalAsset`, `AssetMovement`
+- `resources/forms.py` — `PedagogicalAssetForm`, `AssetRestockForm`
+- `resources/views.py` — `asset_list`, `asset_detail`, `asset_create`, `asset_edit`, `asset_delete`, `asset_restock`
+- `resources/urls.py` — `assets/`, `assets/create/`, `assets/<pk>/`, `assets/<pk>/edit/`, `assets/<pk>/delete/`, `assets/<pk>/restock/`
+- `resources/admin.py` — `AssetCategoryAdmin`, `PedagogicalAssetAdmin`, `AssetMovementAdmin`
+- `resources/resources.py` — `PedagogicalAssetResource` (import-export)
+- `formations/forms.py` — `SessionAssetDeliveryForm`
+- `formations/views.py` — `session_detail` (asset-deliveries context), `session_asset_deliver`
+- `formations/urls.py` — `sessions/<pk>/assets/deliver/`
+- `templates/resources/asset_list.html`, `asset_form.html`, `asset_detail.html` — new templates
+- `templates/formations/session_detail.html` — new "Actifs pédagogiques livrés" card
+- `templates/base.html` — new "Actifs pédagogiques" sidebar entry under Ressources
+- `core/management/commands/seed_db.py` — `_seed_asset_categories()`, `_seed_pedagogical_assets()`, `_seed_asset_deliveries()`; `_flush()` updated to clear the new tables
+- **Migration:** `resources/migrations/0003_assetcategory_pedagogicalasset_assetmovement.py`
+
+*Verified end-to-end (Django test client, live DB, fresh migrate from empty DB, idempotent re-seed): asset CRUD, restock, session delivery reducing stock, hard block (with stock left unchanged) when a delivery exceeds current stock, and non-admin/permission checks on create/restock — all passed.*
+
+## Migrations added this session (cont'd)
+
+```
+resources/migrations/0003_assetcategory_pedagogicalasset_assetmovement.py
+```
+
+## 14. Pricing (unit ↔ total autocalc) + quantity-aware reservations/deliveries/returns
+
+Equipment and pedagogical assets are owned/stocked in quantities and now carry
+a price. Only one of unit price / total price needs to be entered — the other
+is inferred automatically, and stays consistent whenever the underlying
+quantity changes.
+
+- `resources/models.py` — `autocalc_price_pair()` helper: given a quantity,
+  infers the missing side of unit/total price (or recomputes total from unit
+  if both are given).
+- `Equipment.unit_price` / `total_price` — autocalced on save against
+  `quantity` (total units owned).
+- `PedagogicalAsset.unit_price` / `total_price` — autocalced on save against
+  `quantity_in_stock` (current stock value); updated as movements happen so
+  it always reflects the latest known price and current stock.
+- **Quantity-aware equipment reservations (spec §new):** `EquipmentAllocation`
+  gained `quantity` (units reserved), `returned_quantity` (partial returns),
+  and a price snapshot (`unit_price`/`total_price`) taken at reservation time
+  so later price edits on the equipment don't rewrite history. The guardrail
+  moved from "whole item locked/unlocked" to "not enough free units":
+  `Equipment.active_allocations()`, `quantity_reserved`, `quantity_available`,
+  and `is_locked_elsewhere(quantity=...)` now all reason in units, so e.g. 2
+  of 3 owned units can be reserved for one session while 1 stays free for
+  another.
+- **Partial/surplus returns:** `EquipmentAllocation.return_partial(quantity)`
+  returns some of the reserved units without releasing the whole checkout;
+  auto-releases once everything reserved has come back. `outstanding_quantity`
+  exposes what's still held.
+- **Asset deliveries/returns adhere to the same pricing:** `PedagogicalAsset.
+  restock()` / `.deliver()` gained an optional `unit_price` override (e.g. a
+  supplier price change), snapshotted onto the `AssetMovement`; a new
+  `PedagogicalAsset.return_stock()` (and `AssetMovement` type `"return"`)
+  handles surplus/incorrect deliveries coming back to stock, distinct from a
+  fresh `"restock"`. The hard "can't exceed physical stock" guardrail on
+  `deliver()` is unchanged.
+- `resources/forms.py` — `EquipmentForm` and `PedagogicalAssetForm` expose the
+  new price fields; `AssetRestockForm` and new `AssetReturnForm` accept an
+  optional unit price per movement.
+- `formations/forms.py` — `SessionAssetDeliveryForm` gained an optional
+  `unit_price`; new `SessionAssetReturnForm` for returning part of what was
+  delivered to a session.
+- `resources/views.py` — new `asset_return` view; `asset_restock` passes
+  through the optional unit price.
+- `formations/views.py` — new `session_asset_return` view; `session_asset_deliver`
+  passes through the optional unit price; `session_detail` context enriched
+  with delivered/returned quantities, delivered value, and the session's
+  `equipment_allocations` (for per-item reserved cost).
+- `resources/urls.py` — `assets/<pk>/return/`; `formations/urls.py` —
+  `sessions/<pk>/assets/return/`.
+- `templates/resources/asset_detail.html` — shows unit/total price, adds a
+  "Retour" form next to "Réapprovisionner", movement history now shows a
+  price column and a distinct "Retour" badge.
+- `templates/formations/session_detail.html` — equipment checkboxes show unit
+  price, a reserved-value summary line is shown under the equipment card, the
+  asset-deliveries table shows returned quantity and delivered value, and a
+  "Retourner" form was added next to "Livrer".
+- Seeds: equipment and pedagogical assets now seeded with realistic unit
+  prices (`core/management/commands/seed_db.py`).
+- **Migration:** `resources/migrations/0004_assetmovement_total_price_assetmovement_unit_price_and_more.py`
+
+*Verified end-to-end: `manage.py check` clean, fresh migrate from empty DB,
+idempotent re-seed, and live shell/request tests — bidirectional unit↔total
+autocalc (both directions), quantity-aware reservation blocking/availability,
+partial equipment return (auto-release on full return), asset delivery with
+a price override, asset/session surplus return increasing stock and logging
+a distinct `"return"` movement, and the hard stock-overflow guard on
+`deliver()` — all passed. Existing regressions (room save, equipment
+guardrail, asset CRUD/restock, permissions) re-verified — no breakage.*
+- Fix: barcode no longer overlaps the border rule/frame; now 1 module = 1px (no stretch), 26px tall, centred in the band under the bottom gold rule (formations/barcode.py, certificate_layout.py barcode_box, both _certificate_style*.html).

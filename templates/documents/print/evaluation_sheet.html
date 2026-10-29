@@ -1,0 +1,186 @@
+{% extends "documents/print/base_print.html" %}
+
+{% block doc_title %}ورقة التقييم الفوري — {{ participant.full_name }}{% endblock %}
+
+{% block doc_body %}
+<style>
+  .eval-info-box {
+    display: flex;
+    border: 1px solid #555;
+    margin-bottom: 14px;
+    font-size: 12px;
+  }
+  .eval-info-col { flex: 1; padding: 8px 12px; }
+  .eval-info-col + .eval-info-col { border-right: 1px solid #555; }
+  .eval-info-row { margin-bottom: 6px; }
+  .eval-info-row .fill {
+    display: inline-block;
+    min-width: 140px;
+    border-bottom: 1px solid #999;
+    font-weight: bold;
+  }
+
+  .eval-legend {
+    display: flex;
+    gap: 24px;
+    font-size: 12px;
+    font-weight: bold;
+    margin-bottom: 12px;
+  }
+
+  table.eval-table th.crit-col { text-align: right; width: 34%; }
+  table.eval-table td.crit-cell { text-align: right; }
+  table.eval-table td.crit-cell .crit-fr { font-size: 10px; color: #333; direction: ltr; }
+  table.eval-table th.grade-col, table.eval-table td.grade-cell { width: 8%; }
+  table.eval-table th.note-col, table.eval-table td.note-cell { width: 10%; }
+
+  .tick {
+    display: inline-block;
+    width: 14px; height: 14px;
+    line-height: 14px;
+    font-weight: bold;
+    font-size: 12px;
+  }
+  .tick.checked::before { content: "✓"; }
+
+  .eval-overall {
+    text-align: center;
+    margin: 18px 0 8px;
+    font-size: 13px;
+  }
+  .eval-overall .ar-line { direction: rtl; margin-bottom: 12px; }
+
+  .smiley-row {
+    display: flex;
+    justify-content: center;
+    gap: 40px;
+    margin: 14px 0 6px;
+  }
+  .smiley-item { text-align: center; }
+  .smiley-face {
+    width: 42px; height: 42px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px;
+    margin: 0 auto 6px;
+    border: 1px solid #999;
+  }
+  .smiley-face.very_satisfied { background: #7cb342; }
+  .smiley-face.satisfied { background: #cddc39; }
+  .smiley-face.average { background: #ffb300; }
+  .smiley-face.dissatisfied { background: #e53935; }
+  .smiley-box {
+    width: 16px; height: 16px;
+    border: 1px solid #333;
+    margin: 0 auto;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: bold;
+  }
+
+  .eval-comments {
+    margin-top: 14px;
+    font-size: 12px;
+  }
+  .eval-comments .lines { border-bottom: 1px solid #999; min-height: 16px; margin-top: 4px; }
+</style>
+
+<div class="doc-title">ورقة التقييم الفوري</div>
+
+<div class="eval-info-box">
+  <div class="eval-info-col">
+    <div class="eval-info-row">الاسم واللقب :
+      <span class="fill">{% if not blank_mode %}{{ participant.full_name }}{% endif %}</span>
+    </div>
+    <div class="eval-info-row">الوظيفة :
+      <span class="fill">{% if not blank_mode %}{{ participant.job_title }}{% endif %}</span>
+    </div>
+    <div class="eval-info-row">الهيكل :
+      <span class="fill">{% if not blank_mode %}{{ participant.employer }}{% endif %}</span>
+    </div>
+  </div>
+  <div class="eval-info-col">
+    <div class="eval-info-row">التكوين :
+      <span class="fill">{% if not blank_mode %}{{ session.formation.title }}{% endif %}</span>
+    </div>
+    <div class="eval-info-row">الزبون :
+      <span class="fill">{% if not blank_mode %}{{ session.client.name }}{% endif %}</span>
+    </div>
+    <div class="eval-info-row">تاريخ التكوين :
+      <span class="fill">{% if not blank_mode %}{{ session.date_start|date:"d/m/Y" }}{% endif %}</span>
+    </div>
+  </div>
+</div>
+
+<div class="eval-legend">
+  <div>A : مرضي جداً</div>
+  <div>B : جيد</div>
+  <div>C : متوسط</div>
+  <div>D : غير مرضي</div>
+</div>
+
+<table class="eval-table">
+  <thead>
+    <tr>
+      <th style="width:26px;">الرقم</th>
+      <th class="crit-col">معايير التقييم</th>
+      <th class="grade-col">A /10</th>
+      <th class="grade-col">B /8</th>
+      <th class="grade-col">C /6</th>
+      <th class="grade-col">D /4</th>
+      <th class="note-col">النقطة/10</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in criteria %}
+    <tr>
+      <td>{{ row.number }}</td>
+      <td class="crit-cell">
+        {{ row.label_ar }}
+        <div class="crit-fr">{{ row.label_fr }}</div>
+      </td>
+      <td class="grade-cell"><span class="tick{% if row.grade == 'A' %} checked{% endif %}"></span></td>
+      <td class="grade-cell"><span class="tick{% if row.grade == 'B' %} checked{% endif %}"></span></td>
+      <td class="grade-cell"><span class="tick{% if row.grade == 'C' %} checked{% endif %}"></span></td>
+      <td class="grade-cell"><span class="tick{% if row.grade == 'D' %} checked{% endif %}"></span></td>
+      <td class="note-cell">{% if row.points %}{{ row.points }}{% endif %}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<div class="eval-overall">
+  <div>بشكل عام كيف تقيم هذا التدريب ؟</div>
+</div>
+
+<div class="smiley-row">
+  {% for value, label in satisfaction_choices %}
+  <div class="smiley-item">
+    <div class="smiley-face {{ value }}">
+      {% if value == 'very_satisfied' %}☺{% elif value == 'satisfied' %}🙂{% elif value == 'average' %}😐{% else %}☹{% endif %}
+    </div>
+    <div class="smiley-box">
+      {% if evaluation and evaluation.overall_satisfaction == value %}✓{% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+{% if evaluation and evaluation.comments %}
+<div class="eval-comments">
+  <strong>ملاحظات :</strong>
+  <div class="lines">{{ evaluation.comments }}</div>
+</div>
+{% elif blank_mode %}
+<div class="eval-comments">
+  <strong>ملاحظات :</strong>
+  <div class="lines">&nbsp;</div>
+  <div class="lines">&nbsp;</div>
+</div>
+{% endif %}
+
+{% if not blank_mode and evaluation and evaluation.total_score is not None %}
+<div style="margin-top:14px;font-size:11px;color:#333;">
+  المجموع العام : {{ evaluation.total_score }}/80
+</div>
+{% endif %}
+{% endblock %}

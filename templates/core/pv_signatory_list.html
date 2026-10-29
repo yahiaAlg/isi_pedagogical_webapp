@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Membres par défaut du PV — ISI Gestion Pédagogique{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'core/css/base.css' %}" />{% endblock %}
+
+{% block breadcrumb %}
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="{% url 'core:settings' %}">Paramètres</a>
+<i class="bi bi-chevron-right bc-sep"></i>
+{% endblock %}
+{% block breadcrumb_active %}<span class="bc-active">Membres par défaut du PV</span>{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% url 'core:settings' %}" class="topbar-btn"><i class="bi bi-arrow-left"></i> Paramètres</a>
+<a href="{% url 'core:pv_signatory_add' %}" class="topbar-btn primary"><i class="bi bi-plus-lg"></i> Ajouter</a>
+{% endblock %}
+
+{% block content %}
+<div class="fade-up">
+  <div class="page-header">
+    <div class="page-header-left">
+      <h1>Membres par défaut du محضر مداولات</h1>
+      <p class="page-subtitle">
+        Ces membres (ex. directeurs de l'institut) sont proposés automatiquement, modifiables,
+        à chaque constitution du comité de délibération d'une session.
+        Le formateur et le représentant de l'entreprise cliente ne sont <strong>jamais</strong> repris d'ici :
+        ils sont saisis directement sur chaque PV.
+      </p>
+    </div>
+  </div>
+
+  <div class="isi-card">
+    <div class="isi-card-header">
+      <div class="card-icon purple"><i class="bi bi-people-fill"></i></div>
+      <h3>Membres par défaut</h3>
+      <span class="header-count ms-1">({{ signatories|length }})</span>
+      <a href="{% url 'core:pv_signatory_add' %}" class="btn btn-amber btn-sm ms-auto">
+        <i class="bi bi-plus-lg"></i> Nouveau
+      </a>
+    </div>
+
+    {% if signatories %}
+    <div style="overflow-x:auto;">
+      <table class="isi-table">
+        <thead>
+          <tr>
+            <th style="width:60px;">Ordre</th>
+            <th>الاسم و اللقب</th>
+            <th>الصفة</th>
+            <th style="text-align:center;">Actif</th>
+            <th style="text-align:right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in signatories %}
+          <tr>
+            <td>{{ s.order }}</td>
+            <td dir="rtl" style="text-align:right;font-weight:600;">{{ s.full_name }}</td>
+            <td dir="rtl" style="text-align:right;">{{ s.role }}</td>
+            <td style="text-align:center;">
+              {% if s.is_active %}
+              <i class="bi bi-check-circle-fill" style="color:var(--success);"></i>
+              {% else %}
+              <i class="bi bi-dash-circle" style="color:var(--text-muted);"></i>
+              {% endif %}
+            </td>
+            <td>
+              <div style="display:flex;justify-content:flex-end;gap:6px;">
+                <a href="{% url 'core:pv_signatory_edit' s.pk %}" class="btn btn-ghost btn-sm">
+                  <i class="bi bi-pencil-fill"></i>
+                </a>
+                <a href="{% url 'core:pv_signatory_delete' s.pk %}" class="btn btn-ghost btn-sm" style="color:var(--danger);">
+                  <i class="bi bi-trash-fill"></i>
+                </a>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <div class="empty-state-icon"><i class="bi bi-people-fill"></i></div>
+      <p class="empty-state-text">Aucun membre par défaut pour le moment.</p>
+      <a href="{% url 'core:pv_signatory_add' %}" class="btn btn-amber">
+        <i class="bi bi-plus-lg"></i> Ajouter le premier membre
+      </a>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

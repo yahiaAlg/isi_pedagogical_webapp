@@ -1,0 +1,76 @@
+{% extends "documents/print/base_print.html" %}
+
+{% block doc_title %}قائمة معلومات المترشحين — {{ session.reference }}{% endblock %}
+
+{% block doc_body %}
+
+{% if blank_mode %}
+<div class="note-box" style="background:#fffbeb;border:1px solid #fbbf24;padding:8px;border-radius:4px;">
+  <strong>ورقة فارغة — تُعبّأ يدوياً</strong> من طرف المكوّن والمترشحين.
+</div>
+{% endif %}
+
+<div class="note-box">
+  <strong>ملاحظة : يرجى كتابة الاسم واللقب بأحرف كبيرة</strong><br>
+  ستُحرَّر الشهادة وفق المعلومات المدوّنة في هذه الورقة.<br>
+  أي خطأ قد يظهر في الشهادة ولا يمكن بأي حال من الأحوال تجديدها
+</div>
+
+<div class="doc-title">قائمة معلومات المترشحين</div>
+
+<div class="doc-subtitle">
+  <strong>عنوان التكوين : {{ session.formation.title }}</strong>
+  &nbsp;&nbsp;&nbsp;
+  <strong>الزبون : {{ session.client.name }}</strong>
+</div>
+
+<div class="doc-date">
+  <strong>التاريخ : </strong> من {{ session.date_start|date:"d/m/Y" }} إلى {{ session.date_end|date:"d/m/Y" }}
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th style="width:40px;">الرقم</th>
+      <th>اللقب (لاتيني)</th>
+      <th>الاسم (لاتيني)</th>
+      <th>اللقب</th>
+      <th>الاسم</th>
+      <th>تاريخ و مكان الميلاد</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for p in participants %}
+    <tr>
+      <td>{{ forloop.counter|stringformat:"02d" }}</td>
+      <td class="left">{{ p.last_name|upper }}</td>
+      <td class="left">{{ p.first_name|upper }}</td>
+      <td dir="rtl" style="text-align:right;">{{ p.last_name_ar }}</td>
+      <td dir="rtl" style="text-align:right;">{{ p.first_name_ar }}</td>
+      <td class="left">
+        {% if p.date_of_birth %}{{ p.date_of_birth|date:"d/m/Y" }}{% endif %}
+        {% if p.place_of_birth %} — {{ p.place_of_birth }}{% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+    {# Pad to at least `blank_rows` rows (12 by default, or session capacity in blank mode) #}
+    {% with count=participants|length %}
+    {% if count < blank_rows %}
+      {% for i in ""|ljust:blank_rows %}
+        {% if forloop.counter > count %}
+        <tr>
+          <td>{{ forloop.counter|stringformat:"02d" }}</td>
+          <td>&nbsp;</td><td></td><td></td><td></td><td></td>
+        </tr>
+        {% endif %}
+      {% endfor %}
+    {% endif %}
+    {% endwith %}
+  </tbody>
+</table>
+
+<div class="sig-row">
+  <div>المكوّن : <strong>{{ session.trainer.full_name|upper }}</strong></div>
+  <div>المؤسسة</div>
+</div>
+{% endblock %}

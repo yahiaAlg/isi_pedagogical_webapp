@@ -1,0 +1,39 @@
+{# Shared modal: an agent asks the admin to approve a formation modification. #}
+<div class="modal fade" id="editRequestModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:460px;">
+    <div class="modal-content" style="border-radius:14px;border:none;box-shadow:var(--shadow-md);">
+      <form method="post" id="editRequestForm">
+        {% csrf_token %}
+        <div class="modal-header" style="border-bottom:1px solid var(--card-border);padding:18px 24px 14px;">
+          <h5 class="modal-title" style="font-family:var(--font-head);font-weight:700;font-size:16px;">
+            <i class="bi bi-send-fill" style="color:var(--accent);"></i> Demander la modification
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+        </div>
+        <div class="modal-body" style="padding:18px 24px;">
+          <p style="font-size:14px;margin-bottom:12px;">
+            Un administrateur doit approuver avant que vous puissiez ouvrir le formulaire de
+            modification de <strong id="editRequestTitle"></strong>.
+          </p>
+          <label class="form-label" for="editRequestMessage">Motif / modifications prévues <span class="text-muted">(facultatif)</span></label>
+          <textarea class="form-control" id="editRequestMessage" name="message" rows="3" maxlength="1000"
+            placeholder="Ex. : corriger la durée et le nombre maximum de participants"></textarea>
+        </div>
+        <div class="modal-footer" style="border-top:1px solid var(--card-border);padding:12px 24px;">
+          <button type="button" class="btn btn-ghost btn-sm" data-bs-dismiss="modal">Annuler</button>
+          <button type="submit" class="btn btn-amber btn-sm"><i class="bi bi-send-fill"></i> Envoyer la demande</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+<script>
+document.querySelectorAll('[data-edit-request-url]').forEach(function (btn) {
+  btn.addEventListener('click', function () {
+    document.getElementById('editRequestForm').action = this.dataset.editRequestUrl;
+    document.getElementById('editRequestTitle').textContent = this.dataset.editRequestTitle || '';
+    document.getElementById('editRequestMessage').value = '';
+    new bootstrap.Modal(document.getElementById('editRequestModal')).show();
+  });
+});
+</script>

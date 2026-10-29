@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block title %}Notifications — ISI Gestion Pédagogique{% endblock %}
+{% block breadcrumb %}<i class="bi bi-chevron-right bc-sep"></i>{% endblock %}
+{% block breadcrumb_active %}<span class="bc-active">Notifications</span>{% endblock %}
+
+{% block content %}
+<div class="fade-up">
+  <div class="page-header">
+    <div class="page-header-left">
+      <h1>Notifications</h1>
+      <p class="page-subtitle">Historique de vos notifications (également envoyées par e-mail).</p>
+    </div>
+  </div>
+
+  <div class="isi-card">
+    <div class="isi-card-header">
+      <div class="card-icon amber"><i class="bi bi-bell-fill"></i></div>
+      <h3>{% if only_unread %}Non lues{% else %}Toutes{% endif %}</h3>
+      <span class="header-count ms-1">({{ page_obj.paginator.count }})</span>
+      <div class="ms-auto d-flex gap-2">
+        {% if only_unread %}<a href="?" class="btn btn-ghost btn-sm">Voir tout</a>{% else %}<a href="?unread=1" class="btn btn-ghost btn-sm">Non lues seulement</a>{% endif %}
+        <form method="post" action="{% url 'approvals:notification_read_all' %}">{% csrf_token %}<button class="btn btn-ghost btn-sm" type="submit"><i class="bi bi-check2-all"></i> Tout marquer comme lu</button></form>
+      </div>
+    </div>
+    <div class="bell-page-list">
+      {% for n in page_obj %}
+      <a href="{% url 'approvals:notification_open' n.pk %}" class="bell-item {% if not n.is_read %}unread{% endif %}">
+        <span class="bell-item-icon {{ n.tone }}"><i class="bi {{ n.icon }}"></i></span>
+        <span class="bell-item-text">
+          <span class="bell-item-title">{{ n.title }}</span>
+          <span class="bell-item-body">{{ n.body }}</span>
+          <span class="bell-item-time">{{ n.created_at|date:"d/m/Y H:i" }}</span>
+        </span>
+        {% if not n.is_read %}<span class="bell-dot"></span>{% endif %}
+      </a>
+      {% empty %}
+      <div class="empty-state"><div class="empty-state-icon"><i class="bi bi-bell-slash"></i></div><p class="empty-state-text">Aucune notification.</p></div>
+      {% endfor %}
+    </div>
+    {% if page_obj.paginator.num_pages > 1 %}
+    <div class="isi-pagination">
+      <div class="isi-pagination-info">Page {{ page_obj.number }} sur {{ page_obj.paginator.num_pages }}</div>
+      <div class="isi-pagination-controls">
+        {% if page_obj.has_previous %}<a href="?{% if only_unread %}unread=1&{% endif %}page={{ page_obj.previous_page_number }}" class="btn btn-ghost btn-sm"><i class="bi bi-chevron-left"></i></a>{% endif %}
+        {% if page_obj.has_next %}<a href="?{% if only_unread %}unread=1&{% endif %}page={{ page_obj.next_page_number }}" class="btn btn-ghost btn-sm"><i class="bi bi-chevron-right"></i></a>{% endif %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ title }} — Catégories — ISI Gestion Pédagogique{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'formations/css/formations.css' %}" />{% endblock %}
+
+{% block breadcrumb %}
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="{% url 'formations:formation_list' %}">Formations</a>
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="{% url 'formations:category_list' %}">Catégories</a>
+<i class="bi bi-chevron-right bc-sep"></i>
+{% endblock %}
+{% block breadcrumb_active %}<span class="bc-active">{{ title }}</span>{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% url 'formations:category_list' %}" class="topbar-btn"><i class="bi bi-arrow-left"></i> Retour</a>
+{% endblock %}
+
+{% block content %}
+<div class="fade-up">
+  <div class="page-header">
+    <div class="page-header-left">
+      <h1>{{ title }}</h1>
+      <p class="page-subtitle">{% if category %}Modification{% else %}Création{% endif %} d'une catégorie de formation</p>
+    </div>
+  </div>
+
+  <div class="row justify-content-center">
+    <div class="col-lg-5 col-md-7">
+      <div class="isi-card">
+        <div class="isi-card-header">
+          <div class="card-icon amber"><i class="bi bi-tags-fill"></i></div>
+          <h3>{{ title }}</h3>
+        </div>
+        <div class="isi-card-body">
+          <form method="post" novalidate>
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+            <div class="alert alert-danger mb-4">
+              <i class="bi bi-exclamation-circle-fill"></i>
+              <div>{% for e in form.non_field_errors %}<div>{{ e }}</div>{% endfor %}</div>
+            </div>
+            {% endif %}
+
+            <div class="form-section-title">Identification</div>
+
+            <div class="mb-3">
+              <label class="form-label" for="{{ form.name.id_for_label }}">Nom <span style="color:var(--danger);">*</span></label>
+              <div class="input-icon-wrap">
+                <i class="bi bi-tags-fill"></i>
+                <input type="text" id="{{ form.name.id_for_label }}" name="{{ form.name.html_name }}"
+                  value="{{ form.name.value|default_if_none:'' }}"
+                  class="form-control {% if form.name.errors %}is-invalid{% endif %}"
+                  placeholder="Ex : Sécurité industrielle, HSE…" required />
+              </div>
+              {% if form.name.errors %}<div class="invalid-feedback d-block">{{ form.name.errors|join:", " }}</div>{% endif %}
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label" for="{{ form.description.id_for_label }}">Description</label>
+              <textarea id="{{ form.description.id_for_label }}" name="{{ form.description.html_name }}"
+                class="form-control {% if form.description.errors %}is-invalid{% endif %}"
+                rows="3" placeholder="Description courte de la catégorie…">{{ form.description.value|default_if_none:'' }}</textarea>
+              {% if form.description.errors %}<div class="invalid-feedback d-block">{{ form.description.errors|join:", " }}</div>{% endif %}
+            </div>
+
+            <div class="mb-4">
+              <label class="form-label" for="{{ form.color.id_for_label }}">Couleur d'identification</label>
+              <div style="display:flex;align-items:center;gap:12px;">
+                <input type="color" id="{{ form.color.id_for_label }}" name="{{ form.color.html_name }}"
+                  value="{{ form.color.value|default:'#f59e0b' }}"
+                  class="form-control {% if form.color.errors %}is-invalid{% endif %}"
+                  style="width:56px;height:40px;padding:4px;cursor:pointer;" />
+                <span style="font-size:13px;color:var(--text-muted);">Choisissez une couleur pour identifier cette catégorie dans les listes.</span>
+              </div>
+              {% if form.color.errors %}<div class="invalid-feedback d-block">{{ form.color.errors|join:", " }}</div>{% endif %}
+            </div>
+
+            <div class="section-divider"></div>
+            <div style="display:flex;gap:12px;">
+              <button type="submit" class="btn btn-amber">
+                <i class="bi bi-check-lg"></i> {% if category %}Enregistrer{% else %}Créer la catégorie{% endif %}
+              </button>
+              <a href="{% url 'formations:category_list' %}" class="btn btn-ghost"><i class="bi bi-arrow-left"></i> Annuler</a>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

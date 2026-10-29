@@ -1,0 +1,32 @@
+{% load static %}
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>شهادات — {{ session.reference }}</title>
+{% include "documents/print/_certificate_style.html" %}
+<style>
+  .empty-msg { text-align: center; padding: 60px; font-size: 16px; color: #64748b; font-family: sans-serif; }
+</style>
+</head>
+<body>
+
+<div class="print-btn-bar">
+  <button class="print-btn" onclick="window.print()">🖨 طباعة جميع الشهادات ({{ participants|length }})</button>
+  <a class="back-btn" href="javascript:history.back()">← رجوع</a>
+</div>
+
+{% if not participants %}
+<div class="empty-msg">لا يوجد مشاركون ناجحون لهذه الجلسة.</div>
+{% endif %}
+
+{% for cert in certificates %}
+<div class="cert-wrap">
+  {% with participant=cert.participant data=cert.data %}
+    {% include "documents/print/_certificate_body.html" %}
+  {% endwith %}
+</div>
+{% endfor %}
+
+</body>
+</html>

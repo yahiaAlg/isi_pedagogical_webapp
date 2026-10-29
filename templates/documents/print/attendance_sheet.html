@@ -1,0 +1,58 @@
+{% extends "documents/print/base_print.html" %}
+
+{% block doc_title %}ورقة الحضور يوم {{ day_number }} — {{ session.reference }}{% endblock %}
+
+{% block doc_body %}
+{% if blank_mode %}
+<div class="note-box" style="background:#fffbeb;border:1px solid #fbbf24;padding:8px;border-radius:4px;">
+  <strong>ورقة فارغة — تُعبّأ يدوياً</strong> من طرف المكوّن والمترشحين.
+</div>
+{% endif %}
+<div class="doc-title">ورقة الحضور</div>
+<div class="doc-subtitle">
+  <strong>عنوان التكوين : {{ session.formation.title }}</strong>
+  &nbsp;&nbsp;&nbsp;
+  <strong>الزبون : {{ session.client.name }}</strong>
+</div>
+<div class="doc-date">
+  <strong>التاريخ : </strong>
+  {% if day_date %}{{ day_date|date:"d/m/Y" }}{% else %}{{ session.date_start|date:"d/m/Y" }}{% endif %}
+  &nbsp;&nbsp;
+  <strong>اليوم : {{ day_number }}</strong>
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th style="width:40px;">الرقم</th>
+      <th>الاسم واللقب</th>
+      <th>الوظيفة</th>
+      <th>الإمضاء</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for p in participants %}
+    <tr>
+      <td>{{ forloop.counter|stringformat:"02d" }}</td>
+      <td class="left">{% if p.has_fr_name %}{{ p.last_name|upper }} {{ p.first_name }}{% else %}{{ p.full_name }}{% endif %}</td>
+      <td class="left">{{ p.job_title }}</td>
+      <td style="min-height:30px;">&nbsp;</td>
+    </tr>
+    {% endfor %}
+    {% with count=participants|length %}
+    {% if count < blank_rows %}
+      {% for i in ""|ljust:blank_rows %}
+        {% if forloop.counter > count %}
+        <tr><td>{{ forloop.counter|stringformat:"02d" }}</td><td></td><td></td><td></td></tr>
+        {% endif %}
+      {% endfor %}
+    {% endif %}
+    {% endwith %}
+  </tbody>
+</table>
+
+<div class="sig-row">
+  <div>المكوّن : <strong>{{ session.trainer.full_name|upper }}</strong></div>
+  <div>المؤسسة</div>
+</div>
+{% endblock %}

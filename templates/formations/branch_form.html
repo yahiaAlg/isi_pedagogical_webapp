@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ title }} — Branches — ISI Gestion Pédagogique{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'formations/css/formations.css' %}" />{% endblock %}
+
+{% block breadcrumb %}
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="{% url 'formations:formation_list' %}">Formations</a>
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="{% url 'formations:branch_list' %}">Branches</a>
+<i class="bi bi-chevron-right bc-sep"></i>
+{% endblock %}
+{% block breadcrumb_active %}<span class="bc-active">{{ title }}</span>{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% url 'formations:branch_list' %}" class="topbar-btn"><i class="bi bi-arrow-left"></i> Retour</a>
+{% endblock %}
+
+{% block content %}
+<div class="fade-up">
+  <div class="page-header">
+    <div class="page-header-left">
+      <h1>{{ title }}</h1>
+      <p class="page-subtitle">{% if branch %}Modification{% else %}Création{% endif %} d'une branche du catalogue</p>
+    </div>
+  </div>
+
+  <div class="row justify-content-center">
+    <div class="col-lg-6 col-md-8">
+      <div class="isi-card">
+        <div class="isi-card-header">
+          <div class="card-icon amber"><i class="bi bi-diagram-3-fill"></i></div>
+          <h3>{{ title }}</h3>
+        </div>
+        <div class="isi-card-body">
+          <form method="post" novalidate>
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+            <div class="alert alert-danger mb-4">
+              <i class="bi bi-exclamation-circle-fill"></i>
+              <div>{% for e in form.non_field_errors %}<div>{{ e }}</div>{% endfor %}</div>
+            </div>
+            {% endif %}
+
+            <div class="form-section-title">Identification</div>
+
+            <div class="row g-3 mb-3">
+              <div class="col-sm-4">
+                <label class="form-label" for="{{ form.abbreviation.id_for_label }}">Abréviation <span style="color:var(--danger);">*</span></label>
+                <input type="text" id="{{ form.abbreviation.id_for_label }}" name="{{ form.abbreviation.html_name }}"
+                  value="{{ form.abbreviation.value|default_if_none:'' }}"
+                  class="form-control {% if form.abbreviation.errors %}is-invalid{% endif %}"
+                  placeholder="Ex : CIP" required />
+                {% if form.abbreviation.errors %}<div class="invalid-feedback d-block">{{ form.abbreviation.errors|join:", " }}</div>{% endif %}
+              </div>
+              <div class="col-sm-4">
+                <label class="form-label" for="{{ form.name.id_for_label }}">Nom <span style="color:var(--danger);">*</span></label>
+                <input type="text" id="{{ form.name.id_for_label }}" name="{{ form.name.html_name }}"
+                  value="{{ form.name.value|default_if_none:'' }}"
+                  class="form-control {% if form.name.errors %}is-invalid{% endif %}"
+                  required />
+                {% if form.name.errors %}<div class="invalid-feedback d-block">{{ form.name.errors|join:", " }}</div>{% endif %}
+              </div>
+              <div class="col-sm-4">
+                <label class="form-label" for="{{ form.name_ar.id_for_label }}">Nom (AR)</label>
+                <input type="text" id="{{ form.name_ar.id_for_label }}" name="{{ form.name_ar.html_name }}"
+                  value="{{ form.name_ar.value|default_if_none:'' }}"
+                  class="form-control {% if form.name_ar.errors %}is-invalid{% endif %}" dir="rtl" />
+                {% if form.name_ar.errors %}<div class="invalid-feedback d-block">{{ form.name_ar.errors|join:", " }}</div>{% endif %}
+              </div>
+            </div>
+
+            <div class="form-section-title">Cursus</div>
+
+            <div class="row g-3 mb-4">
+              <div class="col-sm-4">
+                <label class="form-label" for="{{ form.curriculum_type.id_for_label }}">Type de cursus <span style="color:var(--danger);">*</span></label>
+                <select id="{{ form.curriculum_type.id_for_label }}" name="{{ form.curriculum_type.html_name }}"
+                  class="form-select {% if form.curriculum_type.errors %}is-invalid{% endif %}" required>
+                  <option value="">—</option>
+                  {% for val, label in form.fields.curriculum_type.choices %}
+                  {% if val %}<option value="{{ val }}" {% if form.curriculum_type.value == val %}selected{% endif %}>{{ label }}</option>{% endif %}
+                  {% endfor %}
+                </select>
+                <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">Diplômante : 6–30 mois — Qualifiante : 1–6 mois</div>
+                {% if form.curriculum_type.errors %}<div class="invalid-feedback d-block">{{ form.curriculum_type.errors|join:", " }}</div>{% endif %}
+              </div>
+              <div class="col-sm-4">
+                <label class="form-label" for="{{ form.curriculum_min_months.id_for_label }}">Durée min. (mois) <span style="color:var(--danger);">*</span></label>
+                <input type="number" min="1" id="{{ form.curriculum_min_months.id_for_label }}" name="{{ form.curriculum_min_months.html_name }}"
+                  value="{{ form.curriculum_min_months.value|default_if_none:'' }}"
+                  class="form-control {% if form.curriculum_min_months.errors %}is-invalid{% endif %}" required />
+                {% if form.curriculum_min_months.errors %}<div class="invalid-feedback d-block">{{ form.curriculum_min_months.errors|join:", " }}</div>{% endif %}
+              </div>
+              <div class="col-sm-4">
+                <label class="form-label" for="{{ form.curriculum_max_months.id_for_label }}">Durée max. (mois) <span style="color:var(--danger);">*</span></label>
+                <input type="number" min="1" id="{{ form.curriculum_max_months.id_for_label }}" name="{{ form.curriculum_max_months.html_name }}"
+                  value="{{ form.curriculum_max_months.value|default_if_none:'' }}"
+                  class="form-control {% if form.curriculum_max_months.errors %}is-invalid{% endif %}" required />
+                {% if form.curriculum_max_months.errors %}<div class="invalid-feedback d-block">{{ form.curriculum_max_months.errors|join:", " }}</div>{% endif %}
+              </div>
+            </div>
+
+            <div class="section-divider"></div>
+            <div style="display:flex;gap:12px;">
+              <button type="submit" class="btn btn-amber">
+                <i class="bi bi-check-lg"></i> {% if branch %}Enregistrer{% else %}Créer la branche{% endif %}
+              </button>
+              <a href="{% url 'formations:branch_list' %}" class="btn btn-ghost"><i class="bi bi-arrow-left"></i> Annuler</a>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

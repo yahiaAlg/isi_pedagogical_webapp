@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+{% load static %}
+{% load l10n %}
+
+{% block title %}{% if payment %}Modifier un règlement{% else %}Règlement formateur{% endif %} — {{ session.reference }} — ISI Gestion Pédagogique{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'formations/css/formations.css' %}" />{% endblock %}
+
+{% block breadcrumb %}
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="{% url 'formations:session_list' %}">Sessions</a>
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="{% url 'formations:session_detail' session.pk %}">{{ session.reference }}</a>
+<i class="bi bi-chevron-right bc-sep"></i>
+{% endblock %}
+{% block breadcrumb_active %}<span class="bc-active">{% if payment %}Modifier un règlement{% else %}Règlement formateur{% endif %}</span>{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% if next_url %}{{ next_url }}{% else %}{% url 'formations:session_detail' session.pk %}{% endif %}" class="topbar-btn"><i class="bi bi-arrow-left"></i> Retour</a>
+{% endblock %}
+
+{% block content %}
+<div class="fade-up">
+  <div class="page-header">
+    <div class="page-header-left">
+      <h1>{% if payment %}Modifier le règlement{% else %}Ajouter un règlement (formateur){% endif %}</h1>
+      <p class="page-subtitle">{{ session.reference }} — {{ session.formation.title }} — {{ primary.trainer.full_name }}</p>
+    </div>
+  </div>
+
+  <div class="row justify-content-center">
+    <div class="col-lg-6 col-md-8">
+      <div class="isi-card">
+        <div class="isi-card-header">
+          <div class="card-icon green"><i class="bi bi-cash-coin"></i></div>
+          <h3>Détails du règlement</h3>
+        </div>
+        <div class="isi-card-body">
+
+          <div style="display:flex;flex-wrap:wrap;gap:16px;padding:12px 16px;background:#f8fafc;border-radius:8px;border:1px solid var(--card-border);margin-bottom:20px;">
+            <div>
+              <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);">Part due (total)</div>
+              <span style="font-weight:700;">{{ primary.trainer_cost|floatformat:2 }} DA</span>
+              <span style="font-size:12px;color:var(--text-muted);">
+                ({% if primary.trainer_cost_mode == 'direct' %}montant direct{% else %}{{ primary.trainer_cost_percentage|floatformat:0 }} % du montant total{% endif %})
+              </span>
+            </div>
+            <div>
+              <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);">Déjà réglé</div>
+              <span style="font-weight:700;color:var(--success);">{{ primary.trainer_paid_total|floatformat:2 }} DA</span>
+            </div>
+            <div>
+              <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);">Solde restant</div>
+              <span style="font-weight:700;color:var(--danger);">{{ primary.trainer_payment_balance|floatformat:2 }} DA</span>
+            </div>
+          </div>
+
+          {% if form.non_field_errors %}
+          <div class="alert alert-danger mb-4">
+            <i class="bi bi-exclamation-circle-fill"></i>
+            <div>{% for e in form.non_field_errors %}<div>{{ e }}</div>{% endfor %}</div>
+          </div>
+          {% endif %}
+
+          <form method="post" enctype="multipart/form-data" novalidate
+                data-mode="{% if payment %}edit{% else %}create{% endif %}"
+                data-balance="{{ primary.trainer_payment_balance|default_if_none:'' }}"
+                data-due="{{ primary.trainer_cost|default_if_none:'' }}">
+            {% csrf_token %}
+            {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}" />{% endif %}
+
+            <div class="mb-3">
+              <label class="form-label" for="{{ form.amount.id_for_label }}">Montant réglé (DA) <span style="color:var(--danger);">*</span></label>
+              <input type="number" id="{{ form.amount.id_for_label }}" name="{{ form.amount.html_name }}"
+                value="{{ form.amount.value|default_if_none:''|unlocalize }}"
+                class="form-control {% if form.amount.errors %}is-invalid{% endif %}" step="0.01" min="0" required />
+              {% if form.amount.errors %}<div class="invalid-feedback d-block">{{ form.amount.errors|join:", " }}</div>{% endif %}
+              {% if not payment %}
+              <div style="font-size:11.5px;color:var(--text-muted);margin-top:4px;">
+                Pré-rempli avec le solde restant ({{ primary.trainer_payment_balance|floatformat:2 }} DA) — modifiable pour un règlement partiel.
+              </div>
+              {% endif %}
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label" for="{{ form.status.id_for_label }}">Statut <span style="color:var(--danger);">*</span></label>
+              <select id="{{ form.status.id_for_label }}" name="{{ form.status.html_name }}"
+                class="form-select {% if form.status.errors %}is-invalid{% endif %}" required>
+                {% for val, label in form.fields.status.choices %}
+                <option value="{{ val }}" {% if form.status.value == val %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+              {% if form.status.errors %}<div class="invalid-feedback d-block">{{ form.status.errors|join:", " }}</div>{% endif %}
+              <div style="font-size:11.5px;color:var(--text-muted);margin-top:4px;">Seuls les règlements « Confirmé » comptent dans le solde réglé.</div>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label" for="{{ form.payment_mode.id_for_label }}">Mode de règlement <span style="color:var(--danger);">*</span></label>
+              <select id="{{ form.payment_mode.id_for_label }}" name="{{ form.payment_mode.html_name }}"
+                class="form-select {% if form.payment_mode.errors %}is-invalid{% endif %}" required>
+                <option value="">— Sélectionner —</option>
+                {% for val, label in form.fields.payment_mode.choices %}
+                <option value="{{ val }}" {% if form.payment_mode.value == val %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+              {% if form.payment_mode.errors %}<div class="invalid-feedback d-block">{{ form.payment_mode.errors|join:", " }}</div>{% endif %}
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label" for="{{ form.reference.id_for_label }}">Référence de transaction</label>
+              <input type="text" id="{{ form.reference.id_for_label }}" name="{{ form.reference.html_name }}"
+                value="{{ form.reference.value|default_if_none:'' }}"
+                class="form-control {% if form.reference.errors %}is-invalid{% endif %}"
+                placeholder="Auto-générée si Espèce et laissée vide" style="font-family:monospace;" />
+              {% if form.reference.errors %}<div class="invalid-feedback d-block">{{ form.reference.errors|join:", " }}</div>{% endif %}
+              <div id="espece-hint" style="font-size:11.5px;color:var(--text-muted);margin-top:4px;display:none;">
+                <i class="bi bi-info-circle-fill"></i> Laissée vide, la référence sera générée automatiquement : ESP-{{ primary.trainer.last_name|upper }}-{DATE}-{HEURE}.
+              </div>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label" for="{{ form.proof_document.id_for_label }}">Justificatif (scan) <span style="font-weight:400;color:var(--text-muted);">— optionnel</span></label>
+              <input type="file" id="{{ form.proof_document.id_for_label }}" name="{{ form.proof_document.html_name }}"
+                class="form-control {% if form.proof_document.errors %}is-invalid{% endif %}" accept=".pdf,.jpg,.jpeg,.png,.webp" />
+              {% if form.proof_document.errors %}<div class="invalid-feedback d-block">{{ form.proof_document.errors|join:", " }}</div>{% endif %}
+              <div style="font-size:11.5px;color:var(--text-muted);margin-top:4px;">Image ou PDF scanné du reçu / avis de virement.</div>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label" for="{{ form.notes.id_for_label }}">Note interne <span style="font-weight:400;color:var(--text-muted);">— optionnel</span></label>
+              <input type="text" id="{{ form.notes.id_for_label }}" name="{{ form.notes.html_name }}"
+                value="{{ form.notes.value|default_if_none:'' }}"
+                class="form-control {% if form.notes.errors %}is-invalid{% endif %}"
+                placeholder="Ex : 1ère tranche, solde, correction..." />
+              {% if form.notes.errors %}<div class="invalid-feedback d-block">{{ form.notes.errors|join:", " }}</div>{% endif %}
+            </div>
+
+            <div class="section-divider"></div>
+            <div style="display:flex;gap:12px;">
+              <button type="submit" class="btn btn-amber"><i class="bi bi-check-lg"></i> {% if payment %}Enregistrer les modifications{% else %}Confirmer le règlement{% endif %}</button>
+              <a href="{% if next_url %}{{ next_url }}{% else %}{% url 'formations:session_detail' session.pk %}{% endif %}" class="btn btn-ghost"><i class="bi bi-arrow-left"></i> Annuler</a>
+            </div>
+          </form>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+(function () {
+  const modeSel = document.getElementById("{{ form.payment_mode.id_for_label }}");
+  const hint = document.getElementById("espece-hint");
+  function toggleEspeceHint() {
+    if (!modeSel || !hint) return;
+    hint.style.display = modeSel.value === "espece" ? "" : "none";
+  }
+  if (modeSel) { modeSel.addEventListener("change", toggleEspeceHint); toggleEspeceHint(); }
+
+  // Spec §new — default the amount to the full remaining balance and
+  // auto-suggest a matching internal note, but only when *creating* a
+  // new installment. Editing an existing payment must keep showing its
+  // own saved values untouched.
+  const form = document.querySelector("form[data-mode]");
+  const amountInput = document.getElementById("{{ form.amount.id_for_label }}");
+  const notesInput = document.getElementById("{{ form.notes.id_for_label }}");
+  if (!form || form.dataset.mode !== "create" || !amountInput) return;
+
+  const balance = parseFloat(form.dataset.balance);
+  let notesAutoValue = ""; // tracks the last value *we* wrote, to detect manual edits
+
+  function suggestedNote(amount) {
+    if (isNaN(amount) || isNaN(balance)) return "";
+    if (Math.abs(amount - balance) < 0.005) return "Paiement complet";
+    return "Paiement partielle N° ";
+  }
+
+  function applySuggestedNote() {
+    if (!notesInput) return;
+    // Only overwrite the note if it's still exactly what we auto-filled
+    // last time (or empty) — never clobber something the user typed.
+    if (notesInput.value !== "" && notesInput.value !== notesAutoValue) return;
+    const amount = parseFloat(amountInput.value);
+    notesAutoValue = suggestedNote(amount);
+    notesInput.value = notesAutoValue;
+  }
+
+  if (!isNaN(balance) && balance > 0 && !amountInput.value) {
+    amountInput.value = balance.toFixed(2);
+  }
+
+  applySuggestedNote();
+  amountInput.addEventListener("input", applySuggestedNote);
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,311 @@
+import os
+import sys
+from pathlib import Path
+from dotenv import load_dotenv
+
+load_dotenv()
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+# ---------------------------------------------------------------------------
+# Security
+# ---------------------------------------------------------------------------
+SECRET_KEY = os.environ["SECRET_KEY"]
+
+DEBUG = os.environ.get("DEBUG", "False") == "True"
+
+ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+
+# Spec §11.6 — base URL used to build the default QR-code verification link
+# printed on attestations (e.g. https://isi-example.dz).
+# Internal Ubuntu server, served under the /pedagogy prefix (see URL_PREFIX below).
+SITE_URL = os.environ.get("SITE_URL", "http://192.168.100.10/pedagogy").rstrip("/")
+
+# Public catalogue on the main (shared-hosting) website. A formation's page is
+# {MAIN_SITE_URL}/formations/{MAIN_SITE_CATALOGUE_SLUG}/{formation.code}/
+MAIN_SITE_URL = os.environ.get("MAIN_SITE_URL", "https://excellance-ms.dz").rstrip("/")
+MAIN_SITE_CATALOGUE_SLUG = os.environ.get("MAIN_SITE_CATALOGUE_SLUG", "catalogue-eems")
+
+# Attestation verification (QR) — the QR printed on a certificate points to
+# {MAIN_SITE_URL}/v/<code>/ (reachable from anywhere). The main site sends
+# visitors on the institute network to this app, everyone else gets a notice
+# page. As a second line of defence this app re-checks the client address:
+# private/loopback addresses are always "LAN"; add the institute's public NAT
+# address (or any other trusted range) here, comma-separated, CIDR allowed.
+LAN_EXTRA_NETWORKS = [
+    n.strip() for n in os.environ.get("LAN_EXTRA_NETWORKS", "").split(",") if n.strip()
+]
+
+# Shared secret for `manage.py ping_main_site` (announces this server's current
+# public IP to the main site every few minutes — see that command's docstring).
+INSTITUTE_PING_SECRET = os.environ.get("INSTITUTE_PING_SECRET", "")
+
+# ---------------------------------------------------------------------------
+# Sync with the main website (see the `sync` app).
+# SYNC_SHARED_SECRET : HMAC secret shared with the website (same value there).
+#                      Falls back to INSTITUTE_PING_SECRET; empty = sync off
+#                      (formations simply queue up until it is set).
+# SYNC_PARTICULIERS_CLIENT_NAME : the shared client website individuals go under.
+# SYNC_AUTOFLUSH     : push a saved formation immediately in a background
+#                      thread (cron `manage.py sync_main_site` is the safety net).
+# ---------------------------------------------------------------------------
+SYNC_SHARED_SECRET = os.environ.get("SYNC_SHARED_SECRET", "") or INSTITUTE_PING_SECRET
+SYNC_PARTICULIERS_CLIENT_NAME = os.environ.get("SYNC_PARTICULIERS_CLIENT_NAME", "Particuliers")
+SYNC_TIMEOUT = int(os.environ.get("SYNC_TIMEOUT", "20"))
+# Website enrollment statuses whose people are added to sessions automatically
+# (comma separated: pending, contacted, accepted, confirmed). The session page also has
+# a "+ non validés" button to add pending/contacted ones by hand.
+SYNC_SEED_STATUSES = os.environ.get("SYNC_SEED_STATUSES", "accepted,confirmed")
+# 1 = on the very first sync, import every existing website client (default: start "from now").
+SYNC_INITIAL_BACKFILL = os.environ.get("SYNC_INITIAL_BACKFILL", "0") == "1"
+# Every N hours the cron run also re-walks the clients ISI already knows (repairs missed
+# changes). 0 = never.
+SYNC_AUTO_FULL_HOURS = int(os.environ.get("SYNC_AUTO_FULL_HOURS", "24"))
+SYNC_AUTOFLUSH = os.environ.get("SYNC_AUTOFLUSH", "1") == "1" and "test" not in sys.argv
+
+CSRF_TRUSTED_ORIGINS = [
+    o.strip()
+    for o in os.environ.get("CSRF_TRUSTED_ORIGINS", "").split(",")
+    if o.strip()
+]
+
+# ---------------------------------------------------------------------------
+# Applications
+# ---------------------------------------------------------------------------
+INSTALLED_APPS = [
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "django.contrib.staticfiles",
+    # Third-party
+    "import_export",
+    # Local
+    "core",
+    "accounts",
+    "clients",
+    "resources",
+    "formations",
+    "documents",
+    "reporting",
+    "sync",  # bidirectional sync with the main website (formations out, clients/participants in)
+    "approvals",  # agent→admin requests (formation create/edit) + bell notifications
+]
+
+# ---------------------------------------------------------------------------
+# Middleware
+# ---------------------------------------------------------------------------
+MIDDLEWARE = [
+    "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.common.CommonMiddleware",
+    "django.middleware.csrf.CsrfViewMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
+]
+
+ROOT_URLCONF = "pedagogical.urls"
+
+# ---------------------------------------------------------------------------
+# Deployment environment switch
+# ---------------------------------------------------------------------------
+# Production hosts several sibling Django subprojects behind one reverse
+# proxy, each mounted under its own path prefix (this project lives at
+# /pedagogy). FORCE_SCRIPT_NAME tells Django about that prefix so
+# reverse()/{% url %} and STATIC_URL/MEDIA_URL all resolve correctly
+# through the proxy.
+#
+# Locally (`python manage.py runserver`) there is no reverse proxy adding
+# that prefix, so forcing it breaks every URL — including runserver's own
+# static/media serving in urls.py, which matches against the (already
+# prefix-free) PATH_INFO it receives directly. Set DEPLOY_ENV=local in
+# .env for local testing to drop the prefix entirely; leave it unset (or
+# DEPLOY_ENV=production) for the real deployment.
+DEPLOY_ENV = os.environ.get("DEPLOY_ENV", "production")
+
+URL_PREFIX = (
+    "" if DEPLOY_ENV == "local" else os.environ.get("URL_PREFIX", "/pedagogy")
+)
+
+FORCE_SCRIPT_NAME = URL_PREFIX or None
+USE_X_FORWARDED_HOST = True
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+TEMPLATES = [
+    {
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [BASE_DIR / "templates"],
+        "APP_DIRS": True,
+        "OPTIONS": {
+            "context_processors": [
+                "django.template.context_processors.debug",
+                "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
+                "approvals.context_processors.bell",
+            ],
+        },
+    },
+]
+
+WSGI_APPLICATION = "pedagogical.wsgi.application"
+
+# ---------------------------------------------------------------------------
+# Database — SQLite locally, PostgreSQL on Render
+# ---------------------------------------------------------------------------
+DB_ENGINE = os.environ.get("DB_ENGINE", "django.db.backends.sqlite3")
+
+if DB_ENGINE == "django.db.backends.sqlite3":
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
+    }
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": DB_ENGINE,
+            "NAME": os.environ["DB_NAME"],
+            "USER": os.environ["DB_USER"],
+            "PASSWORD": os.environ["DB_PASSWORD"],
+            "HOST": os.environ["DB_HOST"],
+            "PORT": os.environ.get("DB_PORT", "5432"),
+        }
+    }
+
+# ---------------------------------------------------------------------------
+# Password validation
+# ---------------------------------------------------------------------------
+AUTH_PASSWORD_VALIDATORS = [
+    {
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"
+    },
+    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
+    {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
+    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
+]
+
+# ---------------------------------------------------------------------------
+# Internationalisation
+# ---------------------------------------------------------------------------
+LANGUAGE_CODE = "fr"
+TIME_ZONE = "Africa/Algiers"
+USE_I18N = True
+USE_TZ = True
+
+# ---------------------------------------------------------------------------
+# Static files — WhiteNoise
+# ---------------------------------------------------------------------------
+# Derived from URL_PREFIX (see DEPLOY_ENV above): "/pedagogy/static/" in
+# production, "/static/" when DEPLOY_ENV=local.
+STATIC_URL = f"{URL_PREFIX}/static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
+
+# Only include the project-level static/ dir if it actually exists.
+# This avoids the W004 warning when the folder hasn't been created yet.
+_STATIC_DIR = BASE_DIR / "static"
+STATICFILES_DIRS = [_STATIC_DIR] if _STATIC_DIR.exists() else []
+
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+
+# ---------------------------------------------------------------------------
+# Media files
+# ---------------------------------------------------------------------------
+# Derived from URL_PREFIX too, for the same reason as STATIC_URL above.
+MEDIA_URL = f"{URL_PREFIX}/media/"
+MEDIA_ROOT = os.environ.get("MEDIA_ROOT", str(BASE_DIR / "media"))
+
+# ---------------------------------------------------------------------------
+# Email — used for notifications (e.g. PV de délibération généré)
+# Falls back to printing emails to the console when unconfigured, so local
+# dev / tests never fail for lack of SMTP credentials.
+# ---------------------------------------------------------------------------
+EMAIL_BACKEND = os.environ.get(
+    "EMAIL_BACKEND",
+    (
+        "django.core.mail.backends.console.EmailBackend"
+        if DEBUG
+        else "django.core.mail.backends.smtp.EmailBackend"
+    ),
+)
+EMAIL_HOST = os.environ.get("EMAIL_HOST", "mail.excellance-ms.dz")
+EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "465"))
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "pedagogy@excellance-ms.dz")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")  # set in .env, never in code
+EMAIL_USE_SSL = os.environ.get("EMAIL_USE_SSL", "True") == "True"
+EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "False") == "True"
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", EMAIL_HOST_USER)
+# Never let an unreachable SMTP server hang a worker for minutes.
+EMAIL_TIMEOUT = int(os.environ.get("EMAIL_TIMEOUT", "10"))
+
+# ---------------------------------------------------------------------------
+# Approval workflow (Agent pédagogique → Administrateur)
+# ---------------------------------------------------------------------------
+# How long an approved "modify formation" request stays usable (hours).
+APPROVAL_GRANT_HOURS = int(os.environ.get("APPROVAL_GRANT_HOURS", "24"))
+# Send approval e-mails from a background thread (set False to send inline).
+APPROVAL_MAIL_ASYNC = os.environ.get("APPROVAL_MAIL_ASYNC", "True") == "True"
+
+# ---------------------------------------------------------------------------
+# Auth
+# ---------------------------------------------------------------------------
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+LOGIN_URL = "accounts:login"
+LOGIN_REDIRECT_URL = "core:dashboard"
+LOGOUT_REDIRECT_URL = "accounts:login"
+
+# ---------------------------------------------------------------------------
+# Security headers — production only
+# ---------------------------------------------------------------------------
+if not DEBUG:
+    SECURE_SSL_REDIRECT = True
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    X_FRAME_OPTIONS = "DENY"
+
+# ---------------------------------------------------------------------------
+# Logging — writes to logs/django.log so caught exceptions (e.g. document
+# generation errors, which are shown to the user only as a generic flash
+# message) are still visible on disk for debugging.
+# ---------------------------------------------------------------------------
+_LOG_DIR = BASE_DIR / "logs"
+_LOG_DIR.mkdir(exist_ok=True)
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "{asctime} {levelname} {name}: {message}",
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "file": {
+            "level": "INFO",
+            "class": "logging.handlers.RotatingFileHandler",
+            "filename": _LOG_DIR / "django.log",
+            "maxBytes": 5 * 1024 * 1024,
+            "backupCount": 5,
+            "formatter": "verbose",
+        },
+        "console": {
+            "level": "INFO",
+            "class": "logging.StreamHandler",
+            "formatter": "verbose",
+        },
+    },
+    "root": {
+        "handlers": ["file", "console"],
+        "level": "INFO",
+    },
+}

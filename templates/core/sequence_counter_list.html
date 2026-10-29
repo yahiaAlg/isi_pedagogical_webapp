@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Numérotation des documents — ISI Gestion Pédagogique{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'core/css/base.css' %}" />{% endblock %}
+
+{% block breadcrumb %}
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="{% url 'core:settings' %}">Paramètres</a>
+<i class="bi bi-chevron-right bc-sep"></i>
+{% endblock %}
+{% block breadcrumb_active %}<span class="bc-active">Numérotation des documents</span>{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% url 'core:settings' %}" class="topbar-btn"><i class="bi bi-arrow-left"></i> Paramètres</a>
+{% endblock %}
+
+{% block content %}
+<div class="fade-up">
+  <div class="page-header">
+    <div class="page-header-left">
+      <h1>Numérotation des documents</h1>
+      <p class="page-subtitle">
+        Le numéro de PV se remet à zéro chaque mois (codification {BRANCH}{SPECIALITE} en préfixe),
+        les numéros d'attestation et d'ordre de mission chaque année.
+        Réglez le « dernier numéro attribué » pour un cas particulier (reprise d'une série papier,
+        correction) — la numérotation automatique continue ensuite normalement à partir de cette valeur.
+        Utilisez « Autre période » pour créer ou régler le compteur d'un mois/année antérieur ou
+        postérieur à la période active, puis « Définir comme période active » pour lui faire prendre
+        le relais de la numérotation — elle le reste durablement, jusqu'à ce qu'une autre période
+        soit activée à son tour.
+      </p>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    {% for kind, data in counters.items %}
+    <div class="col-lg-4">
+      <div class="isi-card mb-4">
+        <div class="isi-card-header">
+          <div class="card-icon {% if kind == 'pv' %}blue{% elif kind == 'mission_order' %}green{% else %}amber{% endif %}">
+            <i class="bi {% if kind == 'pv' %}bi-file-earmark-text-fill{% elif kind == 'mission_order' %}bi-signpost-2-fill{% else %}bi-patch-check-fill{% endif %}"></i>
+          </div>
+          <h3>{{ data.label }}</h3>
+        </div>
+        <div class="isi-card-body">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:16px;">
+            <div>
+              <div style="font-size:11.5px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.03em;display:flex;align-items:center;gap:6px;">
+                Période active — {{ data.current.period_key }}
+                <span class="isi-badge green"><i class="bi bi-check-circle-fill"></i> Active</span>
+              </div>
+              <div style="font-size:28px;font-weight:700;line-height:1.3;">
+                {{ data.current.last_value }}
+              </div>
+              <div style="font-size:12.5px;color:var(--text-muted);">
+                Prochain numéro attribué : n° {{ data.current.last_value|add:1 }}
+              </div>
+              {% if data.is_monthly %}
+              <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">
+                Codification PV : préfixe {BRANCH}{SPECIALITE} (ex. TAG0717-006/07/2026)
+              </div>
+              {% endif %}
+            </div>
+            <a href="{% url 'core:sequence_counter_edit' data.current.pk %}" class="btn btn-amber btn-sm">
+              <i class="bi bi-pencil-fill"></i> Régler
+            </a>
+          </div>
+
+          <div class="section-divider"></div>
+          <div class="form-section-title">Autre période</div>
+          <form method="get" action="{% url 'core:sequence_counter_period' kind %}" style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:4px;">
+            <div style="flex:1;min-width:90px;">
+              <label class="form-label" style="font-size:11.5px;" for="{{ data.period_form.year.id_for_label }}">{{ data.period_form.year.label }}</label>
+              {{ data.period_form.year }}
+            </div>
+            {% if data.is_monthly %}
+            <div style="flex:1;min-width:90px;">
+              <label class="form-label" style="font-size:11.5px;" for="{{ data.period_form.month.id_for_label }}">{{ data.period_form.month.label }}</label>
+              {{ data.period_form.month }}
+            </div>
+            {% endif %}
+            <button type="submit" class="btn btn-ghost btn-sm">
+              <i class="bi bi-arrow-right-circle"></i> Aller
+            </button>
+          </form>
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">
+            Ouvre (ou crée) le compteur de la période choisie pour la régler — utile pour combler
+            des entrées antérieures au mois en cours.
+          </div>
+
+          {% if data.history %}
+          <div class="section-divider"></div>
+          <div class="form-section-title">Périodes précédentes</div>
+          <div style="overflow-x:auto;">
+            <table class="isi-table">
+              <thead>
+                <tr>
+                  <th>Période</th>
+                  <th>Dernier numéro</th>
+                  <th style="text-align:right;">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for c in data.history %}
+                <tr>
+                  <td>{{ c.period_key }}</td>
+                  <td>{{ c.last_value }}</td>
+                  <td>
+                    <div style="display:flex;justify-content:flex-end;gap:6px;">
+                      <form method="post" action="{% url 'core:sequence_counter_activate' c.pk %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-ghost btn-sm" title="Définir comme période active">
+                          <i class="bi bi-toggle-on"></i>
+                        </button>
+                      </form>
+                      <a href="{% url 'core:sequence_counter_edit' c.pk %}" class="btn btn-ghost btn-sm" title="Régler">
+                        <i class="bi bi-pencil-fill"></i>
+                      </a>
+                    </div>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

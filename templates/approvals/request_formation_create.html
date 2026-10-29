@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block title %}Demander une formation — ISI Gestion Pédagogique{% endblock %}
+
+{% block breadcrumb %}
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="{% url 'formations:formation_list' %}">Catalogue</a>
+<i class="bi bi-chevron-right bc-sep"></i>
+{% endblock %}
+{% block breadcrumb_active %}<span class="bc-active">Demande de création</span>{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% url 'formations:formation_list' %}" class="topbar-btn"><i class="bi bi-arrow-left"></i> Catalogue</a>
+{% endblock %}
+
+{% block content %}
+<div class="fade-up">
+  <div class="page-header">
+    <div class="page-header-left">
+      <h1>Demander la création d'une formation</h1>
+      <p class="page-subtitle">Seul un administrateur peut créer une formation au catalogue : il la créera à votre place.</p>
+    </div>
+  </div>
+
+  <div class="isi-card" style="max-width:760px;">
+    <div class="isi-card-header">
+      <div class="card-icon amber"><i class="bi bi-send-fill"></i></div>
+      <h3>Votre demande</h3>
+    </div>
+    <div class="isi-card-body">
+      <form method="post" novalidate>
+        {% csrf_token %}
+        <div class="mb-3">
+          <label class="form-label" for="id_title">Titre de la formation <span style="color:var(--danger);">*</span></label>
+          <input type="text" class="form-control" id="id_title" name="title" maxlength="200" required value="{{ data.title|default:'' }}">
+        </div>
+        <div class="mb-3">
+          <label class="form-label" for="id_code">Code proposé <span class="text-muted">(facultatif)</span></label>
+          <input type="text" class="form-control" id="id_code" name="code" maxlength="20" value="{{ data.code|default:'' }}">
+        </div>
+        <div class="mb-4">
+          <label class="form-label" for="id_message">Détails <span class="text-muted">(durée, public, catégorie, justification…)</span></label>
+          <textarea class="form-control" id="id_message" name="message" rows="5" maxlength="2000">{{ data.message|default:'' }}</textarea>
+        </div>
+        <div class="d-flex gap-2">
+          <button type="submit" class="btn btn-amber"><i class="bi bi-send-fill"></i> Envoyer la demande</button>
+          <a href="{% url 'formations:formation_list' %}" class="btn btn-ghost">Annuler</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

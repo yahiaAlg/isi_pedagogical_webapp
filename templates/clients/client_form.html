@@ -1,0 +1,300 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ title }} — Clients — ISI Gestion Pédagogique{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'clients/css/clients.css' %}" />
+{% endblock %}
+
+{% block breadcrumb %}
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="#">Ressources</a>
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="{% url 'clients:client_list' %}">Clients</a>
+{% if client %}
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="{% url 'clients:client_detail' client.pk %}">{{ client.name }}</a>
+{% endif %}
+<i class="bi bi-chevron-right bc-sep"></i>
+{% endblock %}
+{% block breadcrumb_active %}<span class="bc-active">{{ title }}</span>{% endblock %}
+
+{% block topbar_actions %}
+{% if client %}
+<a href="{% url 'clients:client_detail' client.pk %}" class="topbar-btn">
+  <i class="bi bi-arrow-left"></i> Retour
+</a>
+{% else %}
+<a href="{% url 'clients:client_list' %}" class="topbar-btn">
+  <i class="bi bi-arrow-left"></i> Retour
+</a>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="fade-up">
+
+  <div class="page-header">
+    <div class="page-header-left">
+      <h1>{{ title }}</h1>
+      <p class="page-subtitle">
+        {% if client %}Modification de la fiche client{% else %}Création d'un nouveau client{% endif %}
+      </p>
+    </div>
+  </div>
+
+  <div class="row justify-content-center">
+    <div class="col-lg-8 col-md-10">
+      <div class="isi-card">
+        <div class="isi-card-header">
+          <div class="card-icon amber"><i class="bi bi-building-fill"></i></div>
+          <h3>{{ title }}</h3>
+        </div>
+        <div class="isi-card-body">
+
+          <form method="post" novalidate>
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+            <div class="alert alert-danger mb-4">
+              <i class="bi bi-exclamation-circle-fill"></i>
+              <div>
+                {% for error in form.non_field_errors %}
+                  <div>{{ error }}</div>
+                {% endfor %}
+              </div>
+            </div>
+            {% endif %}
+
+            <!-- Section: Informations générales -->
+            <div class="form-section-title">Informations générales</div>
+
+            <div class="row g-3 mb-3">
+              <div class="col-sm-6">
+                <label class="form-label" for="{{ form.name.id_for_label }}">
+                  Raison sociale (FR) <span style="color:var(--danger);">*</span>
+                </label>
+                <div class="input-icon-wrap">
+                  <i class="bi bi-building-fill"></i>
+                  <input type="text"
+                    id="{{ form.name.id_for_label }}"
+                    name="{{ form.name.html_name }}"
+                    value="{{ form.name.value|default_if_none:'' }}"
+                    class="form-control {% if form.name.errors %}is-invalid{% endif %}"
+                    placeholder="Dénomination sociale française"
+                    required
+                  />
+                </div>
+                {% if form.name.errors %}
+                <div class="invalid-feedback d-block">{{ form.name.errors|join:", " }}</div>
+                {% endif %}
+              </div>
+
+              <div class="col-sm-6">
+                <label class="form-label" for="{{ form.name_ar.id_for_label }}">
+                  Raison sociale (AR)
+                </label>
+                <input type="text"
+                  id="{{ form.name_ar.id_for_label }}"
+                  name="{{ form.name_ar.html_name }}"
+                  value="{{ form.name_ar.value|default_if_none:'' }}"
+                  class="form-control {% if form.name_ar.errors %}is-invalid{% endif %}"
+                  placeholder="التسمية الاجتماعية"
+                  dir="rtl"
+                />
+                {% if form.name_ar.errors %}
+                <div class="invalid-feedback d-block">{{ form.name_ar.errors|join:", " }}</div>
+                {% endif %}
+              </div>
+            </div>
+
+            <div class="row g-3 mb-3">
+              <div class="col-12">
+                <label class="form-label" for="{{ form.address.id_for_label }}">
+                  Adresse <span style="color:var(--danger);">*</span>
+                </label>
+                <textarea
+                  id="{{ form.address.id_for_label }}"
+                  name="{{ form.address.html_name }}"
+                  class="form-control {% if form.address.errors %}is-invalid{% endif %}"
+                  rows="3"
+                  placeholder="Adresse complète"
+                  required
+                >{{ form.address.value|default_if_none:'' }}</textarea>
+                {% if form.address.errors %}
+                <div class="invalid-feedback d-block">{{ form.address.errors|join:", " }}</div>
+                {% endif %}
+              </div>
+            </div>
+
+            <div class="row g-3 mb-3">
+              <div class="col-sm-4">
+                <label class="form-label" for="{{ form.city.id_for_label }}">
+                  Ville <span style="color:var(--danger);">*</span>
+                </label>
+                <input type="text"
+                  id="{{ form.city.id_for_label }}"
+                  name="{{ form.city.html_name }}"
+                  value="{{ form.city.value|default_if_none:'' }}"
+                  class="form-control {% if form.city.errors %}is-invalid{% endif %}"
+                  placeholder="Ville"
+                  required
+                />
+                {% if form.city.errors %}
+                <div class="invalid-feedback d-block">{{ form.city.errors|join:", " }}</div>
+                {% endif %}
+              </div>
+
+              <div class="col-sm-4">
+                <label class="form-label" for="{{ form.phone.id_for_label }}">Téléphone</label>
+                <div class="input-icon-wrap">
+                  <i class="bi bi-telephone-fill"></i>
+                  <input type="text"
+                    id="{{ form.phone.id_for_label }}"
+                    name="{{ form.phone.html_name }}"
+                    value="{{ form.phone.value|default_if_none:'' }}"
+                    class="form-control {% if form.phone.errors %}is-invalid{% endif %}"
+                    placeholder="+213 XX XX XX XX"
+                  />
+                </div>
+                {% if form.phone.errors %}
+                <div class="invalid-feedback d-block">{{ form.phone.errors|join:", " }}</div>
+                {% endif %}
+              </div>
+
+              <div class="col-sm-4">
+                <label class="form-label" for="{{ form.email.id_for_label }}">Email</label>
+                <div class="input-icon-wrap">
+                  <i class="bi bi-envelope-fill"></i>
+                  <input type="email"
+                    id="{{ form.email.id_for_label }}"
+                    name="{{ form.email.html_name }}"
+                    value="{{ form.email.value|default_if_none:'' }}"
+                    class="form-control {% if form.email.errors %}is-invalid{% endif %}"
+                    placeholder="contact@entreprise.dz"
+                  />
+                </div>
+                {% if form.email.errors %}
+                <div class="invalid-feedback d-block">{{ form.email.errors|join:", " }}</div>
+                {% endif %}
+              </div>
+            </div>
+
+            <div class="row g-3">
+              <div class="col-sm-6">
+                <label class="form-label" for="{{ form.contact_person.id_for_label }}">Personne de contact</label>
+                <div class="input-icon-wrap">
+                  <i class="bi bi-person-fill"></i>
+                  <input type="text"
+                    id="{{ form.contact_person.id_for_label }}"
+                    name="{{ form.contact_person.html_name }}"
+                    value="{{ form.contact_person.value|default_if_none:'' }}"
+                    class="form-control {% if form.contact_person.errors %}is-invalid{% endif %}"
+                    placeholder="Nom et prénom"
+                  />
+                </div>
+                {% if form.contact_person.errors %}
+                <div class="invalid-feedback d-block">{{ form.contact_person.errors|join:", " }}</div>
+                {% endif %}
+              </div>
+            </div>
+
+            <!-- Section: Informations légales -->
+            <div class="section-divider"></div>
+            <div class="form-section-title">Informations légales</div>
+
+            <div class="row g-3">
+              <div class="col-sm-4">
+                <label class="form-label" for="{{ form.nif.id_for_label }}">NIF</label>
+                <input type="text"
+                  id="{{ form.nif.id_for_label }}"
+                  name="{{ form.nif.html_name }}"
+                  value="{{ form.nif.value|default_if_none:'' }}"
+                  class="form-control {% if form.nif.errors %}is-invalid{% endif %}"
+                  placeholder="Numéro NIF"
+                  style="font-family:monospace;"
+                />
+                {% if form.nif.errors %}
+                <div class="invalid-feedback d-block">{{ form.nif.errors|join:", " }}</div>
+                {% endif %}
+              </div>
+
+              <div class="col-sm-4">
+                <label class="form-label" for="{{ form.nis.id_for_label }}">NIS</label>
+                <input type="text"
+                  id="{{ form.nis.id_for_label }}"
+                  name="{{ form.nis.html_name }}"
+                  value="{{ form.nis.value|default_if_none:'' }}"
+                  class="form-control {% if form.nis.errors %}is-invalid{% endif %}"
+                  placeholder="Numéro NIS"
+                  style="font-family:monospace;"
+                />
+                {% if form.nis.errors %}
+                <div class="invalid-feedback d-block">{{ form.nis.errors|join:", " }}</div>
+                {% endif %}
+              </div>
+
+              <div class="col-sm-4">
+                <label class="form-label" for="{{ form.rc.id_for_label }}">RC</label>
+                <input type="text"
+                  id="{{ form.rc.id_for_label }}"
+                  name="{{ form.rc.html_name }}"
+                  value="{{ form.rc.value|default_if_none:'' }}"
+                  class="form-control {% if form.rc.errors %}is-invalid{% endif %}"
+                  placeholder="Registre du commerce"
+                  style="font-family:monospace;"
+                />
+                {% if form.rc.errors %}
+                <div class="invalid-feedback d-block">{{ form.rc.errors|join:", " }}</div>
+                {% endif %}
+              </div>
+            </div>
+
+            <!-- Section: Statut -->
+            <div class="section-divider"></div>
+            <div class="form-section-title">Statut</div>
+
+            <div class="form-check form-switch mb-4">
+              <input class="form-check-input" type="checkbox"
+                id="{{ form.is_active.id_for_label }}"
+                name="{{ form.is_active.html_name }}"
+                style="width:40px;height:22px;"
+                {% if form.is_active.value %}checked{% endif %}
+              />
+              <label class="form-check-label" for="{{ form.is_active.id_for_label }}"
+                style="font-size:14px;font-weight:500;color:var(--text-primary);margin-left:8px;margin-top:2px;">
+                Client actif
+              </label>
+            </div>
+
+            <!-- Form actions -->
+            <div class="section-divider"></div>
+            <div style="display:flex;gap:12px;flex-wrap:wrap;">
+              <button type="submit" class="btn btn-amber">
+                <i class="bi bi-check-lg"></i>
+                {% if client %}Enregistrer les modifications{% else %}Créer le client{% endif %}
+              </button>
+              {% if client %}
+              <a href="{% url 'clients:client_detail' client.pk %}" class="btn btn-ghost">
+                <i class="bi bi-arrow-left"></i> Annuler
+              </a>
+              {% else %}
+              <a href="{% url 'clients:client_list' %}" class="btn btn-ghost">
+                <i class="bi bi-arrow-left"></i> Annuler
+              </a>
+              {% endif %}
+            </div>
+
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{% static 'clients/js/client_form.js' %}"></script>
+{% endblock %}

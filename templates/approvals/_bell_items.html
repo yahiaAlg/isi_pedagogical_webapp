@@ -1,0 +1,13 @@
+{% for n in bell_items %}
+<a href="{% url 'approvals:notification_open' n.pk %}" class="bell-item {% if not n.is_read %}unread{% endif %}">
+  <span class="bell-item-icon {{ n.tone }}"><i class="bi {{ n.icon }}"></i></span>
+  <span class="bell-item-text">
+    <span class="bell-item-title">{{ n.title }}</span>
+    <span class="bell-item-body">{{ n.body }}</span>
+    <span class="bell-item-time">il y a {{ n.created_at|timesince }}</span>
+  </span>
+  {% if not n.is_read %}<span class="bell-dot" aria-label="Non lu"></span>{% endif %}
+</a>
+{% empty %}
+<div class="bell-empty"><i class="bi bi-bell-slash"></i><span>Aucune notification</span></div>
+{% endfor %}

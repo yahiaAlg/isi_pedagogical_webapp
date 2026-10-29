@@ -1,0 +1,17 @@
+{% if request.user.is_authenticated %}
+<div class="bell" id="bell" data-feed-url="{% url 'approvals:notification_feed' %}" data-read-all-url="{% url 'approvals:notification_read_all' %}">
+  <form id="bellCsrf" hidden>{% csrf_token %}</form>
+  <button type="button" class="bell-btn" id="bellBtn" aria-label="Notifications" aria-haspopup="true" aria-expanded="false">
+    <i class="bi bi-bell-fill"></i>
+    <span class="bell-badge" id="bellBadge" {% if not bell_unread %}hidden{% endif %}>{% if bell_unread > 99 %}99+{% else %}{{ bell_unread }}{% endif %}</span>
+  </button>
+  <div class="bell-panel" id="bellPanel" hidden>
+    <div class="bell-panel-head">
+      <strong>Notifications</strong>
+      <button type="button" class="bell-link" id="bellReadAll">Tout marquer comme lu</button>
+    </div>
+    <div class="bell-list" id="bellList">{% include "approvals/_bell_items.html" %}</div>
+    <a class="bell-panel-foot" href="{% url 'approvals:notification_list' %}">Voir toutes les notifications</a>
+  </div>
+</div>
+{% endif %}

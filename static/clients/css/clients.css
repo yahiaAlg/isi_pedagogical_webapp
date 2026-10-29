@@ -1,0 +1,6 @@
+/* ISI PedagoApp — Clients module CSS */
+
+/* Client row highlight on search match */
+.client-row.search-hidden {
+  display: none;
+}

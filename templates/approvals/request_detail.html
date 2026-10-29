@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+
+{% block title %}Demande — ISI Gestion Pédagogique{% endblock %}
+{% block breadcrumb %}
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="{% url 'approvals:request_list' %}">Demandes</a>
+<i class="bi bi-chevron-right bc-sep"></i>
+{% endblock %}
+{% block breadcrumb_active %}<span class="bc-active">#{{ req.pk }}</span>{% endblock %}
+
+{% block topbar_actions %}
+{% if is_admin_view or is_owner %}<a href="{% url 'approvals:request_list' %}" class="topbar-btn"><i class="bi bi-arrow-left"></i> Demandes</a>{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="fade-up">
+  <div class="page-header">
+    <div class="page-header-left">
+      <h1>{{ req.get_kind_display }}</h1>
+      <p class="page-subtitle">{{ req.subject }}</p>
+    </div>
+    <span class="isi-badge {{ req.badge_class }}" style="font-size:13px;">{{ req.display_status }}</span>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-lg-7">
+      <div class="isi-card">
+        <div class="isi-card-header"><div class="card-icon blue"><i class="bi bi-info-circle-fill"></i></div><h3>Détails</h3></div>
+        <div class="isi-card-body">
+          <dl class="row mb-0" style="font-size:14px;">
+            <dt class="col-sm-4">Demandeur</dt><dd class="col-sm-8">{{ req.requester.get_full_name|default:req.requester.username }}</dd>
+            <dt class="col-sm-4">Envoyée le</dt><dd class="col-sm-8">{{ req.created_at|date:"d/m/Y H:i" }}</dd>
+            {% if req.kind == 'formation_create' %}
+              <dt class="col-sm-4">Titre proposé</dt><dd class="col-sm-8">{{ req.proposed_title }}</dd>
+              {% if req.proposed_code %}<dt class="col-sm-4">Code proposé</dt><dd class="col-sm-8">{{ req.proposed_code }}</dd>{% endif %}
+            {% elif req.formation %}
+              <dt class="col-sm-4">Formation</dt>
+              <dd class="col-sm-8"><a href="{% url 'formations:formation_detail' req.formation.pk %}">{{ req.formation }}</a></dd>
+            {% endif %}
+            <dt class="col-sm-4">Motif / détails</dt>
+            <dd class="col-sm-8" style="white-space:pre-line;">{{ req.message|default:"—" }}</dd>
+            {% if req.reviewed_by %}
+              <dt class="col-sm-4">Traitée par</dt><dd class="col-sm-8">{{ req.reviewed_by.get_full_name|default:req.reviewed_by.username }} — {{ req.reviewed_at|date:"d/m/Y H:i" }}</dd>
+            {% endif %}
+            {% if req.review_note %}<dt class="col-sm-4">Note de l'administrateur</dt><dd class="col-sm-8" style="white-space:pre-line;">{{ req.review_note }}</dd>{% endif %}
+            {% if req.created_formation %}<dt class="col-sm-4">Formation créée</dt><dd class="col-sm-8"><a href="{% url 'formations:formation_detail' req.created_formation.pk %}">{{ req.created_formation }}</a></dd>{% endif %}
+            {% if req.expires_at %}<dt class="col-sm-4">Valable jusqu'au</dt><dd class="col-sm-8">{{ req.expires_at|date:"d/m/Y H:i" }}</dd>{% endif %}
+          </dl>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-5">
+      <div class="isi-card">
+        <div class="isi-card-header"><div class="card-icon amber"><i class="bi bi-lightning-charge-fill"></i></div><h3>Actions</h3></div>
+        <div class="isi-card-body">
+          {% if is_admin_view and req.status == 'pending' %}
+            {% if req.kind == 'formation_create' %}
+              <a href="{% url 'formations:formation_create' %}?request={{ req.pk }}" class="btn btn-amber w-100 mb-3" style="justify-content:center;">
+                <i class="bi bi-plus-lg"></i> Créer la formation à sa place
+              </a>
+            {% else %}
+              <form method="post" action="{% url 'approvals:request_approve' req.pk %}" class="mb-3">
+                {% csrf_token %}
+                <textarea name="note" class="form-control mb-2" rows="2" maxlength="1000" placeholder="Message pour l'agent (facultatif)"></textarea>
+                <button type="submit" class="btn btn-amber w-100" style="justify-content:center;"><i class="bi bi-check-lg"></i> Approuver la modification</button>
+              </form>
+            {% endif %}
+            <form method="post" action="{% url 'approvals:request_reject' req.pk %}">
+              {% csrf_token %}
+              <textarea name="note" class="form-control mb-2" rows="2" maxlength="1000" placeholder="Motif du refus (facultatif)"></textarea>
+              <button type="submit" class="btn w-100" style="justify-content:center;background:transparent;border:1.5px solid var(--danger);color:var(--danger);font-weight:600;"><i class="bi bi-x-lg"></i> Refuser</button>
+            </form>
+          {% elif is_owner and req.status == 'pending' %}
+            <p style="font-size:14px;">Votre demande est en attente de décision d'un administrateur.</p>
+            <form method="post" action="{% url 'approvals:request_cancel' req.pk %}">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-ghost w-100" style="justify-content:center;"><i class="bi bi-slash-circle"></i> Annuler ma demande</button>
+            </form>
+          {% elif is_owner and req.is_usable %}
+            <a href="{% url 'formations:formation_edit' req.formation.pk %}" class="btn btn-amber w-100" style="justify-content:center;">
+              <i class="bi bi-pencil-fill"></i> Ouvrir le formulaire de modification
+            </a>
+          {% else %}
+            <p class="mb-0" style="font-size:14px;color:var(--text-muted);">Aucune action disponible.</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

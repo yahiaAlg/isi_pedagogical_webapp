@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Supprimer {{ participant.full_name }} — ISI Gestion Pédagogique{% endblock %}
+
+{% block breadcrumb %}
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="{% url 'formations:session_list' %}">Sessions</a>
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="{% url 'formations:session_detail' session.pk %}">{{ session.reference }}</a>
+<i class="bi bi-chevron-right bc-sep"></i>
+{% endblock %}
+{% block breadcrumb_active %}<span class="bc-active">Supprimer participant</span>{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% url 'formations:session_detail' session.pk %}" class="topbar-btn"><i class="bi bi-arrow-left"></i> Retour</a>
+{% endblock %}
+
+{% block content %}
+<div class="fade-up">
+  <div class="page-header">
+    <div class="page-header-left">
+      <h1>Supprimer un participant</h1>
+      <p class="page-subtitle">Session {{ session.reference }}</p>
+    </div>
+  </div>
+
+  <div class="row justify-content-center">
+    <div class="col-lg-5 col-md-7">
+      <div class="isi-card">
+        <div class="isi-card-header">
+          <div class="card-icon red"><i class="bi bi-x-circle-fill"></i></div>
+          <h3>Confirmation de suppression</h3>
+        </div>
+        <div class="isi-card-body">
+
+          <div class="alert alert-warning mb-4">
+            <i class="bi bi-exclamation-triangle-fill"></i>
+            <span>Cette action est irréversible. Le participant sera définitivement retiré de la session.</span>
+          </div>
+
+          <div style="background:#f8fafc;border:1px solid var(--card-border);border-radius:8px;padding:14px 16px;margin-bottom:20px;">
+            <div style="font-size:16px;font-weight:700;color:var(--text-primary);">{{ participant.full_name }}</div>
+            {% if participant.full_name_ar %}<div style="font-size:13px;color:var(--text-muted);margin-top:2px;" dir="rtl">{{ participant.full_name_ar }}</div>{% endif %}
+            {% if participant.job_title %}<div style="font-size:13px;color:var(--text-muted);margin-top:4px;"><i class="bi bi-briefcase-fill"></i> {{ participant.job_title }}</div>{% endif %}
+            {% if participant.employer %}<div style="font-size:13px;color:var(--text-muted);"><i class="bi bi-building-fill"></i> {{ participant.employer }}</div>{% endif %}
+          </div>
+
+          <form method="post">
+            {% csrf_token %}
+            <div style="display:flex;gap:12px;">
+              <button type="submit" class="btn btn-danger-soft">
+                <i class="bi bi-trash-fill"></i> Supprimer définitivement
+              </button>
+              <a href="{% url 'formations:session_detail' session.pk %}" class="btn btn-ghost">
+                <i class="bi bi-arrow-left"></i> Annuler
+              </a>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

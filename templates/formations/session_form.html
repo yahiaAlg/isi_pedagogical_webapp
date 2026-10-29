@@ -1,0 +1,747 @@
+{% extends "base.html" %}
+{% load static %}
+{% load l10n %}
+{% load formations_tags %}
+
+{% block title %}{{ title }} — Sessions — ISI Gestion Pédagogique{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'formations/css/formations.css' %}" />{% endblock %}
+
+{% block breadcrumb %}
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="{% url 'formations:session_list' %}">Sessions</a>
+{% if session %}<i class="bi bi-chevron-right bc-sep"></i><a href="{% url 'formations:session_detail' session.pk %}">{{ session.reference }}</a>{% endif %}
+<i class="bi bi-chevron-right bc-sep"></i>
+{% endblock %}
+{% block breadcrumb_active %}<span class="bc-active">{{ title }}</span>{% endblock %}
+
+{% block topbar_actions %}
+{% if session %}<a href="{% url 'formations:session_detail' session.pk %}" class="topbar-btn"><i class="bi bi-arrow-left"></i> Retour</a>
+{% else %}<a href="{% url 'formations:session_list' %}" class="topbar-btn"><i class="bi bi-arrow-left"></i> Retour</a>{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="fade-up">
+  <div class="page-header">
+    <div class="page-header-left">
+      <h1>{{ title }}</h1>
+      <p class="page-subtitle">{% if session %}Modification{% else %}Planification{% endif %} d'une session de formation</p>
+    </div>
+  </div>
+
+  <!-- Info banner about auto-generation -->
+  {% if not session %}
+  <div class="alert alert-info mb-4" style="font-size:13.5px;">
+    <i class="bi bi-magic"></i>
+    <div>
+      Après avoir créé la session et ajouté les participants, cliquez sur
+      <strong>« Générer les sessions suivantes »</strong> pour auto-créer les jours 2–N
+      avec les mêmes participants et les notes pré-remplies à la moitié de la note maximale.
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="row justify-content-center">
+    <div class="col-lg-8 col-md-10">
+      <div class="isi-card">
+        <div class="isi-card-header">
+          <div class="card-icon amber"><i class="bi bi-calendar3-fill"></i></div>
+          <h3>{{ title }}</h3>
+          {% if session %}<code style="font-size:12px;color:var(--text-muted);margin-left:8px;">{{ session.reference }}</code>{% endif %}
+        </div>
+        <div class="isi-card-body">
+          <form method="post" novalidate class="isi-dirty-guard">
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+            <div class="alert alert-danger mb-4">
+              <i class="bi bi-exclamation-circle-fill"></i>
+              <div>{% for e in form.non_field_errors %}<div>{{ e }}</div>{% endfor %}</div>
+            </div>
+            {% endif %}
+
+            {% if conflicts %}
+            <div class="alert" style="background:#fffbeb;border:1px solid #fbbf24;color:#78350f;margin-bottom:20px;">
+              <i class="bi bi-exclamation-triangle-fill" style="color:#d97706;"></i>
+              <div style="flex:1;">
+                <strong>Conflit de réservation détecté</strong> — cette session chevauche une ou plusieurs
+                sessions déjà planifiées sur les mêmes dates. Vous pouvez tout de même l'enregistrer,
+                ou ajuster la ressource concernée.
+                <ul style="margin:10px 0 12px;padding-right:0;padding-left:18px;font-size:13px;">
+                  {% if conflicts.room %}
+                  <li>
+                    <strong>Salle</strong> déjà réservée par :
+                    {% for s in conflicts.room %}<a href="{% url 'formations:session_detail' s.pk %}">{{ s.reference }}</a> ({{ s.date_start|date:"d/m/Y" }}–{{ s.date_end|date:"d/m/Y" }}){% if not forloop.last %}, {% endif %}{% endfor %}
+                    — <a href="{% url 'resources:room_create' %}" target="_blank" rel="noopener">
+                        <i class="bi bi-plus-circle"></i> Créer une nouvelle salle
+                      </a>
+                  </li>
+                  {% endif %}
+                  {% if conflicts.trainer %}
+                  <li>
+                    <strong>Formateur</strong> déjà affecté à :
+                    {% for s in conflicts.trainer %}<a href="{% url 'formations:session_detail' s.pk %}">{{ s.reference }}</a> ({{ s.date_start|date:"d/m/Y" }}–{{ s.date_end|date:"d/m/Y" }}){% if not forloop.last %}, {% endif %}{% endfor %}
+                    — <a href="{% url 'resources:trainer_create' %}" target="_blank" rel="noopener">
+                        <i class="bi bi-plus-circle"></i> Ajouter un autre formateur
+                      </a>
+                  </li>
+                  {% endif %}
+                  {% if conflicts.equipment %}
+                  <li>
+                    <strong>Équipement</strong> déjà réservé :
+                    {% for item, sessions in conflicts.equipment.items %}
+                      {{ item.name }} ({% for s in sessions %}<a href="{% url 'formations:session_detail' s.pk %}">{{ s.reference }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}){% if not forloop.last %}; {% endif %}
+                    {% endfor %}
+                    — <a href="{% url 'resources:equipment_create' %}" target="_blank" rel="noopener">
+                        <i class="bi bi-plus-circle"></i> Ajouter un autre équipement
+                      </a>
+                  </li>
+                  {% endif %}
+                </ul>
+                <button type="submit" name="confirm_conflicts" value="1" class="btn btn-sm" style="background:#d97706;color:#fff;border:none;">
+                  <i class="bi bi-check-lg"></i> Enregistrer quand même
+                </button>
+              </div>
+            </div>
+            {% endif %}
+
+            <!-- ── Formation + Capacité ──────────────────── -->
+            <div class="form-section-title">Formation &amp; Client</div>
+            <div class="row g-3 mb-3">
+              <div class="col-sm-8">
+                <label class="form-label" for="{{ form.formation.id_for_label }}">Formation <span style="color:var(--danger);">*</span></label>
+                <select id="{{ form.formation.id_for_label }}" name="{{ form.formation.html_name }}"
+                  class="form-select {% if form.formation.errors %}is-invalid{% endif %}" required>
+                  <option value="">— Sélectionner une formation —</option>
+                  {% for f in form.fields.formation.queryset %}
+                  <option value="{{ f.pk }}"
+                    data-max="{{ f.max_participants }}"
+                    data-days="{{ f.duration_days }}"
+                    data-code="{{ f.code }}"
+                    data-specialty-code="{% if f.specialty_id %}{{ f.specialty.reference_root }}{% else %}{{ f.code }}{% endif %}"
+                    data-has-specialty="{% if f.specialty_id %}1{% endif %}"
+                    {% if form.formation.value|stringformat:"s" == f.pk|stringformat:"s" %}selected{% endif %}>
+                    {{ f.code }} — {{ f.title }}
+                  </option>
+                  {% endfor %}
+                </select>
+                {% if form.formation.errors %}<div class="invalid-feedback d-block">{{ form.formation.errors|join:", " }}</div>{% endif %}
+              </div>
+              <div class="col-sm-4">
+                <label class="form-label" for="{{ form.capacity.id_for_label }}">Capacité <span style="color:var(--danger);">*</span></label>
+                <input type="number" id="{{ form.capacity.id_for_label }}" name="{{ form.capacity.html_name }}"
+                  value="{{ form.capacity.value|default_if_none:'' }}"
+                  class="form-control {% if form.capacity.errors %}is-invalid{% endif %}" min="1" required />
+                <div id="capacity-hint" style="font-size:11.5px;color:var(--text-muted);margin-top:4px;display:none;">
+                  Max formation : <span id="capacity-max">—</span>
+                </div>
+                {% if form.capacity.errors %}<div class="invalid-feedback d-block">{{ form.capacity.errors|join:", " }}</div>{% endif %}
+              </div>
+            </div>
+
+            <!-- Duration hint -->
+            <div id="duration-hint" style="display:none;margin-bottom:12px;">
+              <div class="alert alert-info" style="font-size:13px;padding:10px 14px;">
+                <i class="bi bi-calendar3-fill"></i>
+                Cette formation dure <strong id="duration-days-val">—</strong> jour(s).
+                Les sessions suivantes (jours 2–N) seront générées automatiquement.
+              </div>
+            </div>
+
+            <div class="row g-3 mb-3">
+              <div class="col-sm-6">
+                <label class="form-label" for="{{ form.client.id_for_label }}">Client <span style="color:var(--danger);">*</span></label>
+                <select id="{{ form.client.id_for_label }}" name="{{ form.client.html_name }}"
+                  class="form-select {% if form.client.errors %}is-invalid{% endif %}" required>
+                  <option value="">— Sélectionner un client —</option>
+                  {% for c in form.fields.client.queryset %}
+                  <option value="{{ c.pk }}" {% if form.client.value|stringformat:"s" == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>
+                  {% endfor %}
+                </select>
+                {% if form.client.errors %}<div class="invalid-feedback d-block">{{ form.client.errors|join:", " }}</div>{% endif %}
+              </div>
+              <div class="col-sm-6">
+                <label class="form-label" for="{{ form.trainer.id_for_label }}">Formateur <span style="color:var(--danger);">*</span></label>
+                <select id="{{ form.trainer.id_for_label }}" name="{{ form.trainer.html_name }}"
+                  class="form-select {% if form.trainer.errors %}is-invalid{% endif %}" required>
+                  <option value="">— Sélectionner un formateur —</option>
+                  {% for t in form.fields.trainer.queryset %}
+                  <option value="{{ t.pk }}"
+                    data-lastname="{{ t.last_name }}"
+                    data-quals="{% for q in t.qualifications.all %}{{ q.pk }}{% if not forloop.last %},{% endif %}{% endfor %}"
+                    {% if form.trainer.value|stringformat:"s" == t.pk|stringformat:"s" %}selected{% endif %}>{{ t.full_name }}</option>
+                  {% endfor %}
+                </select>
+                {% if form.trainer.errors %}<div class="invalid-feedback d-block">{{ form.trainer.errors|join:", " }}</div>{% endif %}
+              </div>
+            </div>
+
+            <!-- ── Dates ──────────────────────────────────── -->
+            <div class="section-divider"></div>
+            <div class="form-section-title">Planification</div>
+            <div class="row g-3 mb-3">
+              <div class="col-sm-6">
+                <label class="form-label" for="{{ form.date_start.id_for_label }}">Date de début <span style="color:var(--danger);">*</span></label>
+                <input type="date" id="{{ form.date_start.id_for_label }}" name="{{ form.date_start.html_name }}"
+                  value="{{ form.date_start.value|iso_date }}"
+                  class="form-control {% if form.date_start.errors %}is-invalid{% endif %}" required />
+                {% if form.date_start.errors %}<div class="invalid-feedback d-block">{{ form.date_start.errors|join:", " }}</div>{% endif %}
+              </div>
+              <div class="col-sm-6">
+                <label class="form-label" for="{{ form.date_end.id_for_label }}">Date de fin <span style="color:var(--danger);">*</span></label>
+                <input type="date" id="{{ form.date_end.id_for_label }}" name="{{ form.date_end.html_name }}"
+                  value="{{ form.date_end.value|iso_date }}"
+                  class="form-control {% if form.date_end.errors %}is-invalid{% endif %}" required />
+                {% if form.date_end.errors %}<div class="invalid-feedback d-block">{{ form.date_end.errors|join:", " }}</div>{% endif %}
+              </div>
+            </div>
+
+            <!-- ── Lieu ───────────────────────────────────── -->
+            <div class="section-divider"></div>
+            <div class="form-section-title">Lieu de formation</div>
+            <div class="row g-3 mb-3">
+              <div class="col-sm-4">
+                <label class="form-label" for="{{ form.location_type.id_for_label }}">Type de lieu <span style="color:var(--danger);">*</span></label>
+                <select id="{{ form.location_type.id_for_label }}" name="{{ form.location_type.html_name }}"
+                  class="form-select {% if form.location_type.errors %}is-invalid{% endif %}" required>
+                  {% for val, label in form.fields.location_type.choices %}<option value="{{ val }}" {% if form.location_type.value == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+                </select>
+                {% if form.location_type.errors %}<div class="invalid-feedback d-block">{{ form.location_type.errors|join:", " }}</div>{% endif %}
+              </div>
+              <div class="col-sm-8" id="row-room">
+                <label class="form-label" for="{{ form.room.id_for_label }}">Salle</label>
+                <select id="{{ form.room.id_for_label }}" name="{{ form.room.html_name }}"
+                  class="form-select {% if form.room.errors %}is-invalid{% endif %}">
+                  <option value="">— Sélectionner une salle —</option>
+                  {% for r in form.fields.room.queryset %}<option value="{{ r.pk }}" {% if form.room.value|stringformat:"s" == r.pk|stringformat:"s" %}selected{% endif %}>{{ r.name }} ({{ r.capacity }} places)</option>{% endfor %}
+                </select>
+                {% if form.room.errors %}<div class="invalid-feedback d-block">{{ form.room.errors|join:", " }}</div>{% endif %}
+              </div>
+              <div class="col-sm-8" id="row-external_location" style="display:none;">
+                <label class="form-label" for="{{ form.external_location.id_for_label }}">Lieu externe</label>
+                <input type="text" id="{{ form.external_location.id_for_label }}" name="{{ form.external_location.html_name }}"
+                  value="{{ form.external_location.value|default_if_none:'' }}"
+                  class="form-control {% if form.external_location.errors %}is-invalid{% endif %}"
+                  placeholder="Adresse ou description du site client" />
+                {% if form.external_location.errors %}<div class="invalid-feedback d-block">{{ form.external_location.errors|join:", " }}</div>{% endif %}
+              </div>
+            </div>
+
+            <!-- ── Équipements ──────────────────────────────── -->
+            <div class="section-divider"></div>
+            <div class="form-section-title">Équipements réservés <span style="font-size:12px;font-weight:400;color:var(--text-muted);">(optionnel)</span></div>
+            <div class="row g-2 mb-3">
+              {% for eq in form.fields.equipment.queryset %}
+              <div class="col-sm-6">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" name="{{ form.equipment.html_name }}" value="{{ eq.pk }}"
+                    id="equip-{{ eq.pk }}"
+                    {% if eq.pk in selected_equipment_ids %}checked{% endif %} />
+                  <label class="form-check-label" for="equip-{{ eq.pk }}">{{ eq.name }}{% if eq.inventory_code %} ({{ eq.inventory_code }}){% endif %}</label>
+                </div>
+              </div>
+              {% empty %}
+              <div class="col-12" style="font-size:12.5px;color:var(--text-muted);">Aucun équipement disponible.</div>
+              {% endfor %}
+            </div>
+
+            <!-- ── Références internes ─────────────────────── -->
+            <div class="section-divider"></div>
+            <div class="form-section-title">Références internes <span style="font-size:12px;font-weight:400;color:var(--text-muted);">(optionnel)</span></div>
+            <div class="row g-3">
+              <div class="col-sm-6">
+                <label class="form-label" for="{{ form.specialty_code.id_for_label }}">Code spécialité</label>
+                <input type="text" id="{{ form.specialty_code.id_for_label }}" name="{{ form.specialty_code.html_name }}"
+                  value="{{ form.specialty_code.value|default_if_none:'' }}"
+                  class="form-control" placeholder="Ex : HSE-01" style="font-family:monospace;" />
+                <div id="specialty-code-hint" style="font-size:11.5px;color:var(--text-muted);margin-top:4px;display:none;">
+                  Repris automatiquement de la spécialité de la formation sélectionnée.
+                </div>
+              </div>
+              <div class="col-sm-6">
+                <label class="form-label" for="{{ form.session_number.id_for_label }}">Numéro de session</label>
+                <input type="text" id="{{ form.session_number.id_for_label }}" name="{{ form.session_number.html_name }}"
+                  value="{{ form.session_number.value|default_if_none:'' }}"
+                  class="form-control" placeholder="Ex : S-2025-001" style="font-family:monospace;" />
+              </div>
+            </div>
+
+            {% if form.pv_number %}
+            <!-- ── Numérotation (admin) ──────────────────────── -->
+            <div class="section-divider"></div>
+            <div class="form-section-title">
+              Numérotation de cette session
+              <span style="font-size:12px;font-weight:400;color:var(--text-muted);">(admin — laisser tel quel pour la numérotation automatique)</span>
+            </div>
+            <div class="row g-3">
+              {% if form.reference %}
+              <div class="col-sm-6">
+                <label class="form-label" for="{{ form.reference.id_for_label }}">Référence de la session</label>
+                <input type="text" id="{{ form.reference.id_for_label }}" name="{{ form.reference.html_name }}"
+                  value="{{ form.reference.value|default_if_none:'' }}"
+                  class="form-control {% if form.reference.errors %}is-invalid{% endif %}"
+                  placeholder="Ex : MEE9999-012/2026" style="font-family:monospace;" />
+                {% if form.reference.errors %}<div class="invalid-feedback d-block">{{ form.reference.errors|join:", " }}</div>{% endif %}
+                <div style="font-size:11.5px;color:var(--text-muted);margin-top:4px;">
+                  Auto-générée à la création, et réajustée automatiquement si vous changez la formation
+                  ou la date de début. Modifiable ici pour forcer une référence précise — si elle existe déjà,
+                  elle est corrigée automatiquement au prochain numéro libre à l'enregistrement.
+                </div>
+              </div>
+              {% endif %}
+              <div class="col-sm-6">
+                <label class="form-label" for="{{ form.pv_number.id_for_label }}">Numéro PV (محضر مداولات)</label>
+                <input type="text" id="{{ form.pv_number.id_for_label }}" name="{{ form.pv_number.html_name }}"
+                  value="{{ form.pv_number.value|default_if_none:'' }}"
+                  class="form-control {% if form.pv_number.errors %}is-invalid{% endif %}"
+                  placeholder="Ex : TAG0717-006/07/2026" style="font-family:monospace;" />
+                {% if form.pv_number.errors %}<div class="invalid-feedback d-block">{{ form.pv_number.errors|join:", " }}</div>{% endif %}
+                <div style="font-size:11.5px;color:var(--text-muted);margin-top:4px;">
+                  Vide au premier enregistrement, puis auto-attribué au premier impression de la liste nominale ou du PV. Modifiable ici à tout moment pour forcer un numéro précis — le prochain document imprimé affichera immédiatement cette valeur.
+                </div>
+              </div>
+              <div class="col-sm-6">
+                <label class="form-label" for="{{ form.mission_order_number.id_for_label }}">Numéro d'ordre de mission</label>
+                <input type="text" id="{{ form.mission_order_number.id_for_label }}" name="{{ form.mission_order_number.html_name }}"
+                  value="{{ form.mission_order_number.value|default_if_none:'' }}"
+                  class="form-control {% if form.mission_order_number.errors %}is-invalid{% endif %}"
+                  placeholder="Ex : 042/2026" style="font-family:monospace;" />
+                {% if form.mission_order_number.errors %}<div class="invalid-feedback d-block">{{ form.mission_order_number.errors|join:", " }}</div>{% endif %}
+                <div style="font-size:11.5px;color:var(--text-muted);margin-top:4px;">
+                  Même principe — auto-attribué à la première impression, mais modifiable ici à tout moment.
+                </div>
+              </div>
+            </div>
+            {% endif %}
+
+            <!-- ── Tarification ─────────────────────────────── -->
+            <div class="section-divider"></div>
+            <div class="form-section-title">
+              Tarification de ce cycle
+              <span style="font-size:12px;font-weight:400;color:var(--text-muted);">(optionnel — propre à cette session, le prix varie selon la demande)</span>
+            </div>
+            <div class="row g-3 mb-3">
+              <div class="col-sm-4">
+                <label class="form-label" for="{{ form.base_price.id_for_label }}">Prix de base (DA)</label>
+                <input type="number" id="{{ form.base_price.id_for_label }}" name="{{ form.base_price.html_name }}"
+                  value="{{ form.base_price.value|default_if_none:''|unlocalize }}"
+                  class="form-control {% if form.base_price.errors %}is-invalid{% endif %}" step="0.01" min="0" placeholder="0.00" />
+                {% if form.base_price.errors %}<div class="invalid-feedback d-block">{{ form.base_price.errors|join:", " }}</div>{% endif %}
+              </div>
+              <div class="col-sm-4">
+                <label class="form-label" for="{{ form.price_mode.id_for_label }}">Mode de tarification</label>
+                <select id="{{ form.price_mode.id_for_label }}" name="{{ form.price_mode.html_name }}"
+                  class="form-select {% if form.price_mode.errors %}is-invalid{% endif %}">
+                  {% for val, label in form.fields.price_mode.choices %}
+                  <option value="{{ val }}" {% if form.price_mode.value == val %}selected{% endif %}>{{ label }}</option>
+                  {% endfor %}
+                </select>
+                {% if form.price_mode.errors %}<div class="invalid-feedback d-block">{{ form.price_mode.errors|join:", " }}</div>{% endif %}
+              </div>
+              <div class="col-sm-4">
+                <label class="form-label" for="{{ form.invoice_reference.id_for_label }}">Numéro de facture</label>
+                <input type="text" id="{{ form.invoice_reference.id_for_label }}" name="{{ form.invoice_reference.html_name }}"
+                  value="{{ form.invoice_reference.value|default_if_none:'' }}"
+                  class="form-control {% if form.invoice_reference.errors %}is-invalid{% endif %}" placeholder="Ex : FA-2026-010" style="font-family:monospace;" />
+                {% if form.invoice_reference.errors %}<div class="invalid-feedback d-block">{{ form.invoice_reference.errors|join:", " }}</div>{% endif %}
+                <div style="font-size:11.5px;color:var(--text-muted);margin-top:4px;">
+                  Séquence de facture associée à ce cycle — recherchable depuis la liste des sessions.
+                </div>
+              </div>
+            </div>
+
+            <!-- ── Rémunération formateur ────────────────────── -->
+            <div class="section-divider"></div>
+            <div class="form-section-title">
+              Rémunération du formateur
+              <span style="font-size:12px;font-weight:400;color:var(--text-muted);">(pré-remplie depuis la fiche formateur — modifiable pour ce cycle)</span>
+            </div>
+            <div class="row g-3 mb-3">
+              <div class="col-sm-4">
+                <label class="form-label" for="{{ form.trainer_cost_mode.id_for_label }}">Mode</label>
+                <select id="{{ form.trainer_cost_mode.id_for_label }}" name="{{ form.trainer_cost_mode.html_name }}"
+                  class="form-select {% if form.trainer_cost_mode.errors %}is-invalid{% endif %}">
+                  {% for val, label in form.fields.trainer_cost_mode.choices %}
+                  <option value="{{ val }}" {% if form.trainer_cost_mode.value == val %}selected{% endif %}>{{ label }}</option>
+                  {% endfor %}
+                </select>
+                {% if form.trainer_cost_mode.errors %}<div class="invalid-feedback d-block">{{ form.trainer_cost_mode.errors|join:", " }}</div>{% endif %}
+              </div>
+              <div class="col-sm-4">
+                <label class="form-label" for="{{ form.trainer_cost_percentage.id_for_label }}">Pourcentage (%)</label>
+                <input type="number" id="{{ form.trainer_cost_percentage.id_for_label }}" name="{{ form.trainer_cost_percentage.html_name }}"
+                  value="{{ form.trainer_cost_percentage.value|default_if_none:''|unlocalize }}"
+                  class="form-control {% if form.trainer_cost_percentage.errors %}is-invalid{% endif %}" step="0.01" min="0" max="100" placeholder="Ex : 30" />
+                {% if form.trainer_cost_percentage.errors %}<div class="invalid-feedback d-block">{{ form.trainer_cost_percentage.errors|join:", " }}</div>{% endif %}
+              </div>
+              <div class="col-sm-4">
+                <label class="form-label" for="{{ form.trainer_cost_amount.id_for_label }}">Montant direct (DA)</label>
+                <input type="number" id="{{ form.trainer_cost_amount.id_for_label }}" name="{{ form.trainer_cost_amount.html_name }}"
+                  value="{{ form.trainer_cost_amount.value|default_if_none:''|unlocalize }}"
+                  class="form-control {% if form.trainer_cost_amount.errors %}is-invalid{% endif %}" step="0.01" min="0" placeholder="Ex : 15000" />
+                {% if form.trainer_cost_amount.errors %}<div class="invalid-feedback d-block">{{ form.trainer_cost_amount.errors|join:", " }}</div>{% endif %}
+              </div>
+              <div class="col-12" style="font-size:11.5px;color:var(--text-muted);">
+                Part du formateur, déduite du prix total du cycle une fois terminé pour obtenir le revenu net.
+                <strong>En mode « Pourcentage », le « Prix de base » ci-dessus doit aussi être renseigné</strong> — sans lui, le prix total du cycle est inconnu et aucun règlement ne peut être calculé.
+              </div>
+            </div>
+
+            <!-- ── Attestation : blocs imprimés ─────────────── -->
+            <div class="section-divider"></div>
+            <div class="form-section-title">
+              Attestations — blocs imprimés
+              <span style="font-size:12px;font-weight:400;color:var(--text-muted);">(pour tous les participants de la session)</span>
+            </div>
+            <div class="mb-4">
+              <div class="attest-blocks-radios" style="display:flex;flex-wrap:wrap;gap:8px 22px;">
+                {% for radio in form.attestation_blocks %}
+                <label for="{{ radio.id_for_label }}" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:13.5px;">
+                  {{ radio.tag }} {{ radio.choice_label }}
+                </label>
+                {% endfor %}
+              </div>
+              {% if form.attestation_blocks.errors %}<div class="invalid-feedback d-block">{{ form.attestation_blocks.errors|join:", " }}</div>{% endif %}
+              <small class="text-muted d-block mt-2">« Par défaut » : l'attestation affiche chaque bloc (français / arabe) dont le nom complet est renseigné. Ce choix s'applique à tous les participants de la session, sauf ceux dont la fiche définit son propre réglage.</small>
+            </div>
+
+            <div class="mb-4">
+              <label class="form-label" for="{{ form.attestation_issue_date.id_for_label }}">Date « حرر ب سطيف في »</label>
+              {{ form.attestation_issue_date }}
+              {% if form.attestation_issue_date.errors %}<div class="invalid-feedback d-block">{{ form.attestation_issue_date.errors|join:", " }}</div>{% endif %}
+              <small class="text-muted d-block mt-2">Laisser vide pour la date automatique (lendemain du dernier jour de la session). Une date saisie ici s'applique à tous les participants, sauf ceux dont la fiche définit sa propre date.</small>
+            </div>
+
+            <div class="section-divider"></div>
+            <div style="display:flex;gap:12px;">
+              <button type="submit" class="btn btn-amber"><i class="bi bi-check-lg"></i> {% if session %}Enregistrer{% else %}Créer la session{% endif %}</button>
+              {% if session %}<a href="{% url 'formations:session_detail' session.pk %}" class="btn btn-ghost"><i class="bi bi-arrow-left"></i> Annuler</a>
+              {% else %}<a href="{% url 'formations:session_list' %}" class="btn btn-ghost"><i class="bi bi-arrow-left"></i> Annuler</a>{% endif %}
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// ── Formation AJAX pre-population ────────────────────────────────────────
+(function () {
+  const API_BASE = "{% url 'formations:formation_api' pk=0 %}".replace('/0/', '/');
+  const formationSel = document.getElementById("{{ form.formation.id_for_label }}");
+  const capacityInput = document.getElementById("{{ form.capacity.id_for_label }}");
+  const clientSel    = document.getElementById("{{ form.client.id_for_label }}");
+  const trainerSel   = document.getElementById("{{ form.trainer.id_for_label }}");
+  const dateStart    = document.getElementById("{{ form.date_start.id_for_label }}");
+  const dateEnd      = document.getElementById("{{ form.date_end.id_for_label }}");
+  const capHint      = document.getElementById("capacity-hint");
+  const capMax       = document.getElementById("capacity-max");
+  const durHint      = document.getElementById("duration-hint");
+  const durVal       = document.getElementById("duration-days-val");
+  const specialtyInput = document.getElementById("{{ form.specialty_code.id_for_label }}");
+  const specialtyHint = document.getElementById("specialty-code-hint");
+  const sessionNumberInput = document.getElementById("{{ form.session_number.id_for_label }}");
+  const referenceInput = document.getElementById("{{ form.reference.id_for_label }}");
+  const REFERENCE_PREVIEW_API = "{% url 'formations:session_reference_preview_api' %}";
+
+  // Utility: select an <option> by value
+  function selectOption(sel, val) {
+    if (!sel || val == null) return;
+    for (let i = 0; i < sel.options.length; i++) {
+      if (sel.options[i].value == String(val)) {
+        sel.selectedIndex = i;
+        return;
+      }
+    }
+  }
+
+  // ── Date field normalization (safety net) ────────────────────────────
+  // <input type="date"> silently blanks itself if its `value` isn't
+  // exactly "yyyy-mm-dd" — the browser just refuses to display anything
+  // rather than erroring. The real fix is server-side (the template no
+  // longer runs the value through Django's `|date:` filter, which used to
+  // turn a re-posted raw string into an empty one on validation errors —
+  // see session_form.html value= attributes), but this normalizes on load
+  // in case a value ever reaches the page in another shape (e.g.
+  // "dd/mm/yyyy"), so the field is repopulated instead of silently
+  // cleared either way.
+  function normalizeDateInput(input) {
+    if (!input || !input.value) return;
+    const v = input.value.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return; // already correct
+    const dmy = v.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/); // dd/mm/yyyy or dd-mm-yyyy
+    if (dmy) {
+      const [, d, m, y] = dmy;
+      input.value = `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+      return;
+    }
+    const ymd = v.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/); // yyyy/mm/dd
+    if (ymd) {
+      const [, y, m, d] = ymd;
+      input.value = `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+      return;
+    }
+    // Unrecognized shape — leave as-is rather than guess wrong.
+  }
+  normalizeDateInput(dateStart);
+  normalizeDateInput(dateEnd);
+
+  // ── Formateur filtering — only show trainers qualified for the chosen
+  // formation (falls back to showing everyone if none qualify, so the
+  // list is never a dead end). ─────────────────────────────────────────
+  function filterTrainers(formationPk) {
+    if (!trainerSel) return;
+    const options = Array.from(trainerSel.options);
+    if (!formationPk) {
+      options.forEach(o => { o.hidden = false; });
+      return;
+    }
+    let anyVisible = false;
+    options.forEach(o => {
+      if (!o.value) { o.hidden = false; return; }
+      const quals = (o.dataset.quals || "").split(",").filter(Boolean);
+      const match = quals.includes(String(formationPk));
+      o.hidden = !match;
+      if (match) anyVisible = true;
+    });
+    if (!anyVisible) {
+      options.forEach(o => { o.hidden = false; });
+    } else {
+      const current = trainerSel.options[trainerSel.selectedIndex];
+      if (current && current.value && current.hidden) {
+        trainerSel.value = "";
+      }
+    }
+  }
+
+  // ── Session code / specialty code auto-fill (Spec §new) ─────────────
+  // Format: S-{formation}-{formateur}-{date}. Only overwrites fields the
+  // user hasn't manually edited themselves — EXCEPT specialty_code once the
+  // chosen formation has a real specialty attached: from then on it's
+  // fully derived (like Formation.code once a specialty is set) and the
+  // field is locked, so it can never drift from the formation's specialty.
+  let specialtyAuto = !!specialtyInput && !specialtyInput.value;
+  let sessionNumberAuto = !!sessionNumberInput && !sessionNumberInput.value;
+  if (specialtyInput) specialtyInput.addEventListener("input", function () { specialtyAuto = false; });
+  if (sessionNumberInput) sessionNumberInput.addEventListener("input", function () { sessionNumberAuto = false; });
+
+  // ── Reference live auto-correction (spec §new) ───────────────────────
+  // The reference field only ever appears when editing an existing
+  // session (admin-only — see SessionForm.__init__), so unlike
+  // specialty_code/session_number it already holds a real, previously
+  // valid value on load — it must NOT be touched just from opening the
+  // page. It stays "auto" (eligible for live re-suggestion) until the
+  // admin types into it directly, and only re-suggests once the
+  // formation or start date actually changes — see
+  // refreshReferencePreview(), wired up below — never from the initial
+  // recomputeCodes() call.
+  let referenceAuto = true;
+  if (referenceInput) referenceInput.addEventListener("input", function () { referenceAuto = false; });
+
+  function refreshReferencePreview() {
+    if (!referenceInput || !referenceAuto) return;
+    const fPk = formationSel ? formationSel.value : "";
+    const dStart = dateStart ? dateStart.value : "";
+    if (!fPk || !dStart) return;
+    const params = new URLSearchParams({ formation: fPk, date_start: dStart });
+    {% if session %}params.set("exclude", "{{ session.pk }}");{% endif %}
+    fetch(REFERENCE_PREVIEW_API + "?" + params.toString())
+      .then(r => r.json())
+      .then(data => {
+        if (data.reference && referenceAuto) referenceInput.value = data.reference;
+      })
+      .catch(() => {});
+  }
+
+  function slugTag(str) {
+    return (str || "")
+      .toUpperCase()
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^A-Z0-9]/g, "");
+  }
+
+  function recomputeCodes() {
+    const fOpt = formationSel ? formationSel.options[formationSel.selectedIndex] : null;
+    const formationCode = fOpt ? slugTag(fOpt.dataset.code || "") : "";
+    const specialtyCode = fOpt ? (fOpt.dataset.specialtyCode || formationCode) : "";
+    const hasSpecialty = !!fOpt && fOpt.dataset.hasSpecialty === "1";
+
+    if (specialtyInput) {
+      if (hasSpecialty) {
+        // Derived from the formation's specialty — always in sync, not
+        // user-editable (same protection pattern as Formation.code once a
+        // specialty is set).
+        specialtyInput.value = specialtyCode.slice(0, 20);
+        specialtyInput.readOnly = true;
+        specialtyInput.dataset.locked = "1";
+        if (specialtyHint) specialtyHint.style.display = "";
+      } else {
+        specialtyInput.readOnly = false;
+        if (specialtyHint) specialtyHint.style.display = "none";
+        // Switching away from a formation that had a specialty: the
+        // current value was fully derived (never user-typed), so it's
+        // safe to clear it and resume auto-fill for the new formation.
+        if (specialtyInput.dataset.locked === "1") {
+          specialtyInput.value = "";
+          specialtyAuto = true;
+        }
+        delete specialtyInput.dataset.locked;
+        if (specialtyAuto) specialtyInput.value = specialtyCode.slice(0, 20);
+      }
+    }
+
+    if (sessionNumberAuto && sessionNumberInput && formationCode) {
+      const tOpt = trainerSel ? trainerSel.options[trainerSel.selectedIndex] : null;
+      // Field is 100 chars, so the trainer's full (slugged) last name fits —
+      // no need to abbreviate to a few initials anymore.
+      const trainerTag = tOpt ? slugTag(tOpt.dataset.lastname) : "";
+      // YYMMDD keeps the reference compact and readable
+      const dateTag = dateStart && dateStart.value
+        ? dateStart.value.replace(/-/g, "").slice(2)
+        : "";
+      sessionNumberInput.value = buildSessionNumber(formationCode, trainerTag, dateTag, 100);
+    }
+  }
+
+  function buildSessionNumber(formationCode, trainerTag, dateTag, maxLen) {
+    const build = (fc, tt) => ["S", fc, tt, dateTag].filter(Boolean).join("-");
+    let result = build(formationCode, trainerTag);
+    if (result.length > maxLen) {
+      let over = result.length - maxLen;
+      const trimFc = Math.min(over, Math.max(0, formationCode.length - 2));
+      if (trimFc > 0) formationCode = formationCode.slice(0, formationCode.length - trimFc);
+      over -= trimFc;
+      if (over > 0 && trainerTag) {
+        const trimTt = Math.min(over, trainerTag.length);
+        trainerTag = trainerTag.slice(0, trainerTag.length - trimTt);
+      }
+      result = build(formationCode, trainerTag);
+    }
+    return result.slice(0, maxLen);
+  }
+
+  function fetchAndFill(pk) {
+    if (!pk) { capHint.style.display = "none"; durHint.style.display = "none"; return; }
+    fetch(API_BASE + pk + "/")
+      .then(r => r.json())
+      .then(data => {
+        // Capacity
+        if (capacityInput && !capacityInput.value) {
+          capacityInput.value = data.max_participants;
+        }
+        if (capMax) capMax.textContent = data.max_participants;
+        if (capHint) capHint.style.display = "";
+
+        // Duration hint
+        if (durVal) durVal.textContent = data.duration_days;
+        if (durHint) durHint.style.display = data.duration_days > 1 ? "" : "none";
+
+        // Dates — fill only if empty
+        const today = data.today;
+        if (dateStart && !dateStart.value) dateStart.value = today;
+        if (dateEnd && !dateEnd.value)   dateEnd.value = today;
+
+        // Client / trainer — pre-fill from last session of this formation
+        if (clientSel && clientSel.value === "") selectOption(clientSel, data.last_client_id);
+        if (trainerSel && trainerSel.value === "") selectOption(trainerSel, data.last_trainer_id);
+        recomputeCodes();
+      })
+      .catch(() => {});
+  }
+
+  if (formationSel) {
+    formationSel.addEventListener("change", function () {
+      filterTrainers(this.value);
+      fetchAndFill(this.value);
+      recomputeCodes();
+      refreshReferencePreview();
+    });
+
+    // On page load — if a formation is already selected (from ?formation= or edit mode)
+    filterTrainers(formationSel.value);
+    if (formationSel.value) {
+      // Show capacity hint from data-* attrs without API call
+      const opt = formationSel.options[formationSel.selectedIndex];
+      const maxPart = opt ? opt.dataset.max : null;
+      const days = opt ? opt.dataset.days : null;
+      if (maxPart && capMax) { capMax.textContent = maxPart; capHint.style.display = ""; }
+      if (days && parseInt(days) > 1 && durVal) {
+        durVal.textContent = days; durHint.style.display = "";
+      }
+      // Fetch for client/trainer hints only if fields are empty
+      if ((clientSel && clientSel.value === "") || (trainerSel && trainerSel.value === "")) {
+        fetchAndFill(formationSel.value);
+      }
+    }
+  }
+
+  if (trainerSel) trainerSel.addEventListener("change", recomputeCodes);
+  if (dateStart) dateStart.addEventListener("change", function () {
+    recomputeCodes();
+    refreshReferencePreview();
+  });
+  recomputeCodes();
+})();
+</script>
+<script>
+// ── Room → equipment auto-import (spec §new) ───────────────────────────────
+// When a room is picked, equipment homed in that room is inherently
+// pre-checked. The user can still uncheck/check freely before saving.
+(function () {
+  const ROOM_EQUIP_API = "{% url 'formations:room_equipment_api' pk=0 %}".replace('/0/', '/');
+  const roomSel = document.getElementById("{{ form.room.id_for_label }}");
+  if (!roomSel) return;
+
+  roomSel.addEventListener("change", function () {
+    const pk = this.value;
+    if (!pk) return;
+    fetch(ROOM_EQUIP_API + pk + "/")
+      .then(r => r.json())
+      .then(data => {
+        (data.equipment_ids || []).forEach(function (id) {
+          const cb = document.getElementById("equip-" + id);
+          if (cb) cb.checked = true;
+        });
+      })
+      .catch(() => {});
+  });
+})();
+</script>
+<script>
+// ── Trainer → default cost autofill (spec §new) ────────────────────────────
+// When a trainer is picked, their default remuneration mode/amount is used
+// to pre-fill the cost fields — only while they're still empty, so it never
+// overwrites values the user (or an existing session) already set.
+(function () {
+  const TRAINER_COST_API = "{% url 'formations:trainer_default_cost_api' pk=0 %}".replace('/0/', '/');
+  const trainerSel = document.getElementById("{{ form.trainer.id_for_label }}");
+  const modeSel = document.getElementById("{{ form.trainer_cost_mode.id_for_label }}");
+  const pctInput = document.getElementById("{{ form.trainer_cost_percentage.id_for_label }}");
+  const amtInput = document.getElementById("{{ form.trainer_cost_amount.id_for_label }}");
+  if (!trainerSel || !modeSel) return;
+
+  trainerSel.addEventListener("change", function () {
+    const pk = this.value;
+    if (!pk) return;
+    const fieldsEmpty = !pctInput.value && !amtInput.value;
+    if (!fieldsEmpty) return; // don't clobber a value already entered for this cycle
+    fetch(TRAINER_COST_API + pk + "/")
+      .then(r => r.json())
+      .then(data => {
+        if (data.cost_mode) modeSel.value = data.cost_mode;
+        if (data.cost_percentage !== null && !pctInput.value) pctInput.value = data.cost_percentage;
+        if (data.cost_amount !== null && !amtInput.value) amtInput.value = data.cost_amount;
+      })
+      .catch(() => {});
+  });
+})();
+</script>
+<script>
+window.FORMATION_MAX_PARTICIPANTS = {
+  {% for f in form.fields.formation.queryset %}"{{ f.pk }}": {{ f.max_participants }}{% if not forloop.last %},{% endif %}{% endfor %}
+};
+</script>
+<script src="{% static 'formations/js/formations.js' %}"></script>
+{% endblock %}

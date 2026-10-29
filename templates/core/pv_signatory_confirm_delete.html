@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Supprimer un membre du PV — ISI Gestion Pédagogique{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'core/css/base.css' %}" />{% endblock %}
+
+{% block breadcrumb %}
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="{% url 'core:settings' %}">Paramètres</a>
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="{% url 'core:pv_signatory_list' %}">Membres par défaut du PV</a>
+<i class="bi bi-chevron-right bc-sep"></i>
+{% endblock %}
+{% block breadcrumb_active %}<span class="bc-active">Supprimer</span>{% endblock %}
+
+{% block content %}
+<div class="fade-up">
+  <div class="row justify-content-center">
+    <div class="col-lg-5 col-md-7">
+      <div class="isi-card">
+        <div class="isi-card-header">
+          <div class="card-icon" style="background:#fee2e2;"><i class="bi bi-exclamation-triangle-fill" style="color:var(--danger);"></i></div>
+          <h3>Confirmer la suppression</h3>
+        </div>
+        <div class="isi-card-body">
+          <p>Supprimer définitivement <strong dir="rtl">{{ signatory.full_name }}</strong> (<span dir="rtl">{{ signatory.role }}</span>) des membres par défaut du PV ?</p>
+          <p style="font-size:12.5px;color:var(--text-muted);">Cette action est irréversible. Les PV déjà générés ne sont pas affectés.</p>
+          <form method="post">
+            {% csrf_token %}
+            <div style="display:flex;gap:12px;margin-top:16px;">
+              <button type="submit" class="btn" style="background:var(--danger);color:#fff;border:none;">
+                <i class="bi bi-trash-fill"></i> Supprimer
+              </button>
+              <a href="{% url 'core:pv_signatory_list' %}" class="btn btn-ghost">Annuler</a>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,114 @@
+{% load static %}
+<div class="certificate">
+
+  <div class="box logo-box" style="{{ boxes.logo_box }}">
+    {% if institute and institute.logo %}
+      <img src="{{ institute.logo.url }}" alt="logo">
+    {% else %}
+      <img src="{% static 'documents/img/eems_logo.png' %}" alt="logo">
+    {% endif %}
+  </div>
+
+  <div class="box qr-box" style="{{ boxes.qr_box }}">
+    {% if participant.qr_code_data_uri %}
+      <img src="{{ participant.qr_code_data_uri }}" alt="QR">
+    {% endif %}
+  </div>
+
+  <div class="box header-box" style="{{ boxes.header_box }}">
+    <div class="h-line">الجمهورية الجزائرية الديمقراطية الشعبية</div>
+    <div class="h-line">وزارة التكوين و التعليم المهنيين</div>
+    <div class="h-line">مؤسسة خاصة لتكوين المهني معـتمدة</div>
+    <div class="h-line">التميز للإدارة و السلامة</div>
+  </div>
+
+  <div class="box title-box" style="{{ boxes.title_box }}">
+    شهادة تكوين تأهيلي
+  </div>
+
+  <div class="box serial-line" style="{{ boxes.serial_year_box }}">
+    شهـادة  : ح.ط/{{ data.ANNEE }}
+  </div>
+
+  <div class="box serial-line" style="{{ boxes.serial_num_box }}">
+    رقم التسلسلي  : {{ data.NUM_SERIE }}/ت.ح.ط/{{ data.ANNEE }}/{{ data.MOIS_SERIE }}
+  </div>
+
+  <div class="box legal-box" style="{{ boxes.legal_box }}">
+    <p class="legal-p">بمقتضى المرسوم التنفيذي رقم 18-162 المؤرخ في 29 رمضان 1439 الموافق 14 يونيو 2018 الذي يحدد شروط إنشاء المؤسسة الخاصة للتكوين أو التعليم المهني وفتحها ومراقبتها.</p>
+    <p class="legal-p">بمقتضى القرار الوزاري المؤرخ في 4 نوفمبر 2018 الذي يحدد دفتر الشروط المتعلق بإنشاء المؤسسة الخاصة للتكوين أو التعليم المهني وفتحها ومراقبتها.</p>
+    <p class="legal-p">بمقتضى القرار الوزاري رقم 003 المؤرخ في 14 مارس 2022 المتضمن اعتماد المؤسسة الخاصة للتكوين المهني المسماة: التميز للإدارة و السلامة</p>
+    <p class="legal-p">و بناءا على مقرر الفتح رقم 055 المؤرخ 18 أفريل 2022 يتضمن فتح المؤسسة الخاصة للتكوين المهني</p>
+    {% if data.CIP_NUM %}<p class="cip-line">وبناءا على محضر نهاية التكوين : {{ data.CIP_NUM }}</p>{% endif %}
+  </div>
+
+  <div class="box attest-line" style="{{ boxes.attest_line_box }}">
+    يشهد أن:
+  </div>
+
+  <div class="box french-box" style="{{ boxes.french_fields_box }}" {% if not data.HAS_FR %}data-hidden="1"{% endif %}>
+    {% if data.HAS_FR %}
+    <div class="fr-row">
+      <span class="fr-col1">Prénom : {{ data.PRENOM_FR }}</span>
+      <span class="fr-col2">Nom : {{ data.NOM_FR }}</span>
+    </div>
+    {% if data.DATE_NAISSANCE or data.LIEU_NAISSANCE_FR %}
+    <div class="fr-row">
+      {% if data.DATE_NAISSANCE %}<span class="fr-col1">Né (e) le : {{ data.DATE_NAISSANCE }}</span>{% endif %}
+      {% if data.LIEU_NAISSANCE_FR %}<span class="fr-col2">A : {{ data.LIEU_NAISSANCE_FR }}</span>{% endif %}
+    </div>
+    {% endif %}
+    <div class="fr-row fr-full">A suivi une session de formation qualifiante professionnelle à la carte</div>
+    {% if data.SPECIALITE_FR %}<div class="fr-row fr-full fr-bold">Spécialité : {{ data.SPECIALITE_FR }}</div>{% endif %}
+    {% if data.DUREE_HEURES %}<div class="fr-row fr-full">Durée de la formation {{ data.DUREE_HEURES }} heures{% if data.DUREE_MOIS_FR %} equivaut au {{ data.DUREE_MOIS_FR }}{% endif %}</div>{% endif %}
+    {% if data.DATE_DEBUT and data.DATE_FIN %}<div class="fr-row fr-full">Au cours de la période du : {{ data.DATE_DEBUT }} à {{ data.DATE_FIN }}</div>{% endif %}
+    {% endif %}
+  </div>
+
+  <div class="box arabic-box" style="{{ boxes.arabic_fields_box }}" {% if not data.HAS_AR %}data-hidden="1"{% endif %}>
+    {% if data.HAS_AR %}
+    <div class="ar-row">
+      <span class="ar-col1">الاسم : {{ data.PRENOM_AR }}</span>
+      <span class="ar-col2">اللقب: {{ data.NOM_AR }}</span>
+    </div>
+    {% if data.DATE_NAISSANCE or data.LIEU_NAISSANCE_AR %}
+    <div class="ar-row">
+      {% if data.DATE_NAISSANCE %}<span class="ar-col1">المولود (ة) في: {{ data.DATE_NAISSANCE }}</span>{% endif %}
+      {% if data.LIEU_NAISSANCE_AR %}<span class="ar-col2">ب : {{ data.LIEU_NAISSANCE_AR }}</span>{% endif %}
+    </div>
+    {% endif %}
+    <div class="ar-row ar-full">قد تابع (ت) دورة في التكوين المهني التأهيلي حسب الطلب</div>
+    {% if data.SPECIALITE_AR %}<div class="ar-row ar-full ar-bold">تخصص : {{ data.SPECIALITE_AR }}</div>{% endif %}
+    {% if data.DUREE_HEURES %}<div class="ar-row ar-full">مدة التكوين {{ data.DUREE_HEURES }} ساعة{% if data.DUREE_MOIS_AR %} ما يكافئ {{ data.DUREE_MOIS_AR }}{% endif %}</div>{% endif %}
+    {% if data.DATE_DEBUT and data.DATE_FIN %}<div class="ar-row ar-full">في الفترة من : {{ data.DATE_DEBUT }} إلى {{ data.DATE_FIN }}</div>{% endif %}
+    {% endif %}
+  </div>
+
+  <div class="box director-box" style="{{ boxes.director_box }}">
+    <div class="director-ar">المدير</div>
+    <div class="director-fr">Le Directeur</div>
+  </div>
+
+  {% if data.DATE_EMISSION %}
+  <div class="box date-line" style="{{ boxes.date_box }}">
+    حرر ب سطيف في : {{ data.DATE_EMISSION }}
+  </div>
+  {% endif %}
+
+  <div class="box no-copy-line" style="{{ boxes.no_copy_box }}">
+    لا تسلم نسخة أخرى من الشهادة
+  </div>
+
+  {# Verification QR (bottom-left corner) + short printed code (bottom band) #}
+  {% if participant.verify_qr_data_uri %}
+  <div class="box verify-qr-box" style="{{ boxes.verify_qr_box }}">
+    <img src="{{ participant.verify_qr_data_uri }}" alt="QR">
+  </div>
+  <div class="box verify-code-line" dir="ltr" style="{{ boxes.verify_code_box }}">
+    <span dir="rtl">للتحقق</span>&nbsp;·&nbsp;Vérification&nbsp;:&nbsp;<span dir="ltr">{{ participant.verification_code_display }}</span>
+  </div>
+  {% endif %}
+
+  {# IF number hidden from print per request — kept in data/model for internal use only #}
+
+</div>

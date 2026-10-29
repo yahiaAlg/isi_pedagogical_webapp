@@ -1,0 +1,127 @@
+/* ISI PedagoApp — Documents module CSS */
+
+/* ── Document row in dashboard ────────────────────────────── */
+.doc-section-title {
+  font-family: var(--font-head);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding: 14px 24px 8px;
+  border-bottom: 1px solid var(--card-border);
+  background: #f8fafc;
+}
+
+.doc-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 24px;
+  border-bottom: 1px solid var(--card-border);
+  transition: background 0.12s;
+}
+
+.doc-item:last-child { border-bottom: none; }
+.doc-item:hover { background: #f8fafc; }
+
+.doc-item-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 17px;
+  flex-shrink: 0;
+}
+
+.doc-item-icon.available   { background: var(--accent-soft); color: var(--accent); }
+.doc-item-icon.generated   { background: rgba(16,185,129,.12); color: var(--success); }
+.doc-item-icon.unavailable { background: #f1f5f9; color: #cbd5e1; }
+
+.doc-item-body { flex: 1; min-width: 0; }
+
+.doc-item-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.doc-item-label.unavailable { color: var(--text-muted); font-weight: 400; }
+
+.doc-item-meta {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.doc-item-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* ── Certificate preview strip (spec §9.7) ────────────────── */
+.cert-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--card-border);
+}
+
+.cert-row:last-child { border-bottom: none; }
+
+.cert-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: rgba(139,92,246,.12);
+  color: #8b5cf6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 17px;
+  flex-shrink: 0;
+}
+
+.cert-name {
+  flex: 1;
+  min-width: 0;
+}
+
+.cert-name-primary {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.cert-name-secondary {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.cert-number {
+  font-family: monospace;
+  font-size: 12px;
+  color: var(--text-muted);
+  min-width: 130px;
+}
+
+/* ── History table ────────────────────────────────────────── */
+.history-row-outdated { opacity: 0.5; }
+
+/* ── Committee member list ────────────────────────────────── */
+.committee-member-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 20px;
+  background: #f1f5f9;
+  border: 1px solid var(--card-border);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}

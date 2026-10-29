@@ -1,0 +1,929 @@
+{% extends "base.html" %}
+{% load static sync_tags %}
+
+{% block title %}{{ session.reference }} — Session — ISI Gestion Pédagogique{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'formations/css/formations.css' %}" />{% endblock %}
+
+{% block breadcrumb %}
+<i class="bi bi-chevron-right bc-sep"></i>
+{% if session.is_primary %}
+<a href="{% url 'formations:formation_detail' session.formation.pk %}">{{ session.formation.code }}</a>
+{% else %}
+<a href="{% url 'formations:session_list' %}">Sessions</a>
+<i class="bi bi-chevron-right bc-sep"></i>
+<a href="{% url 'formations:session_detail' session.parent_session.pk %}">{{ session.parent_session.reference }}</a>
+{% endif %}
+<i class="bi bi-chevron-right bc-sep"></i>
+{% endblock %}
+{% block breadcrumb_active %}<span class="bc-active">{{ session.reference }}</span>{% endblock %}
+
+{% block topbar_actions %}
+{% if session.is_primary %}
+<a href="{% url 'formations:formation_detail' session.formation.pk %}" class="topbar-btn"><i class="bi bi-arrow-left"></i> Retour</a>
+{% else %}
+<a href="{% url 'formations:session_detail' session.parent_session.pk %}" class="topbar-btn"><i class="bi bi-arrow-left"></i> Retour</a>
+{% endif %}
+{% if request.user.profile.can_manage_sessions and session.can_edit %}
+<a href="{% url 'formations:session_edit' session.pk %}" class="topbar-btn"><i class="bi bi-pencil-fill"></i> Modifier</a>
+{% endif %}
+{% if request.user.profile.can_manage_sessions %}
+<a href="{% url 'formations:session_status' session.pk %}" class="topbar-btn primary"><i class="bi bi-arrow-repeat"></i> Changer statut</a>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="fade-up">
+
+  <div class="page-header">
+    <div class="page-header-left">
+      <h1>{{ session.reference }}</h1>
+      <p class="page-subtitle">
+        {{ session.formation.title }}
+        {% if not session.is_primary %}
+        — <span class="isi-badge blue" style="font-size:12px;">Jour {{ session.day_number }} / {{ session.total_group_sessions }}</span>
+        {% endif %}
+      </p>
+    </div>
+  </div>
+
+  <!-- ── Lifecycle Track ─────────────────────────────────────────── -->
+  <div class="isi-card mb-4">
+    <div class="lifecycle-track">
+      {% with s=session.status %}
+      <div class="lifecycle-step {% if s in 'planned,in_progress,completed,archived' %}done{% endif %} {% if s == 'planned' %}current{% endif %}">
+        <div class="lifecycle-dot"></div>
+        <span class="lifecycle-label">Planifiée</span>
+      </div>
+      <div class="lifecycle-step {% if s in 'in_progress,completed,archived' %}done{% endif %} {% if s == 'in_progress' %}current{% endif %}" style="flex:1;">
+        <div class="lifecycle-dot"></div>
+        <span class="lifecycle-label">En cours</span>
+      </div>
+      <div class="lifecycle-step {% if s in 'completed,archived' %}done{% endif %} {% if s == 'completed' %}current{% endif %}" style="flex:1;">
+        <div class="lifecycle-dot"></div>
+        <span class="lifecycle-label">Terminée</span>
+      </div>
+      <div class="lifecycle-step {% if s == 'archived' %}done current{% endif %}" style="flex:1;">
+        <div class="lifecycle-dot"></div>
+        <span class="lifecycle-label">Archivée</span>
+      </div>
+      {% if s == 'cancelled' %}
+      <div class="lifecycle-step cancelled" style="flex:1;">
+        <div class="lifecycle-dot"></div>
+        <span class="lifecycle-label">Annulée</span>
+      </div>
+      {% endif %}
+      {% endwith %}
+    </div>
+  </div>
+
+  <!-- ── Session group generation banner (primary only) ─────────── -->
+  {% if session.is_primary and session.formation.duration_days > 1 and request.user.profile.can_manage_sessions %}
+  {% if not session.child_sessions_generated %}
+  <div class="alert alert-warning mb-4" style="align-items:center;gap:16px;flex-wrap:wrap;">
+    <i class="bi bi-magic" style="font-size:20px;flex-shrink:0;"></i>
+    <div style="flex:1;">
+      <strong>Sessions suivantes non générées.</strong>
+      Cette formation dure <strong>{{ session.formation.duration_days }} jours</strong>.
+      Après avoir ajouté les participants, générez automatiquement les jours 2–{{ session.formation.duration_days }}
+      avec les mêmes participants et les notes pré-remplies.
+    </div>
+    {% if session.participant_count > 0 %}
+    <form method="post" action="{% url 'formations:generate_session_group' session.pk %}" style="flex-shrink:0;">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-amber">
+        <i class="bi bi-magic"></i> Générer sessions suivantes
+      </button>
+    </form>
+    {% else %}
+    <span style="font-size:13px;color:var(--text-muted);">Ajoutez d'abord les participants.</span>
+    {% endif %}
+  </div>
+  {% else %}
+  <div class="alert alert-info mb-4" style="font-size:13.5px;">
+    <i class="bi bi-check-circle-fill"></i>
+    <span>
+      <strong>{{ session.child_sessions.count }} session{{ session.child_sessions.count|pluralize }}suivante{{ session.child_sessions.count|pluralize }} générée{{ session.child_sessions.count|pluralize }}</strong>
+      (jours 2–{{ session.formation.duration_days }}).
+      <a href="#child-sessions" style="color:var(--accent);margin-left:6px;">Voir les sessions ↓</a>
+      &nbsp;|&nbsp;
+    </span>
+    <form method="post" action="{% url 'formations:generate_session_group' session.pk %}" style="display:inline;">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-ghost btn-sm" style="font-size:12px;">
+        <i class="bi bi-arrow-repeat"></i> Regénérer
+      </button>
+    </form>
+  </div>
+  {% endif %}
+  {% elif session.is_primary and request.user.profile.can_manage_sessions %}
+  <!-- Single-day formation: no child sessions to generate, but the PV /
+       attestation numbers still need a way to be released and reassigned
+       after a correction — same underlying action as "Regénérer" above. -->
+  <div class="alert alert-info mb-4" style="font-size:13.5px;align-items:center;gap:16px;flex-wrap:wrap;">
+    <i class="bi bi-arrow-repeat"></i>
+    <span style="flex:1;">
+      Besoin de corriger des notes après clôture ? Régénérez pour libérer le numéro de PV
+      et les numéros d'attestation actuels — de nouveaux numéros seront attribués au
+      prochain PV/attestation imprimé.
+    </span>
+    <form method="post" action="{% url 'formations:generate_session_group' session.pk %}" style="flex-shrink:0;">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-ghost btn-sm" style="font-size:12px;">
+        <i class="bi bi-arrow-repeat"></i> Regénérer
+      </button>
+    </form>
+  </div>
+  {% endif %}
+
+  <div class="row g-4">
+
+    <!-- ── Left: identity card ─────────────────────────────────── -->
+    <div class="col-lg-4">
+      <div class="isi-card">
+        <div class="isi-card-header">
+          <div class="card-icon amber"><i class="bi bi-calendar3-fill"></i></div>
+          <h3>Détails</h3>
+          {% if not session.is_primary %}
+          <span class="isi-badge blue ms-auto" style="font-size:11px;">Jour {{ session.day_number }}</span>
+          {% endif %}
+        </div>
+        <div class="isi-card-body">
+
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
+            {% if session.status == 'planned' %}<span class="isi-badge blue"><i class="bi bi-circle-fill" style="font-size:7px;"></i> Planifiée</span>
+            {% elif session.status == 'in_progress' %}<span class="isi-badge amber"><i class="bi bi-circle-fill" style="font-size:7px;"></i> En cours</span>
+            {% elif session.status == 'completed' %}<span class="isi-badge green"><i class="bi bi-circle-fill" style="font-size:7px;"></i> Terminée</span>
+            {% elif session.status == 'cancelled' %}<span class="isi-badge red"><i class="bi bi-circle-fill" style="font-size:7px;"></i> Annulée</span>
+            {% elif session.status == 'archived' %}<span class="isi-badge gray"><i class="bi bi-circle-fill" style="font-size:7px;"></i> Archivée</span>{% endif %}
+            {% if session.available_spots == 0 %}
+            <span class="isi-badge red"><i class="bi bi-exclamation-circle-fill" style="font-size:8px;"></i> Complet</span>
+            {% else %}
+            <span class="isi-badge green"><i class="bi bi-circle-fill" style="font-size:7px;"></i> {{ session.available_spots }} dispo.</span>
+            {% endif %}
+          </div>
+
+          <div class="fill-bar-wrap mb-3" style="gap:10px;">
+            <div class="fill-bar-track" style="flex:1;">
+              <div class="fill-bar-fill" style="width:{{ session.fill_rate }}%;background:{% if session.fill_rate >= 80 %}var(--success){% elif session.fill_rate >= 50 %}var(--accent){% else %}#94a3b8{% endif %};"></div>
+            </div>
+            <span class="fill-bar-label">{{ session.fill_rate }}%</span>
+          </div>
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">{{ session.participant_count }} / {{ session.capacity }} participants</div>
+
+          <div class="section-divider" style="margin:0 0 16px;"></div>
+
+          <ul class="detail-meta" style="font-size:13.5px;">
+            <li>
+              <span class="meta-label"><i class="bi bi-mortarboard-fill" style="margin-right:4px;"></i>Formation</span>
+              <span class="meta-value"><a href="{% url 'formations:formation_detail' session.formation.pk %}" style="color:var(--accent);">{{ session.formation.title }}</a></span>
+            </li>
+            <li>
+              <span class="meta-label"><i class="bi bi-calendar3-fill" style="margin-right:4px;"></i>Date début</span>
+              <span class="meta-value">{{ session.date_start|date:"d/m/Y" }}</span>
+            </li>
+            <li>
+              <span class="meta-label"><i class="bi bi-calendar3-fill" style="margin-right:4px;"></i>Date fin</span>
+              <span class="meta-value">{{ session.date_end|date:"d/m/Y" }}</span>
+            </li>
+            <li>
+              <span class="meta-label"><i class="bi bi-building-fill" style="margin-right:4px;"></i>Client</span>
+              <span class="meta-value"><a href="{% url 'clients:client_detail' session.client.pk %}" style="color:var(--accent);">{{ session.client.name }}</a></span>
+            </li>
+            <li>
+              <span class="meta-label"><i class="bi bi-person-fill-check" style="margin-right:4px;"></i>Formateur</span>
+              <span class="meta-value">
+                {% if session.trainer %}<a href="{% url 'resources:trainer_detail' session.trainer.pk %}" style="color:var(--accent);">{{ session.trainer.full_name }}</a>
+                {% else %}<span style="color:var(--text-muted);">—</span>{% endif %}
+              </span>
+            </li>
+            <li>
+              <span class="meta-label"><i class="bi bi-geo-alt-fill" style="margin-right:4px;"></i>Lieu</span>
+              <span class="meta-value">
+                {% if session.location_type == 'institute' %}Institut{% if session.room %} — {{ session.room.name }}{% endif %}
+                {% else %}Sur site — {{ session.external_location }}{% endif %}
+              </span>
+            </li>
+            <li>
+              <span class="meta-label"><i class="bi bi-clipboard2-check-fill" style="margin-right:4px;"></i>Évaluation</span>
+              <span class="meta-value">
+                {{ session.formation.get_evaluation_type_display }}<br>
+                <small style="color:var(--text-muted);">Passage : {{ session.formation.passing_score }} / {{ session.formation.max_score }}</small>
+              </span>
+            </li>
+            <li>
+              <span class="meta-label"><i class="bi bi-calendar-check-fill" style="margin-right:4px;"></i>Présence min.</span>
+              <span class="meta-value">{{ session.formation.min_attendance_days }} jour{{ session.formation.min_attendance_days|pluralize }}</span>
+            </li>
+            {% if session.is_primary and session.status in 'completed,archived' and session.total_price is not None %}
+            <li>
+              <span class="meta-label"><i class="bi bi-cash-stack" style="margin-right:4px;"></i>Montant total</span>
+              <span class="meta-value" style="font-weight:700;color:var(--success);">
+                {{ session.total_price|floatformat:2 }} DA
+                <br><small style="font-weight:400;color:var(--text-muted);">{{ session.get_price_mode_display }} — {{ session.base_price|floatformat:0 }} DA / cycle</small>
+              </span>
+            </li>
+            {% if session.trainer_cost is not None %}
+            <li>
+              <span class="meta-label"><i class="bi bi-person-badge-fill" style="margin-right:4px;"></i>Part formateur</span>
+              <span class="meta-value">
+                {{ session.trainer_cost|floatformat:2 }} DA
+                <br><small style="font-weight:400;color:var(--text-muted);">
+                  {% if session.trainer_cost_mode == 'direct' %}Montant direct{% else %}{{ session.trainer_cost_percentage|floatformat:0 }} % du montant total{% endif %}
+                </small>
+              </span>
+            </li>
+            <li>
+              <span class="meta-label"><i class="bi bi-graph-up-arrow" style="margin-right:4px;"></i>Revenu net</span>
+              <span class="meta-value" style="font-weight:700;color:var(--success);">{{ session.net_revenue|floatformat:2 }} DA</span>
+            </li>
+            {% endif %}
+            {% endif %}
+            {% if session.invoice_reference %}
+            <li>
+              <span class="meta-label"><i class="bi bi-receipt" style="margin-right:4px;"></i>Facture</span>
+              <span class="meta-value" style="font-family:monospace;">{{ session.invoice_reference }}</span>
+            </li>
+            {% endif %}
+            {% if session.cancellation_reason %}
+            <li>
+              <span class="meta-label" style="color:var(--danger);"><i class="bi bi-x-circle-fill" style="margin-right:4px;"></i>Annulation</span>
+              <span class="meta-value" style="color:var(--danger);font-size:13px;">{{ session.cancellation_reason }}</span>
+            </li>
+            {% endif %}
+          </ul>
+
+          {% if request.user.profile.can_manage_sessions %}
+          <div class="section-divider"></div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <a href="{% url 'formations:session_status' session.pk %}" class="btn btn-amber" style="justify-content:center;">
+              <i class="bi bi-arrow-repeat"></i> Changer le statut
+            </a>
+            {% if session.is_primary and request.user.profile.can_edit_scores %}
+            <a href="{% url 'formations:session_exam_scores' session.pk %}" class="btn btn-ghost" style="justify-content:center;color:var(--success);">
+              <i class="bi bi-clipboard2-data-fill"></i> Notes d'examen
+            </a>
+            {% endif %}
+            {% if session.can_edit %}
+            <a href="{% url 'formations:session_edit' session.pk %}" class="btn btn-ghost" style="justify-content:center;">
+              <i class="bi bi-pencil-fill"></i> Modifier la session
+            </a>
+            {% endif %}
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Right: Participants + Child sessions + Documents ──────── -->
+    <div class="col-lg-8">
+
+      <!-- Participant roster -->
+      <div class="isi-card mb-4">
+        <div class="isi-card-header">
+          <div class="card-icon blue"><i class="bi bi-people-fill"></i></div>
+          <h3>Participants</h3>
+          <span class="header-count ms-1">({{ participants|length }})</span>
+          <div class="ms-auto d-flex gap-2">
+            {% if request.user.profile.can_edit_scores and session.status in 'planned,in_progress' %}
+            <a href="{% url 'formations:session_attendance' session.pk %}" class="btn btn-ghost btn-sm"><i class="bi bi-person-check-fill"></i> Présences</a>
+            {% endif %}
+            {% if request.user.profile.can_edit_scores and session.status in 'planned,in_progress,completed' %}
+            <a href="{% url 'formations:session_scores' session.pk %}" class="btn btn-ghost btn-sm"><i class="bi bi-clipboard2-check-fill"></i> Notes journée</a>
+            {% endif %}
+            {% if session.is_primary and request.user.profile.can_edit_scores %}
+            <a href="{% url 'formations:session_exam_scores' session.pk %}" class="btn btn-ghost btn-sm" style="color:var(--success);"><i class="bi bi-clipboard2-data-fill"></i> Examen</a>
+            {% endif %}
+            {% if participants %}
+            <a href="{% url 'formations:participant_export' session.pk %}" class="btn btn-ghost btn-sm"><i class="bi bi-download"></i> Exporter</a>
+            {% endif %}
+            {% if request.user.profile.can_manage_sessions and session.can_add_participants %}
+            {% waiting_roster_count session as site_waiting %}
+            {% if site_waiting %}
+            <form method="post" action="{% url 'sync:import_into_session' session.pk %}" style="display:inline;">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-ghost btn-sm" title="Participants inscrits via le site web pour ce client et cette formation"><i class="bi bi-globe2"></i> Depuis le site ({{ site_waiting }})</button>
+            </form>
+            {% endif %}
+            {% waiting_unvalidated_count session as site_unvalidated %}
+            {% if site_unvalidated %}
+            <form method="post" action="{% url 'sync:import_into_session' session.pk %}" style="display:inline;"
+                  onsubmit="return confirm('Ajouter aussi {{ site_unvalidated }} participant(s) dont l\'inscription n\'est pas encore validée sur le site ?');">
+              {% csrf_token %}
+              <input type="hidden" name="include_pending" value="1">
+              <button type="submit" class="btn btn-ghost btn-sm" title="Inscriptions en attente de validation sur le site"><i class="bi bi-hourglass-split"></i> + non validés ({{ site_unvalidated }})</button>
+            </form>
+            {% endif %}
+            <a href="{% url 'formations:participant_import' session.pk %}" class="btn btn-ghost btn-sm"><i class="bi bi-upload"></i> Importer</a>
+            <a href="{% url 'formations:participant_create' session.pk %}" class="btn btn-amber btn-sm"><i class="bi bi-plus-lg"></i> Ajouter</a>
+            {% endif %}
+          </div>
+        </div>
+
+        {% if participants %}
+        <div style="overflow-x:auto;">
+          <table class="isi-table">
+            <thead>
+              <tr>
+                <th style="width:32px;">N°</th>
+                <th>Nom et prénom</th>
+                <th>Fonction / Employeur</th>
+                <th>Présence</th>
+                {% if session.is_primary %}
+                <th style="text-align:center;">Note examen</th>
+                <th style="text-align:center;">Jours</th>
+                {% else %}
+                {% if session.formation.evaluation_type in 'theory_only,both' %}<th style="text-align:center;">Note théo.</th>{% endif %}
+                {% if session.formation.evaluation_type in 'practice_only,both' %}<th style="text-align:center;">Note prat.</th>{% endif %}
+                {% endif %}
+                <th>Résultat</th>
+                <th style="text-align:right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for p in participants %}
+              <tr>
+                <td><span class="roster-num">{{ forloop.counter|stringformat:"02d" }}</span></td>
+                <td>
+                  <span style="font-weight:600;">{{ p.full_name }}</span>
+                  {% if p.full_name_ar %}<span class="table-secondary-text" dir="rtl" style="text-align:right;">{{ p.full_name_ar }}</span>{% endif %}
+                </td>
+                <td>
+                  <span style="font-size:13.5px;">{{ p.job_title|default:"—" }}</span>
+                  {% if p.employer %}<span class="table-secondary-text">{{ p.employer }}</span>{% endif %}
+                </td>
+                <td>
+                  {% if request.user.profile.can_edit_scores and session.status in 'planned,in_progress' %}
+                  <input type="checkbox" class="form-check-input ajax-attendance attendance-switch"
+                    data-pid="{{ p.pk }}"
+                    {% if p.attended %}checked{% endif %}
+                    style="width:36px;height:20px;cursor:pointer;" />
+                  {% else %}
+                    {% if p.attended %}<span class="isi-badge green"><i class="bi bi-circle-fill" style="font-size:7px;"></i> Présent</span>
+                    {% else %}<span class="isi-badge red"><i class="bi bi-circle-fill" style="font-size:7px;"></i> Absent</span>{% endif %}
+                  {% endif %}
+                </td>
+                {% if session.is_primary %}
+                <!-- Exam score column (primary sessions) -->
+                <td style="text-align:center;">
+                  {% if p.attended %}
+                  <span style="font-weight:600;">{{ p.exam_score|default_if_none:"—" }}</span>
+                  {% if p.exam_score %}<span style="font-size:11px;color:var(--text-muted);"> / {{ session.formation.max_score|floatformat:"-2" }}</span>{% endif %}
+                  {% else %}<span style="color:var(--text-muted);">—</span>{% endif %}
+                </td>
+                <!-- Attendance days (primary sessions) -->
+                <td style="text-align:center;">
+                  <span style="font-size:13px;font-weight:600;">{{ p.days_attended }}</span>
+                  <span style="font-size:11px;color:var(--text-muted);"> / {{ p.total_group_sessions }}</span>
+                </td>
+                {% else %}
+                <!-- Daily score columns (child sessions) -->
+                {% if session.formation.evaluation_type in 'theory_only,both' %}
+                <td style="text-align:center;">
+                  {% if request.user.profile.can_edit_scores and session.status in 'in_progress,completed' %}
+                  <input type="number" min="0" max="{{ session.formation.max_score }}" step="0.25"
+                    class="form-control score-input"
+                    data-pid="{{ p.pk }}" data-score-type="score_theory"
+                    value="{{ p.score_theory|default_if_none:'' }}"
+                    style="width:72px;text-align:center;padding:6px 10px;display:inline-block;" />
+                  {% else %}{{ p.score_theory|default_if_none:"—" }}{% endif %}
+                </td>
+                {% endif %}
+                {% if session.formation.evaluation_type in 'practice_only,both' %}
+                <td style="text-align:center;">
+                  {% if request.user.profile.can_edit_scores and session.status in 'in_progress,completed' %}
+                  <input type="number" min="0" max="{{ session.formation.max_score }}" step="0.25"
+                    class="form-control score-input"
+                    data-pid="{{ p.pk }}" data-score-type="score_practice"
+                    value="{{ p.score_practice|default_if_none:'' }}"
+                    style="width:72px;text-align:center;padding:6px 10px;display:inline-block;" />
+                  {% else %}{{ p.score_practice|default_if_none:"—" }}{% endif %}
+                </td>
+                {% endif %}
+                {% endif %}
+                <td>
+                  {% if session.is_primary %}
+                    {% if p.result == 'passed' %}<span class="isi-badge green result-badge" data-pid="{{ p.pk }}"><i class="bi bi-circle-fill" style="font-size:7px;"></i> Reçu</span>
+                    {% elif p.result == 'failed' %}<span class="isi-badge red result-badge" data-pid="{{ p.pk }}"><i class="bi bi-circle-fill" style="font-size:7px;"></i> Ajourné</span>
+                    {% elif p.result == 'absent' %}<span class="isi-badge red result-badge" data-pid="{{ p.pk }}"><i class="bi bi-circle-fill" style="font-size:7px;"></i> Absent</span>
+                    {% else %}<span class="isi-badge gray result-badge" data-pid="{{ p.pk }}"><i class="bi bi-circle-fill" style="font-size:7px;"></i> En attente</span>{% endif %}
+                    {% if p.certificate_issued %}
+                    <i class="bi bi-patch-check-fill" style="color:var(--success);font-size:13px;margin-left:4px;" title="Attestation émise"></i>
+                    {% endif %}
+                  {% else %}
+                    {% if p.attended %}<span class="isi-badge green"><i class="bi bi-circle-fill" style="font-size:7px;"></i> Présent</span>
+                    {% else %}<span class="isi-badge red"><i class="bi bi-circle-fill" style="font-size:7px;"></i> Absent</span>{% endif %}
+                  {% endif %}
+                </td>
+                <td>
+                  <div style="display:flex;justify-content:flex-end;gap:6px;">
+                    {% if request.user.profile.can_manage_sessions and session.can_edit %}
+                    <a href="{% url 'formations:participant_edit' p.pk %}" class="btn btn-ghost btn-sm" title="Modifier"><i class="bi bi-pencil-fill"></i></a>
+                    <a href="{% url 'formations:participant_delete' p.pk %}" class="btn btn-danger-soft btn-sm" title="Supprimer"
+                       onclick="return confirm('Supprimer {{ p.full_name }} de cette session ?')">
+                      <i class="bi bi-trash-fill"></i>
+                    </a>
+                    {% endif %}
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <div style="padding:10px 24px;border-top:1px solid var(--card-border);display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+          <span class="isi-badge gray">Passage : {{ session.formation.passing_score }} / {{ session.formation.max_score|floatformat:"-2" }}</span>
+          <span class="isi-badge gray">Présence min. : {{ session.formation.min_attendance_days }}j</span>
+          <span style="font-size:12px;color:var(--text-muted);">
+            <i class="bi bi-person-check-fill" style="color:var(--success);"></i> {{ session.total_present }} présent{{ session.total_present|pluralize }}
+            &nbsp;&bull;&nbsp;
+            <i class="bi bi-person-dash-fill" style="color:var(--danger);"></i> {{ session.total_absent }} absent{{ session.total_absent|pluralize }}
+          </span>
+        </div>
+
+        {% else %}
+        <div class="empty-state" style="padding:40px 24px;">
+          <div class="empty-state-icon" style="font-size:40px;"><i class="bi bi-people-fill"></i></div>
+          <p class="empty-state-text" style="font-size:14px;">Aucun participant inscrit à cette session.</p>
+          {% if request.user.profile.can_manage_sessions and session.can_add_participants %}
+          <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+            <a href="{% url 'formations:participant_create' session.pk %}" class="btn btn-amber btn-sm"><i class="bi bi-plus-lg"></i> Ajouter manuellement</a>
+            <a href="{% url 'formations:participant_import' session.pk %}" class="btn btn-ghost btn-sm"><i class="bi bi-upload"></i> Importer CSV</a>
+          </div>
+          {% endif %}
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Equipment card (spec §new) -->
+      {% if session.room %}
+      <div class="isi-card mb-4" id="session-equipment">
+        <div class="isi-card-header">
+          <div class="card-icon green"><i class="bi bi-tools"></i></div>
+          <h3>Équipements — {{ session.room.name }}</h3>
+        </div>
+        <div class="isi-card-body">
+          {% if request.user.profile.can_manage_sessions and session.can_edit %}
+          <form method="post" action="{% url 'formations:session_equipment_update' session.pk %}">
+            {% csrf_token %}
+            <div style="font-size:12.5px;color:var(--text-muted);margin-bottom:10px;">
+              Équipements de la salle — cochez/décochez leur utilisation pour cette session.
+            </div>
+            <div class="row g-2 mb-3">
+              {% for eq in room_equipment %}
+              <div class="col-sm-6">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" name="equipment_ids" value="{{ eq.pk }}"
+                    id="sess-equip-{{ eq.pk }}" {% if eq.checked %}checked{% endif %} />
+                  <label class="form-check-label" for="sess-equip-{{ eq.pk }}">
+                    {{ eq.name }}{% if eq.inventory_code %} ({{ eq.inventory_code }}){% endif %}
+                    {% if eq.unit_price %}<span class="isi-badge gray" style="font-size:10px;">{{ eq.unit_price }} DA/u.</span>{% endif %}
+                  </label>
+                </div>
+              </div>
+              {% empty %}
+              <div class="col-12" style="font-size:12.5px;color:var(--text-muted);">Aucun équipement rattaché à cette salle.</div>
+              {% endfor %}
+            </div>
+
+            {% if idle_equipment %}
+            <div class="section-divider"></div>
+            <div style="font-size:12.5px;color:var(--text-muted);margin:10px 0;">
+              <i class="bi bi-exclamation-triangle-fill" style="color:var(--warning, #f59e0b);"></i>
+              Inactifs ailleurs à ces dates — normalement en <strong>{% for eq in idle_equipment %}{{ eq.room.name }}{% if not forloop.last %}, {% endif %}{% endfor %}</strong>,
+              disponibles pour être ajoutés ici (libérés automatiquement de leur salle d'origine si non utilisés).
+            </div>
+            <div class="row g-2 mb-3">
+              {% for eq in idle_equipment %}
+              <div class="col-sm-6">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" name="equipment_ids" value="{{ eq.pk }}"
+                    id="sess-equip-{{ eq.pk }}" />
+                  <label class="form-check-label" for="sess-equip-{{ eq.pk }}">
+                    {{ eq.name }}{% if eq.inventory_code %} ({{ eq.inventory_code }}){% endif %}
+                    <span class="isi-badge gray" style="font-size:10px;">{{ eq.room.name }} — idle</span>
+                  </label>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+            {% endif %}
+
+            <button type="submit" class="btn btn-amber btn-sm"><i class="bi bi-check2"></i> Mettre à jour</button>
+          </form>
+          {% if equipment_allocations %}
+          <div style="font-size:12px;color:var(--text-muted);margin-top:10px;">
+            Valeur réservée : {% for alloc in equipment_allocations %}{% if alloc.is_active %}{{ alloc.equipment.name }} ({{ alloc.outstanding_quantity }} × {{ alloc.unit_price|default:"0" }} DA = {{ alloc.total_price|default:"0" }} DA){% if not forloop.last %}, {% endif %}{% endif %}{% endfor %}
+          </div>
+          {% endif %}
+          {% else %}
+          <ul class="detail-meta" style="font-size:13px;">
+            {% for eq in room_equipment %}
+            <li>
+              <span class="meta-label">{{ eq.name }}</span>
+              <span class="meta-value">{% if eq.checked %}<span class="isi-badge green">Utilisé</span>{% else %}<span class="isi-badge gray">Non utilisé</span>{% endif %}</span>
+            </li>
+            {% empty %}
+            <li style="color:var(--text-muted);">Aucun équipement rattaché à cette salle.</li>
+            {% endfor %}
+          </ul>
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Pedagogical assets (consumables) card (spec §new) -->
+      <div class="isi-card mb-4" id="session-assets">
+        <div class="isi-card-header">
+          <div class="card-icon amber"><i class="bi bi-box-seam-fill"></i></div>
+          <h3>Actifs pédagogiques livrés</h3>
+        </div>
+        <div class="isi-card-body">
+          <div style="font-size:12.5px;color:var(--text-muted);margin-bottom:10px;">
+            Fournitures IT, bureautique et autres consommées/distribuées durant cette session (stock déduit à la livraison).
+          </div>
+          <div class="table-responsive mb-3">
+            <table class="isi-table">
+              <thead>
+                <tr>
+                  <th>Actif</th>
+                  <th>Catégorie</th>
+                  <th>Quantité livrée</th>
+                  <th>Retourné</th>
+                  <th>Valeur livrée</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for asset in asset_deliveries %}
+                <tr>
+                  <td><a href="{% url 'resources:asset_detail' asset.pk %}" style="color:var(--accent);">{{ asset.name }}</a></td>
+                  <td>{{ asset.category.name }}</td>
+                  <td>{{ asset.delivered_qty }} {{ asset.get_unit_display }}</td>
+                  <td>{% if asset.returned_qty %}{{ asset.returned_qty }} {{ asset.get_unit_display }}{% else %}—{% endif %}</td>
+                  <td>{% if asset.delivered_value %}{{ asset.delivered_value }} DA{% else %}—{% endif %}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:16px;">Aucun actif livré pour le moment.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+
+          {% if request.user.profile.can_manage_sessions and session.can_edit %}
+          <div class="section-divider" style="margin-bottom:14px;"></div>
+          <form method="post" action="{% url 'formations:session_asset_deliver' session.pk %}">
+            {% csrf_token %}
+            <div class="row g-2 align-items-end">
+              <div class="col-sm-4">
+                <label class="form-label">Actif</label>
+                <select name="asset" class="form-select">
+                  {% for a in asset_delivery_form.fields.asset.queryset %}
+                  <option value="{{ a.pk }}">{{ a.name }} — {{ a.quantity_in_stock }} {{ a.get_unit_display }} en stock</option>
+                  {% empty %}
+                  <option value="" disabled>Aucun actif actif disponible</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-sm-2">
+                <label class="form-label">Quantité</label>
+                <input type="number" min="1" name="quantity" class="form-control" value="1" required />
+              </div>
+              <div class="col-sm-2">
+                <label class="form-label">Prix unit.</label>
+                <input type="number" min="0" step="0.01" name="unit_price" class="form-control" placeholder="Optionnel" />
+              </div>
+              <div class="col-sm-2">
+                <label class="form-label">Note</label>
+                <input type="text" name="note" class="form-control" placeholder="Optionnel" />
+              </div>
+              <div class="col-sm-2">
+                <button type="submit" class="btn btn-amber btn-sm w-100"><i class="bi bi-truck"></i> Livrer</button>
+              </div>
+            </div>
+          </form>
+
+          <div class="section-divider" style="margin:14px 0;"></div>
+          <form method="post" action="{% url 'formations:session_asset_return' session.pk %}">
+            {% csrf_token %}
+            <div class="row g-2 align-items-end">
+              <div class="col-sm-5">
+                <label class="form-label">Actif à retourner</label>
+                <select name="asset" class="form-select">
+                  {% for a in asset_return_form.fields.asset.queryset %}
+                  <option value="{{ a.pk }}">{{ a.name }}</option>
+                  {% empty %}
+                  <option value="" disabled>Aucun actif actif disponible</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-sm-2">
+                <label class="form-label">Quantité</label>
+                <input type="number" min="1" name="quantity" class="form-control" value="1" required />
+              </div>
+              <div class="col-sm-3">
+                <label class="form-label">Motif</label>
+                <input type="text" name="note" class="form-control" placeholder="Ex : surplus non utilisé" />
+              </div>
+              <div class="col-sm-2">
+                <button type="submit" class="btn btn-outline-secondary btn-sm w-100"><i class="bi bi-arrow-counterclockwise"></i> Retourner</button>
+              </div>
+            </div>
+          </form>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Child sessions panel -->
+      {% if session.is_primary and child_sessions %}
+      <div class="isi-card mb-4" id="child-sessions">
+        <div class="isi-card-header">
+          <div class="card-icon blue"><i class="bi bi-calendar3-fill"></i></div>
+          <h3>Sessions suivantes (jours 2–{{ session.formation.duration_days }})</h3>
+          <span class="header-count ms-1">({{ child_sessions|length }})</span>
+        </div>
+        <div style="overflow-x:auto;">
+          <table class="isi-table">
+            <thead>
+              <tr>
+                <th>Jour</th>
+                <th>Date</th>
+                <th>Référence</th>
+                <th style="text-align:center;">Participants</th>
+                <th style="text-align:center;">Présents</th>
+                <th>Statut</th>
+                <th style="text-align:right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for child in child_sessions %}
+              <tr>
+                <td><span class="isi-badge blue" style="font-size:11px;">J{{ child.day_number }}</span></td>
+                <td><span style="font-weight:500;">{{ child.date_start|date:"d/m/Y" }}</span></td>
+                <td><code style="font-size:12px;">{{ child.reference }}</code></td>
+                <td style="text-align:center;"><span style="font-weight:600;">{{ child.participant_count }}</span></td>
+                <td style="text-align:center;"><span style="font-weight:600;color:var(--success);">{{ child.total_present }}</span></td>
+                <td>
+                  {% if child.status == 'planned' %}<span class="isi-badge blue"><i class="bi bi-circle-fill" style="font-size:7px;"></i> Planifiée</span>
+                  {% elif child.status == 'in_progress' %}<span class="isi-badge amber"><i class="bi bi-circle-fill" style="font-size:7px;"></i> En cours</span>
+                  {% elif child.status == 'completed' %}<span class="isi-badge green"><i class="bi bi-circle-fill" style="font-size:7px;"></i> Terminée</span>
+                  {% elif child.status == 'cancelled' %}<span class="isi-badge red"><i class="bi bi-circle-fill" style="font-size:7px;"></i> Annulée</span>
+                  {% elif child.status == 'archived' %}<span class="isi-badge gray"><i class="bi bi-circle-fill" style="font-size:7px;"></i> Archivée</span>{% endif %}
+                </td>
+                <td>
+                  <div style="display:flex;justify-content:flex-end;gap:6px;">
+                    <a href="{% url 'formations:session_detail' child.pk %}" class="btn btn-ghost btn-sm" title="Voir"><i class="bi bi-eye-fill"></i></a>
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Règlement formateur panel -->
+      {% if session.is_primary and session.status in 'completed,archived' and session.trainer_cost_mode and session.trainer_cost is None %}
+      <div class="isi-card mb-4">
+        <div class="isi-card-header">
+          <div class="card-icon amber"><i class="bi bi-cash-coin"></i></div>
+          <h3>Règlement du formateur</h3>
+        </div>
+        <div class="isi-card-body">
+          <div class="alert alert-warning mb-0" style="display:flex;gap:10px;align-items:flex-start;">
+            <i class="bi bi-exclamation-triangle-fill" style="margin-top:2px;"></i>
+            <div>
+              Le mode de rémunération du formateur est défini
+              ({% if session.trainer_cost_mode == 'percentage' %}{{ session.trainer_cost_percentage|default:"?" }} % du prix total{% else %}montant direct{% endif %}),
+              mais le montant ne peut pas encore être calculé.
+              {% if session.trainer_cost_mode == 'percentage' %}
+              Renseignez le <strong>« Prix de base »</strong> de ce cycle (onglet Tarification du formulaire de session) pour que le prix total, et donc la part du formateur, puissent être calculés.
+              {% endif %}
+              <div class="mt-2">
+                <a href="{% url 'formations:session_edit' session.pk %}" class="btn btn-outline-amber btn-sm">
+                  <i class="bi bi-pencil-fill"></i> Modifier la tarification
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+      {% if session.is_primary and session.status in 'completed,archived' and session.trainer_cost is not None %}
+      <div class="isi-card mb-4">
+        <div class="isi-card-header">
+          <div class="card-icon green"><i class="bi bi-cash-coin"></i></div>
+          <h3>Règlement du formateur</h3>
+          {% if session.trainer_payment_status == 'paid' %}
+          <span class="isi-badge green ms-1"><i class="bi bi-check-circle-fill" style="font-size:7px;"></i> Réglé</span>
+          {% elif session.trainer_payment_status == 'partial' %}
+          <span class="isi-badge blue ms-1"><i class="bi bi-hourglass-split" style="font-size:7px;"></i> Partiel</span>
+          {% else %}
+          <span class="isi-badge amber ms-1"><i class="bi bi-hourglass-split" style="font-size:7px;"></i> En attente</span>
+          {% endif %}
+        </div>
+        <div class="isi-card-body">
+
+          <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:space-between;padding:12px 16px;background:#f8fafc;border-radius:8px;border:1px solid var(--card-border);margin-bottom:16px;">
+            <div style="display:flex;flex-wrap:wrap;gap:20px;">
+              <div>
+                <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);">Part due</div>
+                <span style="font-weight:700;">{{ session.trainer_cost|floatformat:2 }} DA</span>
+              </div>
+              <div>
+                <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);">Réglé</div>
+                <span style="font-weight:700;color:var(--success);">{{ session.trainer_paid_total|floatformat:2 }} DA</span>
+              </div>
+              <div>
+                <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);">Solde restant</div>
+                <span style="font-weight:700;{% if session.trainer_payment_balance > 0 %}color:var(--danger);{% endif %}">{{ session.trainer_payment_balance|floatformat:2 }} DA</span>
+              </div>
+            </div>
+            {% if request.user.profile.can_manage_sessions and session.trainer_payment_status != 'paid' %}
+            <a href="{% url 'formations:session_trainer_payment' session.pk %}" class="btn btn-amber btn-sm">
+              <i class="bi bi-plus-lg"></i> Ajouter un règlement
+            </a>
+            {% endif %}
+          </div>
+
+          {% with payments=session.trainer_payments %}
+          {% if payments %}
+          <div style="overflow-x:auto;">
+            <table class="isi-table">
+              <thead>
+                <tr>
+                  <th>Montant</th>
+                  <th>Statut</th>
+                  <th>Mode</th>
+                  <th>Référence</th>
+                  <th>Réglé le</th>
+                  <th>Justificatif</th>
+                  {% if request.user.profile.has_admin_rights %}<th style="text-align:right;">Actions</th>{% endif %}
+                </tr>
+              </thead>
+              <tbody>
+                {% for p in payments %}
+                <tr>
+                  <td style="font-weight:700;">{{ p.amount|floatformat:2 }} DA</td>
+                  <td>
+                    {% if p.status == 'confirmed' %}
+                    <span class="isi-badge green"><i class="bi bi-circle-fill" style="font-size:7px;"></i> Confirmé</span>
+                    {% elif p.status == 'pending' %}
+                    <span class="isi-badge amber"><i class="bi bi-circle-fill" style="font-size:7px;"></i> En attente</span>
+                    {% else %}
+                    <span class="isi-badge red"><i class="bi bi-circle-fill" style="font-size:7px;"></i> Annulé</span>
+                    {% endif %}
+                  </td>
+                  <td>{{ p.get_payment_mode_display }}</td>
+                  <td style="font-family:monospace;font-size:12.5px;">{{ p.reference }}</td>
+                  <td>{{ p.paid_at|date:"d/m/Y H:i" }}{% if p.confirmed_by %}<br><span class="table-secondary-text">par {{ p.confirmed_by.get_full_name|default:p.confirmed_by.username }}</span>{% endif %}</td>
+                  <td>
+                    {% if p.proof_document %}
+                    <a href="{{ p.proof_document.url }}" target="_blank" rel="noopener">
+                      <i class="bi {% if p.proof_is_pdf %}bi-file-earmark-pdf-fill{% else %}bi-file-earmark-image-fill{% endif %}"></i>
+                    </a>
+                    {% else %}<span style="color:var(--text-muted);">—</span>{% endif %}
+                  </td>
+                  {% if request.user.profile.has_admin_rights %}
+                  <td>
+                    <div style="display:flex;justify-content:flex-end;">
+                      <a href="{% url 'formations:trainer_payment_edit' p.pk %}?next={{ request.path|urlencode }}" class="btn btn-ghost btn-sm">
+                        <i class="bi bi-pencil-fill"></i>
+                      </a>
+                    </div>
+                  </td>
+                  {% endif %}
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div style="font-size:13.5px;color:var(--text-muted);">Aucun règlement enregistré pour ce cycle pour l'instant.</div>
+          {% endif %}
+          {% endwith %}
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Documents panel -->
+      {% if session.is_primary %}
+      <div class="isi-card">
+        <div class="isi-card-header">
+          <div class="card-icon purple"><i class="bi bi-file-earmark-richtext-fill"></i></div>
+          <h3>Documents de la session</h3>
+          <a href="{% url 'documents:dashboard' session_pk=session.pk %}" class="btn btn-ghost btn-sm ms-auto">
+            <i class="bi bi-folder2-open"></i> Voir tous les documents
+          </a>
+        </div>
+        <div class="isi-card-body">
+          {% if session.pv_number or session.mission_order_number %}
+          <div style="display:flex;flex-wrap:wrap;gap:8px 20px;margin-bottom:14px;font-size:12.5px;">
+            {% if session.pv_number %}
+            <div><span style="color:var(--text-muted);">Numéro PV :</span> <code>{{ session.pv_number }}</code></div>
+            {% endif %}
+            {% if session.mission_order_number %}
+            <div><span style="color:var(--text-muted);">Ordre de mission :</span> <code>{{ session.mission_order_number }}</code></div>
+            {% endif %}
+            {% if request.user.profile.has_admin_rights and request.user.profile.can_manage_sessions %}
+            <a href="{% url 'formations:session_edit' session.pk %}#{{ 'id_pv_number' }}" class="btn btn-ghost btn-sm" style="padding:0 8px;height:22px;line-height:20px;">
+              <i class="bi bi-pencil-fill"></i> Forcer un numéro
+            </a>
+            {% endif %}
+          </div>
+          {% endif %}
+          {% with has_participants=participants|length %}
+
+          <div class="doc-row">
+            <div class="doc-row-icon {% if has_participants %}available{% else %}unavailable{% endif %}"><i class="bi bi-list-check"></i></div>
+            <div class="doc-row-label {% if not has_participants %}unavailable{% endif %}">Liste des informations candidats</div>
+            <div class="doc-row-actions">
+              <a href="{% url 'documents:generate_candidate_list' session_pk=session.pk %}" class="btn btn-outline-amber btn-sm {% if not has_participants %}disabled{% endif %}">
+                <i class="bi bi-file-earmark-arrow-down-fill"></i> Générer
+              </a>
+            </div>
+          </div>
+
+          <div class="doc-row">
+            <div class="doc-row-icon {% if has_participants %}available{% else %}unavailable{% endif %}"><i class="bi bi-clipboard2-check-fill"></i></div>
+            <div class="doc-row-label {% if not has_participants %}unavailable{% endif %}">Feuille de présence (J1)</div>
+            <div class="doc-row-actions">
+              <a href="{% url 'documents:generate_attendance_sheet' session_pk=session.pk %}" class="btn btn-outline-amber btn-sm {% if not has_participants %}disabled{% endif %}">
+                <i class="bi bi-file-earmark-arrow-down-fill"></i> Générer
+              </a>
+            </div>
+          </div>
+
+          {% with can_mission=session.trainer.can_generate_mission_order %}
+          <div class="doc-row">
+            <div class="doc-row-icon {% if can_mission %}available{% else %}unavailable{% endif %}"><i class="bi bi-signpost-fill"></i></div>
+            <div class="doc-row-label {% if not can_mission %}unavailable{% endif %}">
+              Ordre de mission
+              {% if not can_mission %}<span style="font-size:12px;color:var(--danger);"> — adresse formateur requise</span>{% endif %}
+            </div>
+            <div class="doc-row-actions">
+              <a href="{% url 'documents:generate_mission_order' session_pk=session.pk %}" class="btn btn-outline-amber btn-sm {% if not can_mission %}disabled{% endif %}">
+                <i class="bi bi-file-earmark-arrow-down-fill"></i> Générer
+              </a>
+            </div>
+          </div>
+          {% endwith %}
+
+          {% if session.status in 'completed,archived' %}
+          <div class="doc-row">
+            <div class="doc-row-icon available"><i class="bi bi-clipboard2-data-fill"></i></div>
+            <div class="doc-row-label">Liste des notes d'évaluation</div>
+            <div class="doc-row-actions">
+              <a href="{% url 'documents:generate_evaluation_list' session_pk=session.pk %}" class="btn btn-outline-amber btn-sm">
+                <i class="bi bi-file-earmark-arrow-down-fill"></i> Générer
+              </a>
+            </div>
+          </div>
+          <div class="doc-row">
+            <div class="doc-row-icon available"><i class="bi bi-journal-richtext"></i></div>
+            <div class="doc-row-label">Procès-verbal de délibération</div>
+            <div class="doc-row-actions">
+              <a href="{% url 'documents:generate_deliberation_report' session_pk=session.pk %}" class="btn btn-outline-amber btn-sm">
+                <i class="bi bi-file-earmark-arrow-down-fill"></i> Générer
+              </a>
+            </div>
+          </div>
+          {% endif %}
+
+          <!-- Attestations — available as soon as there are passed participants -->
+          {% with passed_count=participants|length %}
+          {% with cert_ready=session.formation.produces_certificate %}
+          <div class="doc-row">
+            <div class="doc-row-icon {% if cert_ready and has_participants %}available{% else %}unavailable{% endif %}">
+              <i class="bi bi-patch-check-fill"></i>
+            </div>
+            <div class="doc-row-label {% if not cert_ready or not has_participants %}unavailable{% endif %}">
+              Attestations
+              {% if not cert_ready %}<span style="font-size:12px;color:var(--text-muted);"> — formation sans attestation</span>{% endif %}
+              {% if cert_ready and has_participants %}<span style="font-size:12px;color:var(--text-muted);"> — disponibles dès validation des notes d'examen</span>{% endif %}
+            </div>
+            <div class="doc-row-actions">
+              {% if cert_ready and has_participants %}
+              <a href="{% url 'documents:generate_batch_attestations' session_pk=session.pk %}" class="btn btn-amber btn-sm">
+                <i class="bi bi-file-earmark-arrow-down-fill"></i> Tout générer
+              </a>
+              {% else %}
+              <button class="btn btn-amber btn-sm" disabled><i class="bi bi-file-earmark-arrow-down-fill"></i> Tout générer</button>
+              {% endif %}
+            </div>
+          </div>
+          {% endwith %}
+          {% endwith %}
+
+          {% endwith %}
+        </div>
+      </div>
+      {% endif %}
+
+    </div>
+  </div>
+</div>
+
+{% csrf_token %}
+{% endblock %}
+
+{% block extra_scripts %}<script src="{% static 'formations/js/formations.js' %}"></script>{% endblock %}
